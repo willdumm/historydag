@@ -1,236 +1,266 @@
 import ete3
+import graphviz as gv
+import random
 
 
 class SdagNode:
-  """ A recursive representation of an sDAG
-  - a dictionary keyed by clades (frozensets) containing EdgeSet objects
-  - a label
-  """
-
-  def __init__(self, label, clades: dict = {}):
-    self.clades = clades
-    # If passed a nonempty dictionary, need to add self to children's parents
-    self.label = label
-    self.parents = set()
-    if self.clades:
-      for child in self.children():
-        child.parents.add(self)
-  
-  def __repr__(self):
-    return(str((self.label, set(self.clades.keys()))))
-  
-  def __hash__(self):
-    return(hash((self.label, frozenset(self.clades.keys()))))
-
-  def __eq__(self, other):
-    return(self.__hash__() == other.__hash__())
-  
-  def node_self(self):
-    return(SdagNode(self.label, {clade: EdgeSet() for clade in self.clades}))
-  
-  def merge(self, node):
-    """ performs post order traversal to add node and all of its children,
-    without introducing duplicate nodes in self. Requires given node is a root"""
-    if not hash(self) == hash(node):
-      raise ValueError(f"The given node must be a root node on identical taxa.\n{self}\nvs\n{node}")
-    selforder = postorder(self)
-    nodeorder = postorder(node)
-    hashdict = {hash(n): n for n in selforder}
-    for n in nodeorder:
-      if hash(n) in hashdict:
-        pnode = hashdict[hash(n)]
-      else:
-        pnode = n.node_self()
-        hashdict[hash(n)] = pnode
-  
-      for _, edgeset in n.clades.items():
-        for child, weight, _ in edgeset:
-          pnode.add_edge(hashdict[hash(child)], weight=weight)
-
-
-  def add_edge(self, target, weight=0):
-    # target clades must union to a clade of self
-    if target.is_leaf():
-        key = frozenset([target.label])
-    else:
-        key = frozenset().union(*target.clades.keys())
-    if not key in self.clades:
-      raise KeyError("Target clades' union is not a clade of this parent node")
-    else:
-      self.clades[key].add(target, weight=weight)
-      target.parents.add(self)
-    
-  def is_leaf(self):
-    return(not bool(self.clades))
-  
-  def partitions(self):
-    return(self.clades.keys())
-  
-  def children(self, clade=None):
-    """ If clade is provided, returns generator object of edge targets from that
-    clade. If no clade is provided, generator includes all children of self.
+    """A recursive representation of an sDAG
+    - a dictionary keyed by clades (frozensets) containing EdgeSet objects
+    - a label
     """
-    if clade is None:
-      return((target for clade in self.clades for target, _, _ in self.clades[clade]))
-    else:
-      return (child for child, _, _ in self.clades[clade])
 
-  def to_graphviz(self, namedict):
-    """ Converts to graphviz Digraph object. Namedict must associate sequences
-    of all leaf nodes to a name
-    """
-    def taxa(clade):
-      l = [str(namedict[taxon]) for taxon in clade]
-      l.sort()
-      return(','.join(l))
-    
-    G = gv.Digraph('labeled partition DAG', node_attr={'shape':'record'})
-    for node in postorder(self):
-      if node.is_leaf():
-        G.node(str(id(node)), f'<label> {namedict[node.label]}')
-      else:
-        splits = '|'.join([f'<{taxa(clade)}> {taxa(clade)}' for clade in node.clades])
-        G.node(str(id(node)), f'{{ <label> {hash(node.label)} |{{{splits}}} }}')
-        for clade in node.clades:
-          for target, weight, prob in node.clades[clade]:
-            label = ''
-            if prob < 1.0:
-              label += f'p:{prob:.2f}'
-            if weight > 0.0:
-              label += f'w:{weight}'
-            G.edge(f'{id(node)}:{taxa(clade)}', f'{id(target)}:label',
-                   label=label)
-    return(G)
-  
-  def weight(self):
-    "Sums weights of all edges in the DAG"
-    nodes = postorder(self)
-    edgesetsums = (sum(edgeset.weights) for node in nodes
-                   for edgeset in node.clades.values())
-    return(sum(edgesetsums))
+    def __init__(self, label, clades: dict = {}):
+        self.clades = clades
+        # If passed a nonempty dictionary, need to add self to children's parents
+        self.label = label
+        self.parents = set()
+        if self.clades:
+            for child in self.children():
+                child.parents.add(self)
 
-  def internal_avg_parents(self):
-    """Returns the average number of parents among internal nodes
-    A simple measure of similarity of trees that the DAG expresses. """
-    nonleaf_parents = (len(n.parents) for n in postorder(self)
-                       if not n.is_leaf())
-    n = 0
-    cumsum = 0
-    for sum in nonleaf_parents:
-      n += 1
-      cumsum += sum
-    # Exclude root:
-    return(cumsum / float(n - 1))
+    def __repr__(self):
+        return str((self.label, set(self.clades.keys())))
 
-  def sample(self):
-    """ Samples a sub-history-DAG that is also a tree containing the root and
-    all leaf nodes. Returns a new SdagNode object"""
-    sample = self.node_self()
-    for clade, eset in self.clades.items():
-      sampled_target, target_weight = eset.sample()
-      sample.clades[clade].add(sampled_target.sample(), weight=target_weight)
-    return(sample)
+    def __hash__(self):
+        return hash((self.label, frozenset(self.clades.keys())))
 
-    
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+    def node_self(self):
+        return SdagNode(self.label, {clade: EdgeSet() for clade in self.clades})
+
+    def merge(self, node):
+        """performs post order traversal to add node and all of its children,
+        without introducing duplicate nodes in self. Requires given node is a root"""
+        if not hash(self) == hash(node):
+            raise ValueError(
+                f"The given node must be a root node on identical taxa.\n{self}\nvs\n{node}"
+            )
+        selforder = postorder(self)
+        nodeorder = postorder(node)
+        hashdict = {hash(n): n for n in selforder}
+        for n in nodeorder:
+            if hash(n) in hashdict:
+                pnode = hashdict[hash(n)]
+            else:
+                pnode = n.node_self()
+                hashdict[hash(n)] = pnode
+
+            for _, edgeset in n.clades.items():
+                for child, weight, _ in edgeset:
+                    pnode.add_edge(hashdict[hash(child)], weight=weight)
+
+    def add_edge(self, target, weight=0):
+        # target clades must union to a clade of self
+        if target.is_leaf():
+            key = frozenset([target.label])
+        else:
+            key = frozenset().union(*target.clades.keys())
+        if key not in self.clades:
+            raise KeyError("Target clades' union is not a clade of this parent node")
+        else:
+            self.clades[key].add(target, weight=weight)
+            target.parents.add(self)
+
+    def is_leaf(self):
+        return not bool(self.clades)
+
+    def partitions(self):
+        return self.clades.keys()
+
+    def children(self, clade=None):
+        """If clade is provided, returns generator object of edge targets from that
+        clade. If no clade is provided, generator includes all children of self.
+        """
+        if clade is None:
+            return (
+                target for clade in self.clades for target, _, _ in self.clades[clade]
+            )
+        else:
+            return (child for child, _, _ in self.clades[clade])
+
+    def to_graphviz(self, namedict):
+        """Converts to graphviz Digraph object. Namedict must associate sequences
+        of all leaf nodes to a name
+        """
+
+        def taxa(clade):
+            l = [str(namedict[taxon]) for taxon in clade]
+            l.sort()
+            return ",".join(l)
+
+        G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
+        for node in postorder(self):
+            if node.is_leaf():
+                G.node(str(id(node)), f"<label> {namedict[node.label]}")
+            else:
+                splits = "|".join(
+                    [f"<{taxa(clade)}> {taxa(clade)}" for clade in node.clades]
+                )
+                G.node(str(id(node)), f"{{ <label> {hash(node.label)} |{{{splits}}} }}")
+                for clade in node.clades:
+                    for target, weight, prob in node.clades[clade]:
+                        label = ""
+                        if prob < 1.0:
+                            label += f"p:{prob:.2f}"
+                        if weight > 0.0:
+                            label += f"w:{weight}"
+                        G.edge(
+                            f"{id(node)}:{taxa(clade)}",
+                            f"{id(target)}:label",
+                            label=label,
+                        )
+        return G
+
+    def weight(self):
+        "Sums weights of all edges in the DAG"
+        nodes = postorder(self)
+        edgesetsums = (
+            sum(edgeset.weights) for node in nodes for edgeset in node.clades.values()
+        )
+        return sum(edgesetsums)
+
+    def internal_avg_parents(self):
+        """Returns the average number of parents among internal nodes
+        A simple measure of similarity of trees that the DAG expresses."""
+        nonleaf_parents = (len(n.parents) for n in postorder(self) if not n.is_leaf())
+        n = 0
+        cumsum = 0
+        for sum in nonleaf_parents:
+            n += 1
+            cumsum += sum
+        # Exclude root:
+        return cumsum / float(n - 1)
+
+    def sample(self):
+        """Samples a sub-history-DAG that is also a tree containing the root and
+        all leaf nodes. Returns a new SdagNode object"""
+        sample = self.node_self()
+        for clade, eset in self.clades.items():
+            sampled_target, target_weight = eset.sample()
+            sample.clades[clade].add(sampled_target.sample(), weight=target_weight)
+        return sample
+
 
 class EdgeSet:
-  """ Goal: associate targets (edges) with arbitrary parameters, but support
-  set-like operations like lookup and enforce that elements are unique."""
-  def __init__(self, *args, weights: list=None, probs: list=None):
-    """ Takes no arguments, or an ordered iterable containing target nodes """
-    if len(args) > 1:
-      raise TypeError(f"Expected at most one argument, got {len(args)}")
-    elif args:
-      self.targets = list(args[0])
-      n = len(self.targets)
-      if weights is not None:
-        self.weights = weights
-      else:
-        self.weights = [0]*n
-      
-      if probs is not None:
-        self.probs = probs
-      else:
-        self.probs = [float(1)/n]*n
-    else:
-      self.targets = []
-      self.weights = []
-      self.probs = []
-      self._hashes = set()
+    """Goal: associate targets (edges) with arbitrary parameters, but support
+    set-like operations like lookup and enforce that elements are unique."""
 
-    self._hashes = {hash(self.targets[i]): i for i in range(len(self.targets))}
-    if not len(self._hashes) == len(self.targets):
-      raise TypeError("First argument may not contain duplicate target nodes")
-    # Should probably also check to see that all passed lists have same length
-  
-  def __iter__(self):
-    return ((self.targets[i], self.weights[i] , self.probs[i]) for i in range(len(self.targets)))
+    def __init__(self, *args, weights: list = None, probs: list = None):
+        """Takes no arguments, or an ordered iterable containing target nodes"""
+        if len(args) > 1:
+            raise TypeError(f"Expected at most one argument, got {len(args)}")
+        elif args:
+            self.targets = list(args[0])
+            n = len(self.targets)
+            if weights is not None:
+                self.weights = weights
+            else:
+                self.weights = [0] * n
 
-  def sample(self):
-    choice = random.choices(self.targets, weights=self.probs, k=1)
-    return(choice[0], self.weights[self._hashes[hash(choice[0])]])
-  
-  def add(self, target, weight=0, prob=None):
-    """ currently does nothing if edge is already present """
-    if not hash(target) in self._hashes:
-      self._hashes[hash(target)] = len(self.targets)
-      self.targets.append(target)
-      self.weights.append(weight)
+            if probs is not None:
+                self.probs = probs
+            else:
+                self.probs = [float(1) / n] * n
+        else:
+            self.targets = []
+            self.weights = []
+            self.probs = []
+            self._hashes = set()
 
-      if prob is None:
-        prob = float(1)/len(self.targets)
-      self.probs = list(map(lambda x: x * (1 - prob) / sum(self.probs), self.probs))
-      self.probs.append(prob)
-    else:
-      index = self._hashes[hash(target)]
-      # self.weight[index] = weight # Could do something here!!
+        self._hashes = {hash(self.targets[i]): i for i in range(len(self.targets))}
+        if not len(self._hashes) == len(self.targets):
+            raise TypeError("First argument may not contain duplicate target nodes")
+        # Should probably also check to see that all passed lists have same length
 
+    def __iter__(self):
+        return (
+            (self.targets[i], self.weights[i], self.probs[i])
+            for i in range(len(self.targets))
+        )
+
+    def sample(self):
+        choice = random.choices(self.targets, weights=self.probs, k=1)
+        return (choice[0], self.weights[self._hashes[hash(choice[0])]])
+
+    def add(self, target, weight=0, prob=None):
+        """currently does nothing if edge is already present"""
+        if not hash(target) in self._hashes:
+            self._hashes[hash(target)] = len(self.targets)
+            self.targets.append(target)
+            self.weights.append(weight)
+
+            if prob is None:
+                prob = float(1) / len(self.targets)
+            self.probs = list(
+                map(lambda x: x * (1 - prob) / sum(self.probs), self.probs)
+            )
+            self.probs.append(prob)
+        else:
+            pass
+            # index = self._hashes[hash(target)]
+            # self.weight[index] = weight # Could do something here!!
 
 
 def from_tree(tree: ete3.TreeNode):
-  def leaf_names(r: ete3.TreeNode):
-      return(frozenset((node.sequence for node in r.get_leaves())))
-  def _unrooted_from_tree(tree):
-    dag = SdagNode(tree.sequence,
-                   {leaf_names(child): EdgeSet([_unrooted_from_tree(child)],
-                                               weights=[child.dist])
-                   for child in tree.get_children()})
-    return(dag)
-  dag = _unrooted_from_tree(tree)
-  dagroot = SdagNode('root',
-                     {frozenset({taxon for s in dag.clades for taxon in s}): EdgeSet([dag], weights=[tree.dist])})
-  dagroot.add_edge(dag, weight=0)
-  return(dagroot)
+    def leaf_names(r: ete3.TreeNode):
+        return frozenset((node.sequence for node in r.get_leaves()))
+
+    def _unrooted_from_tree(tree):
+        dag = SdagNode(
+            tree.sequence,
+            {
+                leaf_names(child): EdgeSet(
+                    [_unrooted_from_tree(child)], weights=[child.dist]
+                )
+                for child in tree.get_children()
+            },
+        )
+        return dag
+
+    dag = _unrooted_from_tree(tree)
+    dagroot = SdagNode(
+        "root",
+        {
+            frozenset({taxon for s in dag.clades for taxon in s}): EdgeSet(
+                [dag], weights=[tree.dist]
+            )
+        },
+    )
+    dagroot.add_edge(dag, weight=0)
+    return dagroot
 
 
-def from_newick(tree: string):
-  etetree = ete3.Tree(tree, format=8)
-  return(from_tree(etetree))
+def from_newick(tree: str):
+    etetree = ete3.Tree(tree, format=8)
+    return from_tree(etetree)
 
 
 def postorder(dag: SdagNode):
-  visited = set()
-  def traverse(node: SdagNode):
-    visited.add(id(node))
-    if not node.is_leaf():
-      for child in node.children():
-        if not id(child) in visited:
-          yield from traverse(child)
-    yield node
-  yield from traverse(dag)
+    visited = set()
+
+    def traverse(node: SdagNode):
+        visited.add(id(node))
+        if not node.is_leaf():
+            for child in node.children():
+                if not id(child) in visited:
+                    yield from traverse(child)
+        yield node
+
+    yield from traverse(dag)
 
 
 def sdag_from_newicks(newicklist):
-  treelist = list(map(lambda x: ete3.Tree(x, format=8), newicklist))
-  for tree in treelist:
-    for node in tree.traverse():
-      node.sequence = node.name
-  return(sdag_from_etes(treelist))
+    treelist = list(map(lambda x: ete3.Tree(x, format=8), newicklist))
+    for tree in treelist:
+        for node in tree.traverse():
+            node.sequence = node.name
+    return sdag_from_etes(treelist)
 
 
 def sdag_from_etes(treelist):
-  dag = from_tree(treelist[0])
-  for tree in treelist[1:]:
-    dag.merge(from_tree(tree))
-  return(dag)
-
+    dag = from_tree(treelist[0])
+    for tree in treelist[1:]:
+        dag.merge(from_tree(tree))
+    return dag
