@@ -80,6 +80,22 @@ class SdagNode:
         else:
             return (child for child, _, _ in self.clades[clade])
 
+    def to_newick(self):
+        """Converts to extended newick format with arbitrary node names and a
+        sequence feature. For use on tree-shaped DAG"""
+        def newick(node):
+            if node.is_leaf():
+                return(f"1[&&NHX:sequence={node.label}]")
+            else:
+                return('(' + 
+                       ','.join([newick(node2) for node2 in node.children()]) + 
+                       ')' +
+                       f"1[&&NHX:sequence={node.label}]")
+        return(newick(self) + ';')
+
+    def to_ete(self):
+        return(ete3.TreeNode(newick=self.to_newick(), format=1))
+
     def to_graphviz(self, namedict):
         """Converts to graphviz Digraph object. Namedict must associate sequences
         of all leaf nodes to a name
