@@ -91,7 +91,10 @@ class SdagNode:
                        ','.join([newick(node2) for node2 in node.children()]) + 
                        ')' +
                        f"1[&&NHX:sequence={node.label}]")
-        return(newick(self) + ';')
+        if self.label == 'root':
+            return(newick(next(self.children())))
+        else:
+            return(newick(self) + ';')
 
     def to_ete(self):
         return(ete3.TreeNode(newick=self.to_newick(), format=1))
