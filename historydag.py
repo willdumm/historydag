@@ -92,7 +92,7 @@ class SdagNode:
                        ')' +
                        f"1[&&NHX:sequence={node.label}]")
         if self.label == 'root':
-            return(newick(next(self.children())))
+            return(newick(next(self.children())) + ';')
         else:
             return(newick(self) + ';')
 
