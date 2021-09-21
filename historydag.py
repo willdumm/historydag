@@ -387,3 +387,29 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
             except KeyError:
                 pass
     return(disambiguated)
+
+def dag_analysis(in_trees, n_samples=100):
+    in_tree_weights = [recalculate_ete_parsimony(tree) for tree in in_trees]
+    print(f"Input trees have the following weight distribution:")
+    hist(Counter(in_tree_weights), samples=len(in_tree_weights))
+    resolvedset = {hd.from_tree(tree).to_newick() for tree in in_trees}
+    print(len(resolvedset), " unique input trees")
+    dag = hd.sdag_from_etes(in_trees)
+
+    dagsamples = []
+    for _ in range(n_samples):
+    dagsamples.append(dag.sample())
+    dagsampleweights = [sample.weight() for sample in dagsamples]
+    sampleset = {tree.to_newick() for tree in dagsamples}
+    print(f"\nSampled trees have the following weight distribution:")
+    hist(Counter(dagsampleweights), samples=n_samples)
+    print(len(sampleset), " unique sampled trees")
+    print(len(sampleset - resolvedset), " sampled trees were not DAG inputs")
+
+
+def disambiguate_all(treelist):
+    resolvedsamples = []
+    for sample in samples:
+      resolvedsamples.extend(hd.disambiguate(sample))
+    return(resolvedsamples)
+
