@@ -119,10 +119,16 @@ class SdagNode:
             else:
                 return(hash(node.label))
 
+        def leaf_labeller(node):
+            if use_sequences:
+                return(node.label)
+            else:
+                return(namedict[node.label])
+
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in postorder(self):
             if node.is_leaf():
-                G.node(str(id(node)), f"<label> {namedict[node.label]}")
+                G.node(str(id(node)), f"<label> {leaf_labeller(node)}")
             else:
                 splits = "|".join(
                     [f"<{taxa(clade)}> {taxa(clade)}" for clade in node.clades]
