@@ -100,15 +100,24 @@ class SdagNode:
     def to_ete(self):
         return(ete3.TreeNode(newick=self.to_newick(), format=1))
 
-    def to_graphviz(self, namedict):
+    def to_graphviz(self, namedict, use_sequences=False):
         """Converts to graphviz Digraph object. Namedict must associate sequences
         of all leaf nodes to a name
         """
 
         def taxa(clade):
-            l = [str(namedict[taxon]) for taxon in clade]
+            if use_sequences:
+                l = [taxon for taxon in clade]
+            else:
+                l = [str(namedict[taxon]) for taxon in clade]
             l.sort()
             return ",".join(l)
+
+        def label(node):
+            if use_sequences:
+                return(node.label)
+            else:
+                return(hash(node.label))
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in postorder(self):
@@ -118,7 +127,7 @@ class SdagNode:
                 splits = "|".join(
                     [f"<{taxa(clade)}> {taxa(clade)}" for clade in node.clades]
                 )
-                G.node(str(id(node)), f"{{ <label> {hash(node.label)} |{{{splits}}} }}")
+                G.node(str(id(node)), f"{{ <label> {label(node)} |{{{splits}}} }}")
                 for clade in node.clades:
                     for target, weight, prob in node.clades[clade]:
                         label = ""
