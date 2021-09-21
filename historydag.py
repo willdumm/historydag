@@ -2,6 +2,8 @@ import ete3
 import graphviz as gv
 import random
 from Bio.Data.IUPACData import ambiguous_dna_values
+from collections import Counter
+from gctree.utils import hamming_distance
 
 
 class SdagNode:
@@ -84,21 +86,25 @@ class SdagNode:
     def to_newick(self):
         """Converts to extended newick format with arbitrary node names and a
         sequence feature. For use on tree-shaped DAG"""
+
         def newick(node):
             if node.is_leaf():
-                return(f"1[&&NHX:sequence={node.label}]")
+                return f"1[&&NHX:sequence={node.label}]"
             else:
-                return('(' + 
-                       ','.join([newick(node2) for node2 in node.children()]) + 
-                       ')' +
-                       f"1[&&NHX:sequence={node.label}]")
-        if self.label == 'root':
-            return(newick(next(self.children())) + ';')
+                return (
+                    "("
+                    + ",".join([newick(node2) for node2 in node.children()])
+                    + ")"
+                    + f"1[&&NHX:sequence={node.label}]"
+                )
+
+        if self.label == "root":
+            return newick(next(self.children())) + ";"
         else:
-            return(newick(self) + ';')
+            return newick(self) + ";"
 
     def to_ete(self):
-        return(ete3.TreeNode(newick=self.to_newick(), format=1))
+        return ete3.TreeNode(newick=self.to_newick(), format=1)
 
     def to_graphviz(self, namedict, use_sequences=False):
         """Converts to graphviz Digraph object. Namedict must associate sequences
@@ -115,15 +121,15 @@ class SdagNode:
 
         def labeller(node):
             if use_sequences:
-                return(node.label)
+                return node.label
             else:
-                return(hash(node.label))
+                return hash(node.label)
 
         def leaf_labeller(node):
             if use_sequences:
-                return(node.label)
+                return node.label
             else:
-                return(namedict[node.label])
+                return namedict[node.label]
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in postorder(self):
@@ -320,6 +326,7 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
         random.setstate(random_state)
 
     for node in tree.traverse(strategy="postorder"):
+
         def cvup(node, site):
             cv = code_vectors[node.sequence[site]].copy()
             if not node.is_leaf():
@@ -331,7 +338,7 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
                                 for v in zip(child.cvd[site], cost_adjust[bases[i]])
                             ]
                         )
-            return(cv)
+            return cv
 
         # Make dictionary of cost vectors for each site
         node.cvd = {site: cvup(node, site) for site in range(len(node.sequence))}
@@ -345,7 +352,9 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
             tree2 = disambiguated[treesindex]
             treesindex += 1
             for node in tree2.traverse(strategy="preorder"):
-                ambiguous_sites = [site for site, code in enumerate(node.sequence) if code not in bases]
+                ambiguous_sites = [
+                    site for site, code in enumerate(node.sequence) if code not in bases
+                ]
                 if not ambiguous_sites:
                     continue
                 else:
@@ -354,19 +363,28 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
                     if not node.is_root():
                         for site in ambiguous_sites:
                             base_above = node.up.sequence[site]
-                            node.cvd[site] = [sum(v) for v in zip(node.cvd[site], cost_adjust[base_above])]
-                    option_dict = {site: '' for site in ambiguous_sites}
+                            node.cvd[site] = [
+                                sum(v)
+                                for v in zip(node.cvd[site], cost_adjust[base_above])
+                            ]
+                    option_dict = {site: "" for site in ambiguous_sites}
                     # Enumerate min-cost choices
                     for site in ambiguous_sites:
                         min_cost = min(node.cvd[site])
-                        min_cost_sites = [bases[i] for i, val in enumerate(node.cvd[site]) if val == min_cost]
-                        option_dict[site] = ''.join(min_cost_sites)
-                        
+                        min_cost_sites = [
+                            bases[i]
+                            for i, val in enumerate(node.cvd[site])
+                            if val == min_cost
+                        ]
+                        option_dict[site] = "".join(min_cost_sites)
+
                     def _options(option_dict, sequence):
                         if option_dict:
                             site, choices = option_dict.popitem()
                             for choice in choices:
-                                sequence = sequence[:site] + choice + sequence[site + 1:]
+                                sequence = (
+                                    sequence[:site] + choice + sequence[site + 1:]
+                                )
                                 yield from _options(option_dict.copy(), sequence)
                         else:
                             yield sequence
@@ -383,22 +401,23 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
     for tree in disambiguated:
         for node in tree.traverse():
             try:
-                node.del_feature('cvd')
+                node.del_feature("cvd")
             except KeyError:
                 pass
-    return(disambiguated)
+    return disambiguated
+
 
 def dag_analysis(in_trees, n_samples=100):
     in_tree_weights = [recalculate_ete_parsimony(tree) for tree in in_trees]
     print(f"Input trees have the following weight distribution:")
     hist(Counter(in_tree_weights), samples=len(in_tree_weights))
-    resolvedset = {hd.from_tree(tree).to_newick() for tree in in_trees}
+    resolvedset = {from_tree(tree).to_newick() for tree in in_trees}
     print(len(resolvedset), " unique input trees")
-    dag = hd.sdag_from_etes(in_trees)
+    dag = sdag_from_etes(in_trees)
 
     dagsamples = []
     for _ in range(n_samples):
-    dagsamples.append(dag.sample())
+        dagsamples.append(dag.sample())
     dagsampleweights = [sample.weight() for sample in dagsamples]
     sampleset = {tree.to_newick() for tree in dagsamples}
     print(f"\nSampled trees have the following weight distribution:")
@@ -410,6 +429,34 @@ def dag_analysis(in_trees, n_samples=100):
 def disambiguate_all(treelist):
     resolvedsamples = []
     for sample in samples:
-      resolvedsamples.extend(hd.disambiguate(sample))
-    return(resolvedsamples)
+        resolvedsamples.extend(disambiguate(sample))
+    return resolvedsamples
 
+
+def recalculate_ete_parsimony(tree: ete3.TreeNode) -> float:
+    tree.dist = 0
+    for node in tree.iter_descendants():
+        node.dist = hamming_distance(node.sequence, node.up.sequence)
+    return total_weight(tree)
+
+
+def recalculate_parsimony(tree: SdagNode):
+    def _hamming_distance(s1, s2):
+        if s1 == "root" or s2 == "root":
+            return 0
+        else:
+            return hamming_distance(s1, s2)
+
+    for node in postorder(tree):
+        for clade, eset in node.clades.items():
+            for i in range(len(eset.targets)):
+                eset.weights[i] = _hamming_distance(eset.targets[i].label, node.label)
+    return tree.weight()
+
+
+def hist(c: Counter, samples=1):
+    l = list(c.items())
+    l.sort()
+    print(f"Weight | Frequency", "\n------------------")
+    for weight, freq in l:
+        print(f"{weight}   | {freq/samples}")
