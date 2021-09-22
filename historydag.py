@@ -383,7 +383,7 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
                             site, choices = option_dict.popitem()
                             for choice in choices:
                                 sequence = (
-                                    sequence[:site] + choice + sequence[site + 1:]
+                                    sequence[:site] + choice + sequence[site + 1 :]
                                 )
                                 yield from _options(option_dict.copy(), sequence)
                         else:
@@ -428,7 +428,7 @@ def dag_analysis(in_trees, n_samples=100):
 
 def disambiguate_all(treelist):
     resolvedsamples = []
-    for sample in samples:
+    for sample in treelist:
         resolvedsamples.extend(disambiguate(sample))
     return resolvedsamples
 
