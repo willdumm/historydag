@@ -174,13 +174,13 @@ class SdagNode:
         # Exclude root:
         return cumsum / float(n - 1)
 
-    def sample(self):
+    def sample(self, min_weight=False):
         """Samples a sub-history-DAG that is also a tree containing the root and
         all leaf nodes. Returns a new SdagNode object"""
         sample = self.node_self()
         for clade, eset in self.clades.items():
-            sampled_target, target_weight = eset.sample()
-            sample.clades[clade].add(sampled_target.sample(), weight=target_weight)
+            sampled_target, target_weight = eset.sample(min_weight=min_weight)
+            sample.clades[clade].add(sampled_target.sample(min_weight=min_weight), weight=target_weight)
         return sample
 
 
@@ -227,8 +227,8 @@ class EdgeSet:
         min_weight_under attribute.'''
         if min_weight:
             mw = min([node.min_weight_under for node in self.targets])
-            options = [(node, self.weights[i]) for i, node in enumerate(self.targets)]
-            return random.choices(self.targets, weights=self.probs, k=1)[0]
+            options = [(node, self.weights[i]) for i, node in enumerate(self.targets) if node.min_weight_under==mw]
+            return random.choices(options, weights=self.probs, k=1)[0]
         else:
             choice = random.choices(self.targets, weights=self.probs, k=1)
             return (choice[0], self.weights[self._hashes[hash(choice[0])]])
