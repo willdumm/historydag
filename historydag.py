@@ -221,9 +221,17 @@ class EdgeSet:
             for i in range(len(self.targets))
         )
 
-    def sample(self):
-        choice = random.choices(self.targets, weights=self.probs, k=1)
-        return (choice[0], self.weights[self._hashes[hash(choice[0])]])
+    def sample(self, min_weight=False):
+        '''Returns a randomly sampled child edge, and the corresponding entry from the
+        weight vector. If min_weight is True, samples only target nodes with lowest
+        min_weight_under attribute.'''
+        if min_weight:
+            mw = min([node.min_weight_under for node in self.targets])
+            options = [(node, self.weights[i]) for i, node in enumerate(self.targets)]
+            return random.choices(self.targets, weights=self.probs, k=1)[0]
+        else:
+            choice = random.choices(self.targets, weights=self.probs, k=1)
+            return (choice[0], self.weights[self._hashes[hash(choice[0])]])
 
     def add(self, target, weight=0, prob=None):
         """currently does nothing if edge is already present"""
