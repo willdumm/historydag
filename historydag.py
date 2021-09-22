@@ -432,6 +432,12 @@ def disambiguate_all(treelist):
         resolvedsamples.extend(disambiguate(sample))
     return resolvedsamples
 
+def dag_hamming_distance(s1, s2):
+    if s1 == "root" or s2 == "root":
+        return 0
+    else:
+        return hamming_distance(s1, s2)
+
 
 def recalculate_ete_parsimony(tree: ete3.TreeNode) -> float:
     tree.dist = 0
@@ -441,16 +447,10 @@ def recalculate_ete_parsimony(tree: ete3.TreeNode) -> float:
 
 
 def recalculate_parsimony(tree: SdagNode):
-    def _hamming_distance(s1, s2):
-        if s1 == "root" or s2 == "root":
-            return 0
-        else:
-            return hamming_distance(s1, s2)
-
     for node in postorder(tree):
         for clade, eset in node.clades.items():
             for i in range(len(eset.targets)):
-                eset.weights[i] = _hamming_distance(eset.targets[i].label, node.label)
+                eset.weights[i] = dag_hamming_distance(eset.targets[i].label, node.label)
     return tree.weight()
 
 
