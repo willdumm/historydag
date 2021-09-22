@@ -460,3 +460,6 @@ def hist(c: Counter, samples=1):
     print(f"Weight | Frequency", "\n------------------")
     for weight, freq in l:
         print(f"{weight}   | {freq/samples}")
+
+def total_weight(tree: ete3.TreeNode) -> float:
+    return(sum(node.dist for node in tree.traverse()))
