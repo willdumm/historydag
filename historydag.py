@@ -119,6 +119,12 @@ class SdagNode:
             l.sort()
             return ",".join(l)
 
+        def min_weight_under(node):
+            try:
+                return(node.min_weight_under)
+            except:
+                return(None)
+
         def labeller(node):
             if use_sequences:
                 return node.label
@@ -139,7 +145,7 @@ class SdagNode:
                 splits = "|".join(
                     [f"<{taxa(clade)}> {taxa(clade)}" for clade in node.clades]
                 )
-                G.node(str(id(node)), f"{{ <label> {labeller(node)} |{{{splits}}} }}")
+                G.node(str(id(node)), f"{{ <label> {labeller(node)} {min_weight_under(node)} |{{{splits}}} }}")
                 for clade in node.clades:
                     for target, weight, prob in node.clades[clade]:
                         label = ""
