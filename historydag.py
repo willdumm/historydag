@@ -232,8 +232,8 @@ class EdgeSet:
         weight vector. If min_weight is True, samples only target nodes with lowest
         min_weight_under attribute, ignoring edge probabilities.'''
         if min_weight:
-            mw = min(node.min_weight_under for node in self.targets)
-            options = [i for i, node in enumerate(self.targets) if node.min_weight_under == mw]
+            mw = min(node.min_weight_under + dag_hamming_distance(self.label, node.label) for node in self.targets)
+            options = [i for i, node in enumerate(self.targets) if (node.min_weight_under + dag_hamming_distance(self.label, node.label)) == mw]
             index = random.choices(options, k=1)[0]
             return (self.targets[index], self.weights[index])
         else:
