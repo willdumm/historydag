@@ -18,7 +18,7 @@ class SdagNode:
         self.label = label
         self.parents = set()
         if self.clades:
-            for _ edgeset in self.clades.items():
+            for _, edgeset in self.clades.items():
                 edgeset.parent = self
             for child in self.children():
                 child.parents.add(self)
