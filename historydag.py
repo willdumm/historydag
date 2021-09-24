@@ -212,7 +212,7 @@ class SdagNode:
         for option in product(optionlist):
             tree = dag.node_self()
             for clade, targettree, index in option:
-                tree.clades[clade].add(targettree, weight=eset.weights[index])
+                tree.clades[clade].add(targettree, weight=dag.clades[clade].weights[index])
             yield tree    
 
     def prune_min_weight(self):
