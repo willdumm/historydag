@@ -191,6 +191,31 @@ class SdagNode:
             sample.clades[clade].add(sampled_target.sample(min_weight=min_weight), weight=target_weight)
         return sample
 
+    def get_trees(self, min_weight=False):
+        """Return a generator to iterate through all trees expressed by the DAG."""
+        def product(terms, accum=tuple()):
+            if terms:
+                for term in terms[0]:
+                    yield from product(terms[1:], accum=(accum + (term, )))
+            else:
+                yield accum
+
+        if min_weight:
+            dag = self
+        else:
+            dag = self.prune_min_weight()
+
+        optionlist = [((clade, targettree, i) for i, target in enumerate(eset.targets)
+                       for targettree in target.get_trees(min_weight=min_weight))
+                      for clade, eset in self.clades.items()]
+
+        for option in product(optionlist):
+            tree = dag.node_self()
+            for clade, targettree, index in option:
+                tree.clades[clade].add(targettree, weight=eset.weights[index])
+            yield tree    
+
+
 
 class EdgeSet:
     """Goal: associate targets (edges) with arbitrary parameters, but support
