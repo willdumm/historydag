@@ -322,13 +322,13 @@ class EdgeSet:
             index = random.choices(options, k=1)[0]
             return (self.targets[index], self.weights[index])
         else:
-            choice = random.choices(self.targets, weights=self.probs, k=1)
-            return (choice[0], self.weights[self._hashes[hash(choice[0])]])
+            index = random.choices(list(range(len(self.targets))), weights=self.probs, k=1)[0]
+            return (self.targets[index], self.weights[index])
 
     def add(self, target, weight=0, prob=None):
         """currently does nothing if edge is already present"""
         if not hash(target) in self._hashes:
-            self._hashes[hash(target)] = len(self.targets)
+            self._hashes.add(hash(target))
             self.targets.append(target)
             self.weights.append(weight)
 
