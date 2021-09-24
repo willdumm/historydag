@@ -237,7 +237,7 @@ class SdagNode:
             yield tree    
 
     def min_weight_annotate(self):
-        for node in hd.postorder(self):
+        for node in postorder(self):
             if node.is_leaf():
                 node.min_weight_under = 0
             else:
