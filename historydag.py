@@ -261,10 +261,10 @@ class SdagNode:
                     if weight == minweight:
                         newtargets.append(target)
                         newweights.append(eset.weights[index])
-                node.targets = newtargets
-                node.weights = newweights
+                eset.targets = newtargets
+                eset.weights = newweights
                 n = len(node.targets)
-                node.probs = [1.0 / n]*n
+                eset.probs = [1.0 / n]*n
         return newdag
 
 
