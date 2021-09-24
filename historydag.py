@@ -36,7 +36,13 @@ class SdagNode:
         return SdagNode(self.label, {clade: EdgeSet() for clade in self.clades})
 
     def copy(self):
-        return SdagNode(self.label, {clade: eset.copy() for clade, eset in self.clades.items()})
+        """Add each child node's copy, below this node, by merging"""
+        targetlist = [(clade, target) for clade in self.clades for target in self.clades[clade].targets]
+        newnode = self.node_self()
+        if targetlist:
+            for clade, target in targetlist:
+                newnode = SdagNode(self.label, {clade: target.copy()})
+        return(newnode)
 
     def merge(self, node):
         """performs post order traversal to add node and all of its children,
