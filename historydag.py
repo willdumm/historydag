@@ -193,10 +193,12 @@ class SdagNode:
 
     def get_trees(self, min_weight=False):
         """Return a generator to iterate through all trees expressed by the DAG."""
-        def product(terms, accum=tuple()):
-            if terms:
-                for term in terms[0]:
-                    yield from product(terms[1:], accum=(accum + (term, )))
+        def product(optionlist, accum=tuple()):
+            """Takes a list of functions which each return a fresh generator
+            on options at that site"""
+            if optionlist:
+                for term in optionlist[0]():
+                    yield from product(optionlist[1:], accum=(accum + (term, )))
             else:
                 yield accum
 
@@ -205,9 +207,14 @@ class SdagNode:
         else:
             dag = self
 
-        optionlist = [((clade, targettree, i) for i, target in enumerate(eset.targets)
-                       for targettree in target.get_trees(min_weight=min_weight))
-                      for clade, eset in self.clades.items()]
+        def genexp_func(clade):
+            def f():
+                eset = self.clades[clade]
+                return ((clade, targettree, i) for i, target in enumerate(eset.targets)
+                        for targettree in target.get_trees(min_weight=min_weight))
+            return(f)
+
+        optionlist = [genexp_func(clade) for clade in self.clades]
 
         for option in product(optionlist):
             tree = dag.node_self()
