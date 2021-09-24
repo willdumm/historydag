@@ -263,7 +263,7 @@ class SdagNode:
                         newweights.append(eset.weights[index])
                 eset.targets = newtargets
                 eset.weights = newweights
-                n = len(node.targets)
+                n = len(eset.targets)
                 eset.probs = [1.0 / n]*n
         return newdag
 
