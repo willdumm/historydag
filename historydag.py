@@ -39,11 +39,13 @@ class SdagNode:
         """Add each child node's copy, below this node, by merging"""
         targetlist = [(clade, target) for clade in self.clades for target in self.clades[clade].targets]
         newnode = self.node_self()
-        if targetlist:
-            for clade, target in targetlist:
+        for clade in self.clades:
+            for index, target in self.clades[clade].targets:
                 othernode = self.node_self()
                 othernode.clades[clade].add(target.copy())
                 newnode.merge(othernode)
+                newnode.clades[clade].weights[index] = self.clades[clade].weights[index]
+                newnode.clades[clade].probs[index] = self.clades[clade].probs[index]
         return(newnode)
 
     def merge(self, node):
