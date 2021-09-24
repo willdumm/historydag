@@ -40,7 +40,7 @@ class SdagNode:
         targetlist = [(clade, target) for clade in self.clades for target in self.clades[clade].targets]
         newnode = self.node_self()
         for clade in self.clades:
-            for index, target in self.clades[clade].targets:
+            for index, target in enumerate(self.clades[clade].targets):
                 othernode = self.node_self()
                 othernode.clades[clade].add(target.copy())
                 newnode.merge(othernode)
