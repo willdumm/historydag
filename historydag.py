@@ -41,7 +41,9 @@ class SdagNode:
         newnode = self.node_self()
         if targetlist:
             for clade, target in targetlist:
-                newnode = SdagNode(self.label, {clade: target.copy()})
+                othernode = self.node_self()
+                othernode.clades[clade].add(target.copy())
+                newnode.merge(othernode)
         return(newnode)
 
     def merge(self, node):
