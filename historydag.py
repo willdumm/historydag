@@ -298,7 +298,7 @@ class EdgeSet:
             self.probs = []
             self._hashes = set()
 
-        self._hashes = {hash(self.targets[i]): i for i in range(len(self.targets))}
+        self._hashes = {hash(self.targets[i]) for i in range(len(self.targets))}
         if not len(self._hashes) == len(self.targets):
             raise TypeError("First argument may not contain duplicate target nodes")
         # Should probably also check to see that all passed lists have same length
