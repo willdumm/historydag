@@ -37,7 +37,6 @@ class SdagNode:
 
     def copy(self):
         """Add each child node's copy, below this node, by merging"""
-        targetlist = [(clade, target) for clade in self.clades for target in self.clades[clade].targets]
         newnode = self.node_self()
         for clade in self.clades:
             for index, target in enumerate(self.clades[clade].targets):
@@ -242,14 +241,33 @@ class SdagNode:
             if node.is_leaf():
                 node.min_weight_under = 0
             else:
-                min_sum = sum([min([child.min_weight_under + hd.self(child.label, node.label)
+                min_sum = sum([min([child.min_weight_under + dag_hamming_distance(child.label, node.label)
                                     for child in node.clades[clade].targets])
                                for clade in node.clades])
                 node.min_weight_under = min_sum
         return self.min_weight_under
 
     def prune_min_weight(self):
-        min_weight_annotate(self)
+        newdag = self.copy()
+        min_weight_annotate(newdag)       
+        for node in preorder(newdag):
+            for clade, eset in node.clades.items():
+                weightlist = [(target.min_weight_under + dag_hamming_distance(target.label, node.label), target, index)
+                              for index, target in enumerate(eset.targets)]
+                minweight = min([weight for weight, _, _ in weightlist])
+                newtargets = []
+                newweights = []
+                for weight, target, index in weightlist:
+                    if weight == minweight:
+                        newtargets.append(target)
+                        newweights.append(eset.weights[index])
+                node.targets = newtargets
+                node.weights = newweights
+                n = len(node.targets)
+                node.probs = [1.0 / n]*n
+        return newdag
+
+
 
 
 
@@ -373,6 +391,18 @@ def postorder(dag: SdagNode):
 
     yield from traverse(dag)
 
+def preorder(dag: SdagNode):
+    visited = set()
+
+    def traverse(node: SdagNode):
+        visited.add(id(node))
+        yield node
+        if not node.is_leaf():
+            for child in node.children():
+                if not id(child) in visited:
+                    yield from traverse(child)
+
+    yield from traverse(dag)
 
 def sdag_from_newicks(newicklist):
     treelist = list(map(lambda x: ete3.Tree(x, format=8), newicklist))
