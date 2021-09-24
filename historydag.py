@@ -35,6 +35,9 @@ class SdagNode:
     def node_self(self):
         return SdagNode(self.label, {clade: EdgeSet() for clade in self.clades})
 
+    def copy(self):
+        return SdagNode(self.label, {clade: eset.copy() for clade, eset in self.clades.items()})
+
     def merge(self, node):
         """performs post order traversal to add node and all of its children,
         without introducing duplicate nodes in self. Requires given node is a root"""
@@ -125,7 +128,7 @@ class SdagNode:
             try:
                 return(node.min_weight_under)
             except:
-                return(None)
+                return('')
 
         def labeller(node):
             if use_sequences:
@@ -208,6 +211,8 @@ class SdagNode:
             dag = self
 
         def genexp_func(clade):
+            # Return generator expression of all possible choices of tree
+            # structure from dag below clade
             def f():
                 eset = self.clades[clade]
                 return ((clade, targettree, i) for i, target in enumerate(eset.targets)
@@ -222,8 +227,20 @@ class SdagNode:
                 tree.clades[clade].add(targettree, weight=dag.clades[clade].weights[index])
             yield tree    
 
+    def min_weight_annotate(self):
+        for node in hd.postorder(self):
+            if node.is_leaf():
+                node.min_weight_under = 0
+            else:
+                min_sum = sum([min([child.min_weight_under + hd.self(child.label, node.label)
+                                    for child in node.clades[clade].targets])
+                               for clade in node.clades])
+                node.min_weight_under = min_sum
+        return self.min_weight_under
+
     def prune_min_weight(self):
-        pass
+        min_weight_annotate(self)
+
 
 
 
@@ -263,6 +280,9 @@ class EdgeSet:
             (self.targets[i], self.weights[i], self.probs[i])
             for i in range(len(self.targets))
         )
+
+    def copy(self):
+        return Edgeset([node.copy() for node in self.targets], weights=self.weights.copy(), probs=self.probs.copy())
 
     def sample(self, min_weight=False):
         '''Returns a randomly sampled child edge, and the corresponding entry from the
