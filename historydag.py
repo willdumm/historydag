@@ -215,6 +215,9 @@ class SdagNode:
                 tree.clades[clade].add(targettree, weight=eset.weights[index])
             yield tree    
 
+    def prune_min_weight(self):
+        pass
+
 
 
 class EdgeSet:
