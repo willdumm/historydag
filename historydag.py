@@ -249,7 +249,7 @@ class SdagNode:
 
     def prune_min_weight(self):
         newdag = self.copy()
-        min_weight_annotate(newdag)       
+        newdag.min_weight_annotate()       
         for node in preorder(newdag):
             for clade, eset in node.clades.items():
                 weightlist = [(target.min_weight_under + dag_hamming_distance(target.label, node.label), target, index)
