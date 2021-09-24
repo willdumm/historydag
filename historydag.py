@@ -201,9 +201,9 @@ class SdagNode:
                 yield accum
 
         if min_weight:
-            dag = self
-        else:
             dag = self.prune_min_weight()
+        else:
+            dag = self
 
         optionlist = [((clade, targettree, i) for i, target in enumerate(eset.targets)
                        for targettree in target.get_trees(min_weight=min_weight))
