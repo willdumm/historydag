@@ -282,7 +282,7 @@ class EdgeSet:
         )
 
     def copy(self):
-        return Edgeset([node.copy() for node in self.targets], weights=self.weights.copy(), probs=self.probs.copy())
+        return EdgeSet([node.copy() for node in self.targets], weights=self.weights.copy(), probs=self.probs.copy())
 
     def sample(self, min_weight=False):
         '''Returns a randomly sampled child edge, and the corresponding entry from the
