@@ -1,4 +1,5 @@
 import ete3
+import pickle
 import graphviz as gv
 import random
 from Bio.Data.IUPACData import ambiguous_dna_values
@@ -68,16 +69,18 @@ class SdagNode:
                 for child, weight, _ in edgeset:
                     pnode.add_edge(hashdict[hash(child)], weight=weight)
 
-    def add_edge(self, target, weight=0):
+    def add_edge(self, target, weight=0, prob=None):
         # target clades must union to a clade of self
         if target.is_leaf():
             key = frozenset([target.label])
         else:
             key = frozenset().union(*target.clades.keys())
         if key not in self.clades:
+            print(key)
+            print(self.clades)
             raise KeyError("Target clades' union is not a clade of this parent node")
         else:
-            self.clades[key].add(target, weight=weight)
+            self.clades[key].add(target, weight=weight, prob=prob)
             target.parents.add(self)
 
     def is_leaf(self):
@@ -250,6 +253,8 @@ class SdagNode:
     def prune_min_weight(self):
         newdag = self.copy()
         newdag.min_weight_annotate()       
+        # It may not be okay to use preorder here. May need reverse postorder
+        # instead?
         for node in preorder(newdag):
             for clade, eset in node.clades.items():
                 weightlist = [(target.min_weight_under + dag_hamming_distance(target.label, node.label), target, index)
@@ -266,6 +271,39 @@ class SdagNode:
                 n = len(eset.targets)
                 eset.probs = [1.0 / n]*n
         return newdag
+
+    def serialize(self):
+        """Represents SdagNode object as a list of sequences, a list of node tuples containing
+        (node sequence index, frozenset of frozenset of leaf sequence indices)
+        and an edge list containing a tuple for each edge:
+        (origin node index, target node index, edge weight, edge probability)"""
+        sequence_list = []
+        node_list = []
+        edge_list = []
+        sequence_indices = {}
+        node_indices = {id(node): idx for idx, node in enumerate(postorder(self))}
+        def cladesets(node):
+            clades = {frozenset({sequence_indices[sequence] for sequence in clade}) for clade in node.clades}
+            return(frozenset(clades))
+
+        for node in postorder(self):
+            if node.label not in sequence_indices:
+                sequence_indices[node.label] = len(sequence_list)
+                sequence_list.append(node.label)
+                assert(sequence_list[sequence_indices[node.label]] == node.label)
+            node_list.append((sequence_indices[node.label], cladesets(node)))
+            node_idx = len(node_list) - 1
+            for eset in node.clades.values():
+                for idx, target in enumerate(eset.targets):
+                    edge_list.append((node_idx, node_indices[id(target)], eset.weights[idx], eset.probs[idx]))
+        serial_dict = {'sequence_list': sequence_list,
+                       'node_list': node_list,
+                       'edge_list': edge_list}
+        return(pickle.dumps(serial_dict))
+
+    
+
+
 
 
 
@@ -392,6 +430,8 @@ def postorder(dag: SdagNode):
     yield from traverse(dag)
 
 def preorder(dag: SdagNode):
+    """Careful! remember this is not guaranteed to visit a parent node before any of its children.
+    for that, need reverse postorder traversal."""
     visited = set()
 
     def traverse(node: SdagNode):
@@ -575,3 +615,18 @@ def hist(c: Counter, samples=1):
 
 def total_weight(tree: ete3.TreeNode) -> float:
     return(sum(node.dist for node in tree.traverse()))
+
+def deserialize(bstring):
+    """reloads an SdagNode serialized object, as ouput by SdagNode.serialize"""
+    serial_dict = pickle.loads(bstring)
+    sequence_list = serial_dict['sequence_list']
+    node_list = serial_dict['node_list']
+    edge_list = serial_dict['edge_list']
+    def unpack_seqs(seqset):
+        return(frozenset({sequence_list[idx] for idx in seqset}))
+    node_postorder = [SdagNode(sequence_list[idx], {unpack_seqs(clade): EdgeSet() for clade in clades}) for idx, clades in node_list]
+    # Last node in list is root
+    for origin_idx, target_idx, weight, prob in edge_list:
+        node_postorder[origin_idx].add_edge(node_postorder[target_idx], weight=weight, prob=prob)
+    return(node_postorder[-1])
+
