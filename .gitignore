@@ -1,2 +1,3 @@
 gctree
 __pycache__
+*.egg-info

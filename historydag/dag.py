@@ -69,7 +69,7 @@ class SdagNode:
                 for child, weight, _ in edgeset:
                     pnode.add_edge(hashdict[hash(child)], weight=weight)
 
-    def add_edge(self, target, weight=0, prob=None):
+    def add_edge(self, target, weight=0, prob=None, prob_norm=True):
         # target clades must union to a clade of self
         if target.is_leaf():
             key = frozenset([target.label])
@@ -80,7 +80,7 @@ class SdagNode:
             print(self.clades)
             raise KeyError("Target clades' union is not a clade of this parent node")
         else:
-            self.clades[key].add(target, weight=weight, prob=prob)
+            self.clades[key].add(target, weight=weight, prob=prob, prob_norm=prob_norm)
             target.parents.add(self)
 
     def is_leaf(self):
@@ -363,7 +363,7 @@ class EdgeSet:
             index = random.choices(list(range(len(self.targets))), weights=self.probs, k=1)[0]
             return (self.targets[index], self.weights[index])
 
-    def add(self, target, weight=0, prob=None):
+    def add(self, target, weight=0, prob=None, prob_norm=True):
         """currently does nothing if edge is already present"""
         if not hash(target) in self._hashes:
             self._hashes.add(hash(target))
@@ -371,10 +371,11 @@ class EdgeSet:
             self.weights.append(weight)
 
             if prob is None:
-                prob = float(1) / len(self.targets)
-            self.probs = list(
-                map(lambda x: x * (1 - prob) / sum(self.probs), self.probs)
-            )
+                prob = 1.0 / len(self.targets)
+            if prob_norm:
+                self.probs = list(
+                    map(lambda x: x * (1 - prob) / sum(self.probs), self.probs)
+                )
             self.probs.append(prob)
         else:
             pass
@@ -627,6 +628,6 @@ def deserialize(bstring):
     node_postorder = [SdagNode(sequence_list[idx], {unpack_seqs(clade): EdgeSet() for clade in clades}) for idx, clades in node_list]
     # Last node in list is root
     for origin_idx, target_idx, weight, prob in edge_list:
-        node_postorder[origin_idx].add_edge(node_postorder[target_idx], weight=weight, prob=prob)
+        node_postorder[origin_idx].add_edge(node_postorder[target_idx], weight=weight, prob=prob, prob_norm=False)
     return(node_postorder[-1])
 
