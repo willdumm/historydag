@@ -205,6 +205,19 @@ class SdagNode:
             sampled_target, target_weight = eset.sample(min_weight=min_weight)
             sample.clades[clade].add(sampled_target.sample(min_weight=min_weight), weight=target_weight)
         return sample
+    
+    def count_trees(self, min_weight=False):
+        """Annotates each node in the DAG with the number of complete trees underneath (extending to leaves,
+        and containing exactly one edge for each node-clade pair). Returns the total number of unique
+        complete trees below the root node."""
+        # Replace prod function later:
+        prod = lambda l: l[0] * prod(l[1:]) if l else 1
+        # logic below requires prod([]) == 1!!
+        for node in postorder(self):
+            node.trees_under = prod([sum([target.trees_under for target in node.clades[clade].targets])
+                                     for clade in node.clades])
+        return( self.trees_under )
+            
 
     def get_trees(self, min_weight=False):
         """Return a generator to iterate through all trees expressed by the DAG."""
