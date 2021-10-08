@@ -100,19 +100,23 @@ class SdagNode:
         else:
             return (child for child, _, _ in self.clades[clade])
 
-    def to_newick(self):
+    def to_newick(self, namedict={}):
         """Converts to extended newick format with arbitrary node names and a
         sequence feature. For use on tree-shaped DAG"""
 
         def newick(node):
+            if node.label in namedict:
+                name = namedict[node.label]
+            else:
+                name = '1'
             if node.is_leaf():
-                return f"1[&&NHX:sequence={node.label}]"
+                return f"{name}[&&NHX:sequence={node.label}]"
             else:
                 return (
                     "("
                     + ",".join([newick(node2) for node2 in node.children()])
                     + ")"
-                    + f"1[&&NHX:sequence={node.label}]"
+                    + f"{name}[&&NHX:sequence={node.label}]"
                 )
 
         if self.label == "DAG_root":
