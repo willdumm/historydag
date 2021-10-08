@@ -115,7 +115,7 @@ class SdagNode:
                     + f"1[&&NHX:sequence={node.label}]"
                 )
 
-        if self.label == "root":
+        if self.label == "DAG_root":
             return newick(next(self.children())) + ";"
         else:
             return newick(self) + ";"
@@ -407,7 +407,7 @@ def from_tree(tree: ete3.TreeNode):
 
     dag = _unrooted_from_tree(tree)
     dagroot = SdagNode(
-        "root",
+        "DAG_root",
         {
             frozenset({taxon for s in dag.clades for taxon in s}): EdgeSet(
                 [dag], weights=[tree.dist]
@@ -592,7 +592,7 @@ def disambiguate_all(treelist):
     return resolvedsamples
 
 def dag_hamming_distance(s1, s2):
-    if s1 == "root" or s2 == "root":
+    if s1 == "DAG_root" or s2 == "DAG_root":
         return 0
     else:
         return hamming_distance(s1, s2)
