@@ -124,8 +124,8 @@ class SdagNode:
         else:
             return newick(self) + ";"
 
-    def to_ete(self):
-        return ete3.TreeNode(newick=self.to_newick(), format=1)
+    def to_ete(self, namedict={}):
+        return ete3.TreeNode(newick=self.to_newick(namedict=namedict), format=1)
 
     def to_graphviz(self, namedict={}, show_partitions=True):
         """Converts to graphviz Digraph object. Namedict must associate sequences
