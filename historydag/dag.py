@@ -123,7 +123,7 @@ class SdagNode:
     def to_ete(self):
         return ete3.TreeNode(newick=self.to_newick(), format=1)
 
-    def to_graphviz(self, namedict, use_sequences=False):
+    def to_graphviz(self, namedict, use_sequences=False, show_partitions=True):
         """Converts to graphviz Digraph object. Namedict must associate sequences
         of all leaf nodes to a name
         """
@@ -145,24 +145,20 @@ class SdagNode:
         def labeller(node):
             if use_sequences:
                 return node.label
+            elif node.label in namedict:
+                return namedict[node.label]
             else:
                 return hash(node.label)
 
-        def leaf_labeller(node):
-            if use_sequences:
-                return node.label
-            else:
-                return namedict[node.label]
-
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in postorder(self):
-            if node.is_leaf():
-                G.node(str(id(node)), f"<label> {leaf_labeller(node)}")
+            if node.is_leaf() or show_partitions is False:
+                G.node(str(id(node)), f"<label> {labeller(node)}")
             else:
                 splits = "|".join(
                     [f"<{taxa(clade)}> {taxa(clade)}" for clade in node.clades]
                 )
-                G.node(str(id(node)), f"{{ <label> {labeller(node)} {min_weight_under(node)} |{{{splits}}} }}")
+                G.node(str(id(node)), f"{{ <label> {labeller(node)} |{{{splits}}} }}")
                 for clade in node.clades:
                     for target, weight, prob in node.clades[clade]:
                         label = ""
@@ -171,7 +167,7 @@ class SdagNode:
                         if weight > 0.0:
                             label += f"w:{weight}"
                         G.edge(
-                            f"{id(node)}:{taxa(clade)}",
+                            f"{id(node)}:{taxa(clade) if show_partitions else 'label'}",
                             f"{id(target)}:label",
                             label=label,
                         )
