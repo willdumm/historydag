@@ -159,18 +159,18 @@ class SdagNode:
                     [f"<{taxa(clade)}> {taxa(clade)}" for clade in node.clades]
                 )
                 G.node(str(id(node)), f"{{ <label> {labeller(node)} |{{{splits}}} }}")
-                for clade in node.clades:
-                    for target, weight, prob in node.clades[clade]:
-                        label = ""
-                        if prob < 1.0:
-                            label += f"p:{prob:.2f}"
-                        if weight > 0.0:
-                            label += f"w:{weight}"
-                        G.edge(
-                            f"{id(node)}:{taxa(clade) if show_partitions else 'label'}",
-                            f"{id(target)}:label",
-                            label=label,
-                        )
+            for clade in node.clades:
+                for target, weight, prob in node.clades[clade]:
+                    label = ""
+                    if prob < 1.0:
+                        label += f"p:{prob:.2f}"
+                    if weight > 0.0:
+                        label += f"w:{weight}"
+                    G.edge(
+                        f"{id(node)}:{taxa(clade) if show_partitions else 'label'}",
+                        f"{id(target)}:label",
+                        label=label,
+                    )
         return G
 
     def weight(self):
