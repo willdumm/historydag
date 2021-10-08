@@ -123,16 +123,13 @@ class SdagNode:
     def to_ete(self):
         return ete3.TreeNode(newick=self.to_newick(), format=1)
 
-    def to_graphviz(self, namedict, use_sequences=False, show_partitions=True):
+    def to_graphviz(self, namedict={}, show_partitions=True):
         """Converts to graphviz Digraph object. Namedict must associate sequences
         of all leaf nodes to a name
         """
 
         def taxa(clade):
-            if use_sequences:
-                l = [taxon for taxon in clade]
-            else:
-                l = [str(namedict[taxon]) for taxon in clade]
+            l = [labeller(taxon) for taxon in clade]
             l.sort()
             return ",".join(l)
 
@@ -142,23 +139,23 @@ class SdagNode:
             except:
                 return('')
 
-        def labeller(node):
-            if use_sequences:
-                return node.label
-            elif node.label in namedict:
-                return namedict[node.label]
+        def labeller(sequence):
+            if len(sequence) < 11:
+                return sequence
+            elif sequence in namedict:
+                return str(namedict[sequence])
             else:
-                return hash(node.label)
+                return hash(sequence)
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in postorder(self):
             if node.is_leaf() or show_partitions is False:
-                G.node(str(id(node)), f"<label> {labeller(node)}")
+                G.node(str(id(node)), f"<label> {labeller(node.label)}")
             else:
                 splits = "|".join(
                     [f"<{taxa(clade)}> {taxa(clade)}" for clade in node.clades]
                 )
-                G.node(str(id(node)), f"{{ <label> {labeller(node)} |{{{splits}}} }}")
+                G.node(str(id(node)), f"{{ <label> {labeller(node.label)} |{{{splits}}} }}")
             for clade in node.clades:
                 for target, weight, prob in node.clades[clade]:
                     label = ""
