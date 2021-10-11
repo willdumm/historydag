@@ -46,6 +46,13 @@ class SdagNode:
     def node_self(self):
         return SdagNode(self.label, {clade: EdgeSet() for clade in self.clades})
 
+    def under_clade(self):
+        """Returns the union of all child clades"""
+        if self.is_leaf():
+            return(frozenset([self.label]))
+        else:
+            return(frozenset().union(*self.clades.keys()))
+
     def copy(self):
         """Add each child node's copy, below this node, by merging"""
         newnode = self.node_self()
@@ -81,10 +88,7 @@ class SdagNode:
 
     def add_edge(self, target, weight=0, prob=None, prob_norm=True):
         # target clades must union to a clade of self
-        if target.is_leaf():
-            key = frozenset([target.label])
-        else:
-            key = frozenset().union(*target.clades.keys())
+        key = target.under_clade()
         if key not in self.clades:
             print(key)
             print(self.clades)
@@ -109,6 +113,16 @@ class SdagNode:
             )
         else:
             return (child for child, _, _ in self.clades[clade])
+
+    def add_all_allowed_edges(self):
+
+        clade_dict = {node.under_clade(): [] for node in postorder(self)}
+        for node in postorder(self):
+            clade_dict[node.under_clade()].append(node)
+        for node in postorder(self):
+            for clade in node.clades:
+                for target in clade_dict[clade]:
+                    node.add_edge(target)
 
     def to_newick(self, namedict={}):
         """Converts to extended newick format with arbitrary node names and a
@@ -284,7 +298,7 @@ class SdagNode:
                 node.min_weight_under = min_sum
         return self.min_weight_under
 
-    def weight_annotate(self):
+    def get_weight_counts(self):
         # Replace prod function later
 
         prod = lambda l: l[0] * prod(l[1:]) if l else 1
