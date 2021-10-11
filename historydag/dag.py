@@ -88,6 +88,7 @@ class SdagNode:
                     pnode.add_edge(hashdict[hash(child)], weight=weight)
 
     def add_edge(self, target, weight=0, prob=None, prob_norm=True):
+        """Adds edge, if not already present and allowed. Returns if edge was added."""
         # target clades must union to a clade of self
         key = target.under_clade()
         if key not in self.clades:
@@ -96,8 +97,8 @@ class SdagNode:
             raise KeyError("Target clades' union is not a clade of this parent node")
         else:
             from_root = self.label == "DAG_root"
-            self.clades[key].add_to_edgeset(target, weight=weight, prob=prob, prob_norm=prob_norm, from_root=from_root)
             target.parents.add(self)
+            return self.clades[key].add_to_edgeset(target, weight=weight, prob=prob, prob_norm=prob_norm, from_root=from_root)
 
     def is_leaf(self):
         return not bool(self.clades)
