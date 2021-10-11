@@ -242,7 +242,7 @@ class SdagNode:
             )
         return sample
 
-    def count_trees(self, min_weight=False):
+    def count_trees(self, min_weight=False, count_resolutions=False):
         """Annotates each node in the DAG with the number of complete trees underneath (extending to leaves,
         and containing exactly one edge for each node-clade pair). Returns the total number of unique
         complete trees below the root node."""
@@ -256,6 +256,8 @@ class SdagNode:
                     for clade in node.clades
                 ]
             )
+            if count_resolutions:
+                node.trees_under *= len(list(sequence_resolutions(node.label)))
         return self.trees_under
 
     def get_trees(self, min_weight=False):
