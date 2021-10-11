@@ -343,7 +343,6 @@ class SdagNode:
                 if node.is_leaf():
                     node.weight_counters[sequence] = Counter({0: 1})
                 else:
-                    for clade in node.clades
                     cladelists = [
                         [
                             addweight(
@@ -766,8 +765,8 @@ def sequence_resolutions(sequence):
     if not ambiguous_sites:
         yield sequence
     else:
-        option_dict = {site: ambiguous_dna_values[sequence[site]]}
-        yield from _options(option_dict, node.sequence)
+        option_dict = {site: ambiguous_dna_values[sequence[site]] for site in ambiguous_sites}
+        yield from _options(option_dict, sequence)
 
 
 def dag_analysis(in_trees, n_samples=100):
