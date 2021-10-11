@@ -53,9 +53,10 @@ class SdagNode:
         else:
             return(frozenset().union(*self.clades.keys()))
 
-    def copy(self, use_recursion=True):
+    def copy(self, use_recursion=False):
         """Add each child node's copy, below this node, by merging.
-        The non-recursive version uses bytestring serialization."""
+        The non-recursive version uses bytestring serialization.
+        non-recursive is an order of magnitude faster in one test"""
         if use_recursion:
             newnode = self.node_self()
             from_root = newnode.label == "DAG_root"
