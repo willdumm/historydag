@@ -53,18 +53,23 @@ class SdagNode:
         else:
             return(frozenset().union(*self.clades.keys()))
 
-    def copy(self):
-        """Add each child node's copy, below this node, by merging"""
-        newnode = self.node_self()
-        from_root = newnode.label == "DAG_root"
-        for clade in self.clades:
-            for index, target in enumerate(self.clades[clade].targets):
-                othernode = self.node_self()
-                othernode.clades[clade].add_to_edgeset(target.copy(), from_root=from_root)
-                newnode.merge(othernode)
-                newnode.clades[clade].weights[index] = self.clades[clade].weights[index]
-                newnode.clades[clade].probs[index] = self.clades[clade].probs[index]
-        return newnode
+    def copy(self, use_recursion=True):
+        """Add each child node's copy, below this node, by merging.
+        The non-recursive version uses bytestring serialization."""
+        if use_recursion:
+            newnode = self.node_self()
+            from_root = newnode.label == "DAG_root"
+            for clade in self.clades:
+                for index, target in enumerate(self.clades[clade].targets):
+                    othernode = self.node_self()
+                    # In this line lies the recursive call
+                    othernode.clades[clade].add_to_edgeset(target.copy(), from_root=from_root)
+                    newnode.merge(othernode)
+                    newnode.clades[clade].weights[index] = self.clades[clade].weights[index]
+                    newnode.clades[clade].probs[index] = self.clades[clade].probs[index]
+            return newnode
+        else:
+            return(deserialize(self.serialize()))
 
     def merge(self, node):
         """performs post order traversal to add node and all of its children,
@@ -751,9 +756,9 @@ def recalculate_parsimony(tree: SdagNode):
 def hist(c: Counter, samples=1):
     l = list(c.items())
     l.sort()
-    print("Weight | Frequency", "\n------------------")
+    print("Weight\t| Frequency\n------------------")
     for weight, freq in l:
-        print(f"{weight}   | {freq/samples}")
+        print(f"{weight}  \t| {freq if samples==1 else freq/samples}")
 
 
 def total_weight(tree: ete3.TreeNode) -> float:
