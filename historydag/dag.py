@@ -761,6 +761,9 @@ def _options(option_dict, sequence):
 
 def sequence_resolutions(sequence):
     """Returns iterator on possible resolutions of sequence, replacing ambiguity codes with bases."""
+    if sequence == "DAG_root":
+        yield sequence
+
     ambiguous_sites = [site for site, code in enumerate(sequence) if code not in bases]
     if not ambiguous_sites:
         yield sequence
