@@ -56,10 +56,11 @@ class SdagNode:
     def copy(self):
         """Add each child node's copy, below this node, by merging"""
         newnode = self.node_self()
+        from_root = newnode.label == "DAG_root"
         for clade in self.clades:
             for index, target in enumerate(self.clades[clade].targets):
                 othernode = self.node_self()
-                othernode.clades[clade].add(target.copy())
+                othernode.clades[clade].add_to_edgeset(target.copy(), from_root=from_root)
                 newnode.merge(othernode)
                 newnode.clades[clade].weights[index] = self.clades[clade].weights[index]
                 newnode.clades[clade].probs[index] = self.clades[clade].probs[index]
@@ -94,7 +95,8 @@ class SdagNode:
             print(self.clades)
             raise KeyError("Target clades' union is not a clade of this parent node")
         else:
-            self.clades[key].add(target, weight=weight, prob=prob, prob_norm=prob_norm)
+            from_root = self.label == "DAG_root"
+            self.clades[key].add_to_edgeset(target, weight=weight, prob=prob, prob_norm=prob_norm, from_root=from_root)
             target.parents.add(self)
 
     def is_leaf(self):
@@ -225,10 +227,12 @@ class SdagNode:
         """Samples a sub-history-DAG that is also a tree containing the root and
         all leaf nodes. Returns a new SdagNode object"""
         sample = self.node_self()
+        from_root = sample.label == "DAG_root"
         for clade, eset in self.clades.items():
             sampled_target, target_weight = eset.sample(min_weight=min_weight)
-            sample.clades[clade].add(
-                sampled_target.sample(min_weight=min_weight), weight=target_weight
+            sample.clades[clade].add_to_edgeset(
+                sampled_target.sample(min_weight=min_weight), weight=target_weight,
+                from_root=from_root
             )
         return sample
 
@@ -273,9 +277,11 @@ class SdagNode:
 
         for option in product(optionlist):
             tree = dag.node_self()
+            from_root = tree.label == "DAG_root"
             for clade, targettree, index in option:
-                tree.clades[clade].add(
-                    targettree, weight=dag.clades[clade].weights[index]
+                tree.clades[clade].add_to_edgeset(
+                    targettree, weight=dag.clades[clade].weights[index],
+                    from_root=from_root
                 )
             yield tree
 
@@ -481,13 +487,13 @@ class EdgeSet:
             )[0]
             return (self.targets[index], self.weights[index])
 
-    def add(self, target, weight=0, prob=None, prob_norm=True):
+    def add_to_edgeset(self, target, weight=0, prob=None, prob_norm=True, from_root=False):
         """currently does nothing if edge is already present. Also does nothing
         if the target node has one child clade, and parent node is not the DAG root.
         Returns whether an edge was added""" 
         if hash(target) in self._hashes:
             return False
-        elif self.label != "DAG_root" and len(target.clades) == 1:
+        elif not from_root and len(target.clades) == 1:
             return False
         else:
             self._hashes.add(hash(target))
