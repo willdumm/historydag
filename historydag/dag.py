@@ -115,14 +115,15 @@ class SdagNode:
             return (child for child, _, _ in self.clades[clade])
 
     def add_all_allowed_edges(self):
-
+        n_added = 0
         clade_dict = {node.under_clade(): [] for node in postorder(self)}
         for node in postorder(self):
             clade_dict[node.under_clade()].append(node)
         for node in postorder(self):
             for clade in node.clades:
                 for target in clade_dict[clade]:
-                    node.add_edge(target)
+                    n_added += node.add_edge(target)
+        return(n_added)
 
     def to_newick(self, namedict={}):
         """Converts to extended newick format with arbitrary node names and a
@@ -481,8 +482,14 @@ class EdgeSet:
             return (self.targets[index], self.weights[index])
 
     def add(self, target, weight=0, prob=None, prob_norm=True):
-        """currently does nothing if edge is already present"""
-        if not hash(target) in self._hashes:
+        """currently does nothing if edge is already present. Also does nothing
+        if the target node has one child clade, and parent node is not the DAG root.
+        Returns whether an edge was added""" 
+        if hash(target) in self._hashes:
+            return False
+        elif self.label != "DAG_root" and len(target.clades) == 1:
+            return False
+        else:
             self._hashes.add(hash(target))
             self.targets.append(target)
             self.weights.append(weight)
@@ -494,10 +501,7 @@ class EdgeSet:
                     map(lambda x: x * (1 - prob) / sum(self.probs), self.probs)
                 )
             self.probs.append(prob)
-        else:
-            pass
-            # index = self._hashes[hash(target)]
-            # self.weight[index] = weight # Could do something here!!
+            return True
 
 
 def from_tree(tree: ete3.TreeNode):
