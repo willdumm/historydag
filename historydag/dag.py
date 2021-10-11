@@ -6,15 +6,8 @@ from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 from gctree.utils import hamming_distance
 
-
-def product(optionlist, accum=tuple()):
-    """Takes a list of functions which each return a fresh generator
-    on options at that site"""
-    if optionlist:
-        for term in optionlist[0]():
-            yield from product(optionlist[1:], accum=(accum + (term,)))
-    else:
-        yield accum
+bases = "AGCT-"
+ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
 
 
 class SdagNode:
@@ -318,7 +311,60 @@ class SdagNode:
                 node.min_weight_under = min_sum
         return self.min_weight_under
 
+    def get_weight_counts_with_ambiguities(self):
+        """like get_weight_counts, but creates dictionaries of Counter objects at each node,
+        keyed by possible sequences at that node.
+        The total number of trees will be greater than count_trees(), as these are possible
+        disambiguations of trees. These disambiguations may not be unique (?), but if two are
+        the same, they come from different subtrees of the DAG."""
+        # Replace prod function later
+
+        prod = lambda l: l[0] * prod(l[1:]) if l else 1
+
+        def counter_prod(counterlist):
+            newc = Counter()
+            for combi in product([c.items for c in counterlist]):
+                weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
+                newc.update({sum(weights): prod(counts)})
+            return newc
+
+        def counter_sum(counterlist):
+            newc = Counter()
+            for c in counterlist:
+                newc += c
+            return newc
+
+        def addweight(c, w):
+            return Counter({key + w: val for key, val in c.items()})
+
+        for node in postorder(self):
+            node.weight_counters = {}
+            for sequence in sequence_resolutions(node.label):
+                if node.is_leaf():
+                    node.weight_counters[sequence] = Counter({0: 1})
+                else:
+                    for clade in node.clades
+                    cladelists = [
+                        [
+                            addweight(
+                                target_wc,
+                                dag_hamming_distance(target_seq, sequence),
+                            )
+                            for target in node.clades[clade].targets
+                            for target_seq, target_wc in target.weight_counters.items()
+                        ]
+                        for clade in node.clades
+                    ]
+                    cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
+                    node.weight_counters[sequence] = counter_prod(cladecounters)
+        return self.weight_counter
+
+
+
     def get_weight_counts(self):
+        """Annotate each node in the DAG, in postorder traversal, with a Counter object
+        keyed by weight, with values the number of possible unique trees below the node
+        with that weight."""
         # Replace prod function later
 
         prod = lambda l: l[0] * prod(l[1:]) if l else 1
@@ -606,8 +652,6 @@ def sdag_from_etes(treelist):
 
 def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
     """Resolve tree and return list of all possible resolutions"""
-    bases = "AGCT-"
-    ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
     code_vectors = {
         code: [
             0 if base in ambiguous_dna_values[code] else float("inf") for base in bases
@@ -675,17 +719,6 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
                         ]
                         option_dict[site] = "".join(min_cost_sites)
 
-                    def _options(option_dict, sequence):
-                        if option_dict:
-                            site, choices = option_dict.popitem()
-                            for choice in choices:
-                                sequence = (
-                                    sequence[:site] + choice + sequence[site + 1 :]
-                                )
-                                yield from _options(option_dict.copy(), sequence)
-                        else:
-                            yield sequence
-
                     sequences = list(_options(option_dict, node.sequence))
                     # Give this tree the first sequence, append copies with all
                     # others to disambiguated.
@@ -702,6 +735,39 @@ def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
             except KeyError:
                 pass
     return disambiguated
+
+
+def product(optionlist, accum=tuple()):
+    """Takes a list of functions which each return a fresh generator
+    on options at that site"""
+    if optionlist:
+        for term in optionlist[0]():
+            yield from product(optionlist[1:], accum=(accum + (term,)))
+    else:
+        yield accum
+
+
+def _options(option_dict, sequence):
+    """option_dict is keyed by site index, with iterables containing
+    allowed bases as values"""
+    if option_dict:
+        site, choices = option_dict.popitem()
+        for choice in choices:
+            sequence = (
+                sequence[:site] + choice + sequence[site + 1 :]
+            )
+            yield from _options(option_dict.copy(), sequence)
+    else:
+        yield sequence
+
+def sequence_resolutions(sequence):
+    """Returns iterator on possible resolutions of sequence, replacing ambiguity codes with bases."""
+    ambiguous_sites = [site for site, code in enumerate(sequence) if code not in bases]
+    if not ambiguous_sites:
+        yield sequence
+    else:
+        option_dict = {site: ambiguous_dna_values[sequence[site]]}
+        yield from _options(option_dict, node.sequence)
 
 
 def dag_analysis(in_trees, n_samples=100):
