@@ -763,13 +763,13 @@ def sequence_resolutions(sequence):
     """Returns iterator on possible resolutions of sequence, replacing ambiguity codes with bases."""
     if sequence == "DAG_root":
         yield sequence
-
-    ambiguous_sites = [site for site, code in enumerate(sequence) if code not in bases]
-    if not ambiguous_sites:
-        yield sequence
     else:
-        option_dict = {site: ambiguous_dna_values[sequence[site]] for site in ambiguous_sites}
-        yield from _options(option_dict, sequence)
+        ambiguous_sites = [site for site, code in enumerate(sequence) if code not in bases]
+        if not ambiguous_sites:
+            yield sequence
+        else:
+            option_dict = {site: ambiguous_dna_values[sequence[site]] for site in ambiguous_sites}
+            yield from _options(option_dict, sequence)
 
 
 def dag_analysis(in_trees, n_samples=100):
