@@ -117,15 +117,21 @@ class SdagNode:
         else:
             return (child for child, _, _ in self.clades[clade])
 
-    def add_all_allowed_edges(self):
+    def add_all_allowed_edges(self, new_from_root=True):
+        """Add all allowed edges to the DAG, returning the number that were added.
+        if new_from_root is False, no edges are added that start at DAG root.
+        This is useful to enforce a single ancestral sequence."""
         n_added = 0
         clade_dict = {node.under_clade(): [] for node in postorder(self)}
         for node in postorder(self):
             clade_dict[node.under_clade()].append(node)
         for node in postorder(self):
-            for clade in node.clades:
-                for target in clade_dict[clade]:
-                    n_added += node.add_edge(target)
+            if not new_from_root and node.label == "DAG_root":
+                continue
+            else:
+                for clade in node.clades:
+                    for target in clade_dict[clade]:
+                        n_added += node.add_edge(target)
         return(n_added)
 
     def to_newick(self, namedict={}):
