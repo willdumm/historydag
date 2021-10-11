@@ -492,7 +492,9 @@ class EdgeSet:
         """currently does nothing if edge is already present. Also does nothing
         if the target node has one child clade, and parent node is not the DAG root.
         Returns whether an edge was added""" 
-        if hash(target) in self._hashes:
+        if target.label == "DAG_root":
+            return False
+        elif hash(target) in self._hashes:
             return False
         elif not from_root and len(target.clades) == 1:
             return False
