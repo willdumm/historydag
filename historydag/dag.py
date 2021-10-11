@@ -356,7 +356,7 @@ class SdagNode:
                     ]
                     cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
                     node.weight_counters[sequence] = counter_prod(cladecounters)
-        return self.weight_counter
+        return self.weight_counters
 
 
 
