@@ -4,10 +4,28 @@ import graphviz as gv
 import random
 from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
-from gctree.utils import hamming_distance
 
 bases = "AGCT-"
 ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
+
+
+def weight_function(func):
+    """A wrapper to allow distance to label 'DAG_root' to be zero"""
+
+    def wrapper(s1, s2):
+        if s1 == "DAG_root" or s2 == "DAG_root":
+            return 0
+        else:
+            return func(s1, s2)
+
+    return wrapper
+
+
+@weight_function
+def hamming_distance(s1: str, s2: str) -> int:
+    if len(s1) != len(s2):
+        raise ValueError("Sequences must have the same length!")
+    return sum(x != y for x, y in zip(s1, s2))
 
 
 class SdagNode:
@@ -42,9 +60,9 @@ class SdagNode:
     def under_clade(self):
         """Returns the union of all child clades"""
         if self.is_leaf():
-            return(frozenset([self.label]))
+            return frozenset([self.label])
         else:
-            return(frozenset().union(*self.clades.keys()))
+            return frozenset().union(*self.clades.keys())
 
     def copy(self, use_recursion=False):
         """Add each child node's copy, below this node, by merging.
@@ -57,13 +75,17 @@ class SdagNode:
                 for index, target in enumerate(self.clades[clade].targets):
                     othernode = self.node_self()
                     # In this line lies the recursive call
-                    othernode.clades[clade].add_to_edgeset(target.copy(), from_root=from_root)
+                    othernode.clades[clade].add_to_edgeset(
+                        target.copy(), from_root=from_root
+                    )
                     newnode.merge(othernode)
-                    newnode.clades[clade].weights[index] = self.clades[clade].weights[index]
+                    newnode.clades[clade].weights[index] = self.clades[clade].weights[
+                        index
+                    ]
                     newnode.clades[clade].probs[index] = self.clades[clade].probs[index]
             return newnode
         else:
-            return(deserialize(self.serialize()))
+            return deserialize(self.serialize())
 
     def merge(self, node):
         """performs post order traversal to add node and all of its children,
@@ -97,7 +119,13 @@ class SdagNode:
         else:
             from_root = self.label == "DAG_root"
             target.parents.add(self)
-            return self.clades[key].add_to_edgeset(target, weight=weight, prob=prob, prob_norm=prob_norm, from_root=from_root)
+            return self.clades[key].add_to_edgeset(
+                target,
+                weight=weight,
+                prob=prob,
+                prob_norm=prob_norm,
+                from_root=from_root,
+            )
 
     def is_leaf(self):
         return not bool(self.clades)
@@ -131,14 +159,15 @@ class SdagNode:
                 for clade in node.clades:
                     for target in clade_dict[clade]:
                         n_added += node.add_edge(target)
-        return(n_added)
+        return n_added
 
-    def to_newick(self, namedict={}, fixed_order=True):
+    def to_newick(self, namedict={}, fixed_order=True, include_root=False):
         """Converts to extended newick format with arbitrary node names and a
         sequence feature. For use on tree-shaped DAG.
         If fixed_order is True, with same namedict, two trees' newick representations are
         equal iff the two trees have the same topology and node sequences.
-        Should be usable for equality in this sense on general DAG too?"""
+        Should be usable for equality in this sense on general DAG too, with include_root
+        True"""
 
         def newick(node):
             if node.label in namedict:
@@ -162,7 +191,7 @@ class SdagNode:
                     + f"{name}[&&NHX:sequence={node.label}]"
                 )
 
-        if self.label == "DAG_root":
+        if self.label == "DAG_root" and include_root is False:
             return newick(next(self.children())) + ";"
         else:
             return newick(self) + ";"
@@ -239,42 +268,62 @@ class SdagNode:
         # Exclude root:
         return cumsum / float(n - 1)
 
-    def sample(self, min_weight=False):
+    def sample(self, min_weight=False, distance_func=hamming_distance):
         """Samples a sub-history-DAG that is also a tree containing the root and
         all leaf nodes. Returns a new SdagNode object"""
         sample = self.node_self()
         from_root = sample.label == "DAG_root"
         for clade, eset in self.clades.items():
-            sampled_target, target_weight = eset.sample(min_weight=min_weight)
+            sampled_target, target_weight = eset.sample(
+                min_weight=min_weight, distance_func=distance_func
+            )
             sample.clades[clade].add_to_edgeset(
-                sampled_target.sample(min_weight=min_weight), weight=target_weight,
-                from_root=from_root
+                sampled_target.sample(min_weight=min_weight),
+                weight=target_weight,
+                from_root=from_root,
             )
         return sample
 
-    def count_trees(self, min_weight=False, count_resolutions=False):
+    def count_trees(
+        self, min_weight=False, count_resolutions=False, distance_func=hamming_distance
+    ):
         """Annotates each node in the DAG with the number of complete trees underneath (extending to leaves,
         and containing exactly one edge for each node-clade pair). Returns the total number of unique
         complete trees below the root node."""
-        # Replace prod function later:
-        prod = lambda l: l[0] * prod(l[1:]) if l else 1
-        # logic below requires prod([]) == 1!!
-        for node in postorder(self):
-            node.trees_under = prod(
-                [
-                    sum([target.trees_under for target in node.clades[clade].targets])
-                    for clade in node.clades
-                ]
-            )
-            if count_resolutions:
-                node.trees_under *= len(list(sequence_resolutions(node.label)))
-        return self.trees_under
+        if min_weight:
+            if not count_resolutions:
+                c = self.get_weight_counts(distance_func=distance_func)
+                return c[min(c)]
+            else:
+                c = self.get_weight_counts_with_ambiguities(distance_func=distance_func)
+                min_weights = [min(valdict) for valdict in c.values()]
+                min_weight = min(min_weights)
+                return sum([valdict[min_weight] for valdict in c.values()])
+        else:
+            # Replace prod function later:
+            prod = lambda l: l[0] * prod(l[1:]) if l else 1
+            # logic below requires prod([]) == 1!!
+            for node in postorder(self):
+                node.trees_under = prod(
+                    [
+                        sum(
+                            [
+                                target.trees_under
+                                for target in node.clades[clade].targets
+                            ]
+                        )
+                        for clade in node.clades
+                    ]
+                )
+                if count_resolutions:
+                    node.trees_under *= len(list(sequence_resolutions(node.label)))
+            return self.trees_under
 
-    def get_trees(self, min_weight=False):
+    def get_trees(self, min_weight=False, distance_func=hamming_distance):
         """Return a generator to iterate through all trees expressed by the DAG."""
 
         if min_weight:
-            dag = self.prune_min_weight()
+            dag = self.prune_min_weight(distance_func=distance_func)
         else:
             dag = self
 
@@ -286,7 +335,9 @@ class SdagNode:
                 return (
                     (clade, targettree, i)
                     for i, target in enumerate(eset.targets)
-                    for targettree in target.get_trees(min_weight=min_weight)
+                    for targettree in target.get_trees(
+                        min_weight=min_weight, distance_func=distance_func
+                    )
                 )
 
             return f
@@ -298,12 +349,13 @@ class SdagNode:
             from_root = tree.label == "DAG_root"
             for clade, targettree, index in option:
                 tree.clades[clade].add_to_edgeset(
-                    targettree, weight=dag.clades[clade].weights[index],
-                    from_root=from_root
+                    targettree,
+                    weight=dag.clades[clade].weights[index],
+                    from_root=from_root,
                 )
             yield tree
 
-    def min_weight_annotate(self):
+    def min_weight_annotate(self, distance_func=hamming_distance):
         for node in postorder(self):
             if node.is_leaf():
                 node.min_weight_under = 0
@@ -313,7 +365,7 @@ class SdagNode:
                         min(
                             [
                                 child.min_weight_under
-                                + dag_hamming_distance(child.label, node.label)
+                                + distance_func(child.label, node.label)
                                 for child in node.clades[clade].targets
                             ]
                         )
@@ -323,7 +375,7 @@ class SdagNode:
                 node.min_weight_under = min_sum
         return self.min_weight_under
 
-    def get_weight_counts_with_ambiguities(self):
+    def get_weight_counts_with_ambiguities(self, distance_func=hamming_distance):
         """like get_weight_counts, but creates dictionaries of Counter objects at each node,
         keyed by possible sequences at that node.
         The total number of trees will be greater than count_trees(), as these are possible
@@ -359,7 +411,7 @@ class SdagNode:
                         [
                             addweight(
                                 target_wc,
-                                dag_hamming_distance(target_seq, sequence),
+                                distance_func(target_seq, sequence),
                             )
                             for target in node.clades[clade].targets
                             for target_seq, target_wc in target.weight_counters.items()
@@ -370,9 +422,7 @@ class SdagNode:
                     node.weight_counters[sequence] = counter_prod(cladecounters)
         return self.weight_counters
 
-
-
-    def get_weight_counts(self):
+    def get_weight_counts(self, distance_func=hamming_distance):
         """Annotate each node in the DAG, in postorder traversal, with a Counter object
         keyed by weight, with values the number of possible unique trees below the node
         with that weight."""
@@ -404,7 +454,7 @@ class SdagNode:
                     [
                         addweight(
                             target.weight_counter,
-                            dag_hamming_distance(target.label, node.label),
+                            distance_func(target.label, node.label),
                         )
                         for target in node.clades[clade].targets
                     ]
@@ -414,9 +464,9 @@ class SdagNode:
                 node.weight_counter = counter_prod(cladecounters)
         return self.weight_counter
 
-    def prune_min_weight(self):
+    def prune_min_weight(self, distance_func=hamming_distance):
         newdag = self.copy()
-        newdag.min_weight_annotate()
+        newdag.min_weight_annotate(distance_func=distance_func)
         # It may not be okay to use preorder here. May need reverse postorder
         # instead?
         for node in preorder(newdag):
@@ -424,7 +474,7 @@ class SdagNode:
                 weightlist = [
                     (
                         target.min_weight_under
-                        + dag_hamming_distance(target.label, node.label),
+                        + distance_func(target.label, node.label),
                         target,
                         index,
                     )
@@ -530,22 +580,20 @@ class EdgeSet:
             probs=self.probs.copy(),
         )
 
-    def sample(self, min_weight=False):
+    def sample(self, min_weight=False, distance_func=hamming_distance):
         """Returns a randomly sampled child edge, and the corresponding entry from the
         weight vector. If min_weight is True, samples only target nodes with lowest
         min_weight_under attribute, ignoring edge probabilities."""
         if min_weight:
             mw = min(
-                node.min_weight_under
-                + dag_hamming_distance(self.parent.label, node.label)
+                node.min_weight_under + distance_func(self.parent.label, node.label)
                 for node in self.targets
             )
             options = [
                 i
                 for i, node in enumerate(self.targets)
                 if (
-                    node.min_weight_under
-                    + dag_hamming_distance(self.parent.label, node.label)
+                    node.min_weight_under + distance_func(self.parent.label, node.label)
                 )
                 == mw
             ]
@@ -557,10 +605,12 @@ class EdgeSet:
             )[0]
             return (self.targets[index], self.weights[index])
 
-    def add_to_edgeset(self, target, weight=0, prob=None, prob_norm=True, from_root=False):
+    def add_to_edgeset(
+        self, target, weight=0, prob=None, prob_norm=True, from_root=False
+    ):
         """currently does nothing if edge is already present. Also does nothing
         if the target node has one child clade, and parent node is not the DAG root.
-        Returns whether an edge was added""" 
+        Returns whether an edge was added"""
         if target.label == "DAG_root":
             return False
         elif hash(target) in self._hashes:
@@ -764,43 +814,27 @@ def _options(option_dict, sequence):
     if option_dict:
         site, choices = option_dict.popitem()
         for choice in choices:
-            sequence = (
-                sequence[:site] + choice + sequence[site + 1 :]
-            )
+            sequence = sequence[:site] + choice + sequence[site + 1 :]
             yield from _options(option_dict.copy(), sequence)
     else:
         yield sequence
+
 
 def sequence_resolutions(sequence):
     """Returns iterator on possible resolutions of sequence, replacing ambiguity codes with bases."""
     if sequence == "DAG_root":
         yield sequence
     else:
-        ambiguous_sites = [site for site, code in enumerate(sequence) if code not in bases]
+        ambiguous_sites = [
+            site for site, code in enumerate(sequence) if code not in bases
+        ]
         if not ambiguous_sites:
             yield sequence
         else:
-            option_dict = {site: ambiguous_dna_values[sequence[site]] for site in ambiguous_sites}
+            option_dict = {
+                site: ambiguous_dna_values[sequence[site]] for site in ambiguous_sites
+            }
             yield from _options(option_dict, sequence)
-
-
-def dag_analysis(in_trees, n_samples=100):
-    in_tree_weights = [recalculate_ete_parsimony(tree) for tree in in_trees]
-    print("Input trees have the following weight distribution:")
-    hist(Counter(in_tree_weights), samples=len(in_tree_weights))
-    resolvedset = {from_tree(tree).to_newick() for tree in in_trees}
-    print(len(resolvedset), " unique input trees")
-    dag = sdag_from_etes(in_trees)
-
-    dagsamples = []
-    for _ in range(n_samples):
-        dagsamples.append(dag.sample())
-    dagsampleweights = [sample.weight() for sample in dagsamples]
-    sampleset = {tree.to_newick() for tree in dagsamples}
-    print("\nSampled trees have the following weight distribution:")
-    hist(Counter(dagsampleweights), samples=n_samples)
-    print(len(sampleset), " unique sampled trees")
-    print(len(sampleset - resolvedset), " sampled trees were not DAG inputs")
 
 
 def disambiguate_all(treelist):
@@ -810,27 +844,20 @@ def disambiguate_all(treelist):
     return resolvedsamples
 
 
-def dag_hamming_distance(s1, s2):
-    if s1 == "DAG_root" or s2 == "DAG_root":
-        return 0
-    else:
-        return hamming_distance(s1, s2)
-
-
-def recalculate_ete_parsimony(tree: ete3.TreeNode) -> float:
+def recalculate_ete_parsimony(
+    tree: ete3.TreeNode, distance_func=hamming_distance
+) -> float:
     tree.dist = 0
     for node in tree.iter_descendants():
-        node.dist = hamming_distance(node.sequence, node.up.sequence)
+        node.dist = distance_func(node.sequence, node.up.sequence)
     return total_weight(tree)
 
 
-def recalculate_parsimony(tree: SdagNode):
+def recalculate_parsimony(tree: SdagNode, distance_func=hamming_distance):
     for node in postorder(tree):
         for clade, eset in node.clades.items():
             for i in range(len(eset.targets)):
-                eset.weights[i] = dag_hamming_distance(
-                    eset.targets[i].label, node.label
-                )
+                eset.weights[i] = distance_func(eset.targets[i].label, node.label)
     return tree.weight()
 
 
