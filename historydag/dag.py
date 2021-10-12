@@ -133,9 +133,12 @@ class SdagNode:
                         n_added += node.add_edge(target)
         return(n_added)
 
-    def to_newick(self, namedict={}):
+    def to_newick(self, namedict={}, fixed_order=True):
         """Converts to extended newick format with arbitrary node names and a
-        sequence feature. For use on tree-shaped DAG"""
+        sequence feature. For use on tree-shaped DAG.
+        If fixed_order is True, with same namedict, two trees' newick representations are
+        equal iff the two trees have the same topology and node sequences.
+        Should be usable for equality in this sense on general DAG too?"""
 
         def newick(node):
             if node.label in namedict:
@@ -145,9 +148,16 @@ class SdagNode:
             if node.is_leaf():
                 return f"{name}[&&NHX:sequence={node.label}]"
             else:
+                if fixed_order:
+                    # Sort child nodes by their hash, which is a function of
+                    # label and child clades, and up to hash collisions is
+                    # unique on nodes in the DAG.
+                    children = sorted(node.children(), key=hash)
+                else:
+                    children = node.children()
                 return (
                     "("
-                    + ",".join([newick(node2) for node2 in node.children()])
+                    + ",".join([newick(node2) for node2 in children])
                     + ")"
                     + f"{name}[&&NHX:sequence={node.label}]"
                 )
