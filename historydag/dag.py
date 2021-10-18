@@ -378,6 +378,32 @@ class SdagNode:
                 node.min_weight_under = min_sum
         return self.min_weight_under
 
+    def two_pass_sankoff(self, distance_func=hamming_distance):
+        """Disambiguate using a two-pass Sankoff algorithm. The first pass is provided by the
+        get_weight_counts_with_ambiguities method. The second (downward) pass involves choosing a minimum weight
+        resolution of each node, then updating sequence weights of all child nodes."""
+        def addweight(c, w):
+            return Counter({key + w: val for key, val in c.items()})
+
+        self.get_weight_counts_with_ambiguities(distance_func=distance_func)
+        rporder = list(postorder(self))
+        rporder.reverse()
+        for node in rporder:
+            min_weight = float('inf')
+            best_sequence = None
+            for sequence in node.weight_counters:
+                this_min = min(node.weight_counters[sequence])
+                if this_min < min_weight:
+                    min_weight = this_min
+                    best_sequence = sequence
+            node.label = best_sequence
+            for child in node.children():
+                for sequence in child.weight_counters:
+                    before = child.weight_counters[sequence]
+                    after = addweight(before, distance_func(sequence, node.label))
+                    child.weight_counters[sequence] = after
+
+        
     def disambiguate_dag(self, distance_func=hamming_distance):
         """like get_weight_counts_with_ambiguities, but creates dictionaries of Counter objects at each node,
         keyed by possible sequences at that node.
@@ -424,12 +450,15 @@ class SdagNode:
                     ]
                     cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
                     node.weight_counters[sequence] = counter_prod(cladecounters)
-                    this_sequence_min_weight = min(node.weight_counters[sequence])
-                    if this_sequence_min_weight < min_weight:
-                        min_weight = this_sequence_min_weight
-                        best_sequence = sequence
+                print(node.label)
+                print(node.weight_counters)
+                this_sequence_min_weight = min(node.weight_counters[sequence])
+                if this_sequence_min_weight < min_weight:
+                    min_weight = this_sequence_min_weight
+                    best_sequence = sequence
             n_min_weight = node.weight_counters[sequence][min_weight]
             node.weight_counters = {sequence: Counter({min_weight: n_min_weight})}
+            node.label = best_sequence
 
         return self.weight_counters
 
