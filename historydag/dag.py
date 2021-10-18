@@ -144,20 +144,23 @@ class SdagNode:
         else:
             return (child for child, _, _ in self.clades[clade])
 
-    def add_all_allowed_edges(self, new_from_root=True):
+    def add_all_allowed_edges(self, new_from_root=True, adjacent_labels=True):
         """Add all allowed edges to the DAG, returning the number that were added.
         if new_from_root is False, no edges are added that start at DAG root.
-        This is useful to enforce a single ancestral sequence."""
+        This is useful to enforce a single ancestral sequence.
+        If adjacent_labels is False, no edges will be added between nodes with the same labels"""
         n_added = 0
         clade_dict = {node.under_clade(): [] for node in postorder(self)}
         for node in postorder(self):
             clade_dict[node.under_clade()].append(node)
         for node in postorder(self):
-            if not new_from_root and node.label == "DAG_root":
+            if new_from_root is False and node.label == "DAG_root":
                 continue
             else:
                 for clade in node.clades:
                     for target in clade_dict[clade]:
+                        if adjacent_labels is False and target.label == node.label:
+                            continue
                         n_added += node.add_edge(target)
         return n_added
 
@@ -374,6 +377,61 @@ class SdagNode:
                 )
                 node.min_weight_under = min_sum
         return self.min_weight_under
+
+    def disambiguate_dag(self, distance_func=hamming_distance):
+        """like get_weight_counts_with_ambiguities, but creates dictionaries of Counter objects at each node,
+        keyed by possible sequences at that node.
+        chooses a sequence that minimizes the below-node tree weight.
+        This is a one-pass Sankoff algorithm??"""
+        # Replace prod function later
+
+        prod = lambda l: l[0] * prod(l[1:]) if l else 1
+
+        def counter_prod(counterlist):
+            newc = Counter()
+            for combi in product([c.items for c in counterlist]):
+                weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
+                newc.update({sum(weights): prod(counts)})
+            return newc
+
+        def counter_sum(counterlist):
+            newc = Counter()
+            for c in counterlist:
+                newc += c
+            return newc
+
+        def addweight(c, w):
+            return Counter({key + w: val for key, val in c.items()})
+
+        for node in postorder(self):
+            node.weight_counters = {}
+            min_weight = float('inf')
+            best_sequence = None
+            for sequence in sequence_resolutions(node.label):
+                if node.is_leaf():
+                    node.weight_counters[sequence] = Counter({0: 1})
+                else:
+                    cladelists = [
+                        [
+                            addweight(
+                                target_wc,
+                                distance_func(target_seq, sequence),
+                            )
+                            for target in node.clades[clade].targets
+                            for target_seq, target_wc in target.weight_counters.items()
+                        ]
+                        for clade in node.clades
+                    ]
+                    cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
+                    node.weight_counters[sequence] = counter_prod(cladecounters)
+                    this_sequence_min_weight = min(node.weight_counters[sequence])
+                    if this_sequence_min_weight < min_weight:
+                        min_weight = this_sequence_min_weight
+                        best_sequence = sequence
+            n_min_weight = node.weight_counters[sequence][min_weight]
+            node.weight_counters = {sequence: Counter({min_weight: n_min_weight})}
+
+        return self.weight_counters
 
     def get_weight_counts_with_ambiguities(self, distance_func=hamming_distance):
         """like get_weight_counts, but creates dictionaries of Counter objects at each node,
@@ -895,3 +953,15 @@ def deserialize(bstring):
             node_postorder[target_idx], weight=weight, prob=prob, prob_norm=False
         )
     return node_postorder[-1]
+
+def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
+    """Collapse nonleaf nodes that have the same sequence"""
+    # Need to keep doing this until the tree fully collapsed. See gctree for this!
+    to_delete = []
+    for node in tree.get_descendants():
+        if not node.is_leaf() and node.sequence == node.up.sequence:
+            to_delete.append(node)
+    for node in to_delete:
+        node.delete()
+    return(tree)
+
