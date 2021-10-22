@@ -187,8 +187,17 @@ def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
     # Need to keep doing this until the tree fully collapsed. See gctree for this!
     to_delete = []
     for node in tree.get_descendants():
-        if not node.is_leaf() and node.sequence == node.up.sequence:
+        # This must stay invariably hamming distance, since it's measuring equality of strings
+        if not node.is_leaf() and hamming_distance(node.up.sequence, node.sequence) == 0:
             to_delete.append(node)
     for node in to_delete:
         node.delete()
     return tree
+
+def deterministic_newick(tree: ete3.TreeNode):
+    """For use in comparing TreeNodes with newick strings"""
+    newtree = tree.copy()
+    for node in newtree.traverse():
+        node.name = 1
+        node.children.sort(key=lambda node: node.sequence)
+    return newtree.write(format=1, features=['sequence'], format_root_node=True)

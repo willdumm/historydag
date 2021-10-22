@@ -790,15 +790,15 @@ def deserialize(bstring):
         )
     return node_postorder[-1]
 
-def sdag_from_newicks(newicklist):
+def history_dag_from_newicks(newicklist):
     treelist = list(map(lambda x: ete3.Tree(x, format=8), newicklist))
     for tree in treelist:
         for node in tree.traverse():
             node.sequence = node.name
-    return sdag_from_etes(treelist)
+    return history_dag_from_etes(treelist)
 
 
-def sdag_from_etes(treelist):
+def history_dag_from_etes(treelist):
     dag = from_tree(treelist[0])
     for tree in treelist[1:]:
         dag.merge(from_tree(tree))
