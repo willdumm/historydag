@@ -1,35 +1,13 @@
-import ete3
 import pickle
 import graphviz as gv
+from historydag import utils
+import ete3
 import random
-from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 
-bases = "AGCT-"
-ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
 
-
-def weight_function(func):
-    """A wrapper to allow distance to label 'DAG_root' to be zero"""
-
-    def wrapper(s1, s2):
-        if s1 == "DAG_root" or s2 == "DAG_root":
-            return 0
-        else:
-            return func(s1, s2)
-
-    return wrapper
-
-
-@weight_function
-def hamming_distance(s1: str, s2: str) -> int:
-    if len(s1) != len(s2):
-        raise ValueError("Sequences must have the same length!")
-    return sum(x != y for x, y in zip(s1, s2))
-
-
-class SdagNode:
-    """A recursive representation of an sDAG
+class HistoryDag:
+    """A recursive representation of a history DAG object
     - a dictionary keyed by clades (frozensets) containing EdgeSet objects
     - a label
     """
@@ -55,7 +33,7 @@ class SdagNode:
         return self.__hash__() == other.__hash__()
 
     def node_self(self):
-        return SdagNode(self.label, {clade: EdgeSet() for clade in self.clades})
+        return HistoryDag(self.label, {clade: EdgeSet() for clade in self.clades})
 
     def under_clade(self):
         """Returns the union of all child clades"""
@@ -251,13 +229,6 @@ class SdagNode:
                     )
         return G
 
-    def weight(self):
-        "Sums weights of all edges in the DAG"
-        nodes = postorder(self)
-        edgesetsums = (
-            sum(edgeset.weights) for node in nodes for edgeset in node.clades.values()
-        )
-        return sum(edgesetsums)
 
     def internal_avg_parents(self):
         """Returns the average number of parents among internal nodes
@@ -271,9 +242,9 @@ class SdagNode:
         # Exclude root:
         return cumsum / float(n - 1)
 
-    def sample(self, min_weight=False, distance_func=hamming_distance):
+    def sample(self, min_weight=False, distance_func=utils.hamming_distance):
         """Samples a sub-history-DAG that is also a tree containing the root and
-        all leaf nodes. Returns a new SdagNode object"""
+        all leaf nodes. Returns a new HistoryDag object"""
         sample = self.node_self()
         from_root = sample.label == "DAG_root"
         for clade, eset in self.clades.items():
@@ -288,7 +259,10 @@ class SdagNode:
         return sample
 
     def count_trees(
-        self, min_weight=False, count_resolutions=False, distance_func=hamming_distance
+        self,
+        min_weight=False,
+        count_resolutions=False,
+        distance_func=utils.hamming_distance,
     ):
         """Annotates each node in the DAG with the number of complete trees underneath (extending to leaves,
         and containing exactly one edge for each node-clade pair). Returns the total number of unique
@@ -319,10 +293,12 @@ class SdagNode:
                     ]
                 )
                 if count_resolutions:
-                    node.trees_under *= len(list(sequence_resolutions(node.label)))
+                    node.trees_under *= len(
+                        list(utils.sequence_resolutions(node.label))
+                    )
             return self.trees_under
 
-    def get_trees(self, min_weight=False, distance_func=hamming_distance):
+    def get_trees(self, min_weight=False, distance_func=utils.hamming_distance):
         """Return a generator to iterate through all trees expressed by the DAG."""
 
         if min_weight:
@@ -347,7 +323,7 @@ class SdagNode:
 
         optionlist = [genexp_func(clade) for clade in self.clades]
 
-        for option in product(optionlist):
+        for option in utils.cartesian_product(optionlist):
             tree = dag.node_self()
             from_root = tree.label == "DAG_root"
             for clade, targettree, index in option:
@@ -358,7 +334,7 @@ class SdagNode:
                 )
             yield tree
 
-    def min_weight_annotate(self, distance_func=hamming_distance):
+    def min_weight_annotate(self, distance_func=utils.hamming_distance):
         for node in postorder(self):
             if node.is_leaf():
                 node.min_weight_under = 0
@@ -378,10 +354,11 @@ class SdagNode:
                 node.min_weight_under = min_sum
         return self.min_weight_under
 
-    def two_pass_sankoff(self, distance_func=hamming_distance):
+    def two_pass_sankoff(self, distance_func=utils.hamming_distance):
         """Disambiguate using a two-pass Sankoff algorithm. The first pass is provided by the
         get_weight_counts_with_ambiguities method. The second (downward) pass involves choosing a minimum weight
         resolution of each node, then updating sequence weights of all child nodes."""
+
         def addweight(c, w):
             return Counter({key + w: val for key, val in c.items()})
 
@@ -389,7 +366,7 @@ class SdagNode:
         rporder = list(postorder(self))
         rporder.reverse()
         for node in rporder:
-            min_weight = float('inf')
+            min_weight = float("inf")
             best_sequence = None
             for sequence in node.weight_counters:
                 this_min = min(node.weight_counters[sequence])
@@ -403,8 +380,7 @@ class SdagNode:
                     after = addweight(before, distance_func(sequence, node.label))
                     child.weight_counters[sequence] = after
 
-        
-    def disambiguate_dag(self, distance_func=hamming_distance):
+    def disambiguate_dag(self, distance_func=utils.hamming_distance):
         """like get_weight_counts_with_ambiguities, but creates dictionaries of Counter objects at each node,
         keyed by possible sequences at that node.
         chooses a sequence that minimizes the below-node tree weight.
@@ -415,7 +391,7 @@ class SdagNode:
 
         def counter_prod(counterlist):
             newc = Counter()
-            for combi in product([c.items for c in counterlist]):
+            for combi in utils.cartesian_product([c.items for c in counterlist]):
                 weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
                 newc.update({sum(weights): prod(counts)})
             return newc
@@ -431,9 +407,9 @@ class SdagNode:
 
         for node in postorder(self):
             node.weight_counters = {}
-            min_weight = float('inf')
+            min_weight = float("inf")
             best_sequence = None
-            for sequence in sequence_resolutions(node.label):
+            for sequence in utils.sequence_resolutions(node.label):
                 if node.is_leaf():
                     node.weight_counters[sequence] = Counter({0: 1})
                 else:
@@ -462,7 +438,7 @@ class SdagNode:
 
         return self.weight_counters
 
-    def get_weight_counts_with_ambiguities(self, distance_func=hamming_distance):
+    def get_weight_counts_with_ambiguities(self, distance_func=utils.hamming_distance):
         """like get_weight_counts, but creates dictionaries of Counter objects at each node,
         keyed by possible sequences at that node.
         The total number of trees will be greater than count_trees(), as these are possible
@@ -474,7 +450,7 @@ class SdagNode:
 
         def counter_prod(counterlist):
             newc = Counter()
-            for combi in product([c.items for c in counterlist]):
+            for combi in utils.cartesian_product([c.items for c in counterlist]):
                 weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
                 newc.update({sum(weights): prod(counts)})
             return newc
@@ -490,7 +466,7 @@ class SdagNode:
 
         for node in postorder(self):
             node.weight_counters = {}
-            for sequence in sequence_resolutions(node.label):
+            for sequence in utils.sequence_resolutions(node.label):
                 if node.is_leaf():
                     node.weight_counters[sequence] = Counter({0: 1})
                 else:
@@ -509,7 +485,7 @@ class SdagNode:
                     node.weight_counters[sequence] = counter_prod(cladecounters)
         return self.weight_counters
 
-    def get_weight_counts(self, distance_func=hamming_distance):
+    def get_weight_counts(self, distance_func=utils.hamming_distance):
         """Annotate each node in the DAG, in postorder traversal, with a Counter object
         keyed by weight, with values the number of possible unique trees below the node
         with that weight."""
@@ -519,7 +495,7 @@ class SdagNode:
 
         def counter_prod(counterlist):
             newc = Counter()
-            for combi in product([c.items for c in counterlist]):
+            for combi in utils.cartesian_product([c.items for c in counterlist]):
                 weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
                 newc.update({sum(weights): prod(counts)})
             return newc
@@ -551,7 +527,7 @@ class SdagNode:
                 node.weight_counter = counter_prod(cladecounters)
         return self.weight_counter
 
-    def prune_min_weight(self, distance_func=hamming_distance):
+    def prune_min_weight(self, distance_func=utils.hamming_distance):
         newdag = self.copy()
         newdag.min_weight_annotate(distance_func=distance_func)
         # It may not be okay to use preorder here. May need reverse postorder
@@ -581,7 +557,7 @@ class SdagNode:
         return newdag
 
     def serialize(self):
-        """Represents SdagNode object as a list of sequences, a list of node tuples containing
+        """Represents HistoryDag object as a list of sequences, a list of node tuples containing
         (node sequence index, frozenset of frozenset of leaf sequence indices)
         and an edge list containing a tuple for each edge:
         (origin node index, target node index, edge weight, edge probability)"""
@@ -621,6 +597,14 @@ class SdagNode:
             "edge_list": edge_list,
         }
         return pickle.dumps(serial_dict)
+
+    def weight(self):
+        "Sums weights of all edges in the DAG"
+        nodes = postorder(self)
+        edgesetsums = (
+            sum(edgeset.weights) for node in nodes for edgeset in node.clades.values()
+        )
+        return sum(edgesetsums)
 
 
 class EdgeSet:
@@ -667,7 +651,7 @@ class EdgeSet:
             probs=self.probs.copy(),
         )
 
-    def sample(self, min_weight=False, distance_func=hamming_distance):
+    def sample(self, min_weight=False, distance_func=utils.hamming_distance):
         """Returns a randomly sampled child edge, and the corresponding entry from the
         weight vector. If min_weight is True, samples only target nodes with lowest
         min_weight_under attribute, ignoring edge probabilities."""
@@ -724,7 +708,7 @@ def from_tree(tree: ete3.TreeNode):
         return frozenset((node.sequence for node in r.get_leaves()))
 
     def _unrooted_from_tree(tree):
-        dag = SdagNode(
+        dag = HistoryDag(
             tree.sequence,
             {
                 leaf_names(child): EdgeSet(
@@ -736,7 +720,7 @@ def from_tree(tree: ete3.TreeNode):
         return dag
 
     dag = _unrooted_from_tree(tree)
-    dagroot = SdagNode(
+    dagroot = HistoryDag(
         "DAG_root",
         {
             frozenset({taxon for s in dag.clades for taxon in s}): EdgeSet(
@@ -753,10 +737,10 @@ def from_newick(tree: str):
     return from_tree(etetree)
 
 
-def postorder(dag: SdagNode):
+def postorder(dag: HistoryDag):
     visited = set()
 
-    def traverse(node: SdagNode):
+    def traverse(node: HistoryDag):
         visited.add(id(node))
         if not node.is_leaf():
             for child in node.children():
@@ -767,12 +751,12 @@ def postorder(dag: SdagNode):
     yield from traverse(dag)
 
 
-def preorder(dag: SdagNode):
+def preorder(dag: HistoryDag):
     """Careful! remember this is not guaranteed to visit a parent node before any of its children.
     for that, need reverse postorder traversal."""
     visited = set()
 
-    def traverse(node: SdagNode):
+    def traverse(node: HistoryDag):
         visited.add(id(node))
         yield node
         if not node.is_leaf():
@@ -782,6 +766,29 @@ def preorder(dag: SdagNode):
 
     yield from traverse(dag)
 
+
+def deserialize(bstring):
+    """reloads an HistoryDag serialized object, as ouput by HistoryDag.serialize"""
+    serial_dict = pickle.loads(bstring)
+    sequence_list = serial_dict["sequence_list"]
+    node_list = serial_dict["node_list"]
+    edge_list = serial_dict["edge_list"]
+
+    def unpack_seqs(seqset):
+        return frozenset({sequence_list[idx] for idx in seqset})
+
+    node_postorder = [
+        HistoryDag(
+            sequence_list[idx], {unpack_seqs(clade): EdgeSet() for clade in clades}
+        )
+        for idx, clades in node_list
+    ]
+    # Last node in list is root
+    for origin_idx, target_idx, weight, prob in edge_list:
+        node_postorder[origin_idx].add_edge(
+            node_postorder[target_idx], weight=weight, prob=prob, prob_norm=False
+        )
+    return node_postorder[-1]
 
 def sdag_from_newicks(newicklist):
     treelist = list(map(lambda x: ete3.Tree(x, format=8), newicklist))
@@ -797,200 +804,9 @@ def sdag_from_etes(treelist):
         dag.merge(from_tree(tree))
     return dag
 
-
-def disambiguate(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
-    """Resolve tree and return list of all possible resolutions"""
-    code_vectors = {
-        code: [
-            0 if base in ambiguous_dna_values[code] else float("inf") for base in bases
-        ]
-        for code in ambiguous_dna_values
-    }
-    cost_adjust = {
-        base: [int(not i == j) for j in range(5)] for i, base in enumerate(bases)
-    }
-    if random_state is None:
-        random.seed(tree.write(format=1))
-    else:
-        random.setstate(random_state)
-
-    for node in tree.traverse(strategy="postorder"):
-
-        def cvup(node, site):
-            cv = code_vectors[node.sequence[site]].copy()
-            if not node.is_leaf():
-                for i in range(5):
-                    for child in node.children:
-                        cv[i] += min(
-                            [
-                                sum(v)
-                                for v in zip(child.cvd[site], cost_adjust[bases[i]])
-                            ]
-                        )
-            return cv
-
-        # Make dictionary of cost vectors for each site
-        node.cvd = {site: cvup(node, site) for site in range(len(node.sequence))}
-
-    disambiguated = [tree.copy()]
-    ambiguous = True
-    while ambiguous:
-        ambiguous = False
-        treesindex = 0
-        while treesindex < len(disambiguated):
-            tree2 = disambiguated[treesindex]
-            treesindex += 1
-            for node in tree2.traverse(strategy="preorder"):
-                ambiguous_sites = [
-                    site for site, code in enumerate(node.sequence) if code not in bases
-                ]
-                if not ambiguous_sites:
-                    continue
-                else:
-                    ambiguous = True
-                    # Adjust cost vectors for ambiguous sites base on above
-                    if not node.is_root():
-                        for site in ambiguous_sites:
-                            base_above = node.up.sequence[site]
-                            node.cvd[site] = [
-                                sum(v)
-                                for v in zip(node.cvd[site], cost_adjust[base_above])
-                            ]
-                    option_dict = {site: "" for site in ambiguous_sites}
-                    # Enumerate min-cost choices
-                    for site in ambiguous_sites:
-                        min_cost = min(node.cvd[site])
-                        min_cost_sites = [
-                            bases[i]
-                            for i, val in enumerate(node.cvd[site])
-                            if val == min_cost
-                        ]
-                        option_dict[site] = "".join(min_cost_sites)
-
-                    sequences = list(_options(option_dict, node.sequence))
-                    # Give this tree the first sequence, append copies with all
-                    # others to disambiguated.
-                    numseqs = len(sequences)
-                    for idx, sequence in enumerate(sequences):
-                        node.sequence = sequence
-                        if idx < numseqs - 1:
-                            disambiguated.append(tree2.copy())
-                    break
-    for tree in disambiguated:
-        for node in tree.traverse():
-            try:
-                node.del_feature("cvd")
-            except KeyError:
-                pass
-    return disambiguated
-
-
-def product(optionlist, accum=tuple()):
-    """Takes a list of functions which each return a fresh generator
-    on options at that site"""
-    if optionlist:
-        for term in optionlist[0]():
-            yield from product(optionlist[1:], accum=(accum + (term,)))
-    else:
-        yield accum
-
-
-def _options(option_dict, sequence):
-    """option_dict is keyed by site index, with iterables containing
-    allowed bases as values"""
-    if option_dict:
-        site, choices = option_dict.popitem()
-        for choice in choices:
-            sequence = sequence[:site] + choice + sequence[site + 1 :]
-            yield from _options(option_dict.copy(), sequence)
-    else:
-        yield sequence
-
-
-def sequence_resolutions(sequence):
-    """Returns iterator on possible resolutions of sequence, replacing ambiguity codes with bases."""
-    if sequence == "DAG_root":
-        yield sequence
-    else:
-        ambiguous_sites = [
-            site for site, code in enumerate(sequence) if code not in bases
-        ]
-        if not ambiguous_sites:
-            yield sequence
-        else:
-            option_dict = {
-                site: ambiguous_dna_values[sequence[site]] for site in ambiguous_sites
-            }
-            yield from _options(option_dict, sequence)
-
-
-def disambiguate_all(treelist):
-    resolvedsamples = []
-    for sample in treelist:
-        resolvedsamples.extend(disambiguate(sample))
-    return resolvedsamples
-
-
-def recalculate_ete_parsimony(
-    tree: ete3.TreeNode, distance_func=hamming_distance
-) -> float:
-    tree.dist = 0
-    for node in tree.iter_descendants():
-        node.dist = distance_func(node.sequence, node.up.sequence)
-    return total_weight(tree)
-
-
-def recalculate_parsimony(tree: SdagNode, distance_func=hamming_distance):
+def recalculate_parsimony(tree: HistoryDag, distance_func=utils.hamming_distance):
     for node in postorder(tree):
         for clade, eset in node.clades.items():
             for i in range(len(eset.targets)):
                 eset.weights[i] = distance_func(eset.targets[i].label, node.label)
     return tree.weight()
-
-
-def hist(c: Counter, samples=1):
-    l = list(c.items())
-    l.sort()
-    print("Weight\t| Frequency\n------------------")
-    for weight, freq in l:
-        print(f"{weight}  \t| {freq if samples==1 else freq/samples}")
-
-
-def total_weight(tree: ete3.TreeNode) -> float:
-    return sum(node.dist for node in tree.traverse())
-
-
-def deserialize(bstring):
-    """reloads an SdagNode serialized object, as ouput by SdagNode.serialize"""
-    serial_dict = pickle.loads(bstring)
-    sequence_list = serial_dict["sequence_list"]
-    node_list = serial_dict["node_list"]
-    edge_list = serial_dict["edge_list"]
-
-    def unpack_seqs(seqset):
-        return frozenset({sequence_list[idx] for idx in seqset})
-
-    node_postorder = [
-        SdagNode(
-            sequence_list[idx], {unpack_seqs(clade): EdgeSet() for clade in clades}
-        )
-        for idx, clades in node_list
-    ]
-    # Last node in list is root
-    for origin_idx, target_idx, weight, prob in edge_list:
-        node_postorder[origin_idx].add_edge(
-            node_postorder[target_idx], weight=weight, prob=prob, prob_norm=False
-        )
-    return node_postorder[-1]
-
-def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
-    """Collapse nonleaf nodes that have the same sequence"""
-    # Need to keep doing this until the tree fully collapsed. See gctree for this!
-    to_delete = []
-    for node in tree.get_descendants():
-        if not node.is_leaf() and node.sequence == node.up.sequence:
-            to_delete.append(node)
-    for node in to_delete:
-        node.delete()
-    return(tree)
-
