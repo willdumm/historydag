@@ -641,15 +641,18 @@ class HistoryDag:
             clade = child.under_clade()
             print(parent.label, child.label, hash(parent) in nodedict and hash(child) in nodedict, child.is_leaf())
             if parent.label == child.label and hash(parent) in nodedict and hash(child) in nodedict and not child.is_leaf():
+                parent_clade_edges = len(parent.clades[clade].targets)
                 print(f"fixing edge between labels {parent.label} and {child.label}")
                 new_parent_clades = (frozenset(parent.clades.keys()) - {clade}) | frozenset(child.clades.keys())
                 print("New parent clades")
                 print(new_parent_clades)
                 if hash((parent.label, new_parent_clades)) in nodedict:
                     newparent = nodedict[hash((parent.label, new_parent_clades))]
+                    print("using node already present")
                 else:
                     newparent = empty_node(parent.label, new_parent_clades)
                     nodedict[hash(newparent)] = newparent
+                    print("making new node")
 
                 # Add parents of parent to newparent
                 for grandparent in parent.parents:
@@ -667,7 +670,8 @@ class HistoryDag:
                     edgequeue.append([newparent, grandchild])
                 # Clean up the DAG:
                 # Delete old parent if it is no longer a valid node
-                if len(parent.clades[clade].targets) == 1:
+                if parent_clade_edges == 1:
+                    print("deleting old parent")
                     # Remove old parent as child of all of its parents
                     # no need for recursion here, all of its parents had
                     # edges added to new parent from the same clade.
