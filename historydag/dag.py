@@ -620,7 +620,7 @@ class HistoryDag:
         trees expressed by the old DAG."""
 
         self.recompute_parents()
-        nodes = list(reversed(list(postorder(self))))
+        nodes = list(postorder(self))
         nodedict = {hash(node): node for node in nodes}
         edgequeue = [[parent, target]
                      for parent in nodes
@@ -635,25 +635,17 @@ class HistoryDag:
                 if not child.parents:
                     remove_node(child)
 
-        print(edgequeue)
         while edgequeue:
             parent, child = edgequeue.pop()
             clade = child.under_clade()
-            print(parent.label, child.label, hash(parent) in nodedict and hash(child) in nodedict, child.is_leaf())
             if parent.label == child.label and hash(parent) in nodedict and hash(child) in nodedict and not child.is_leaf():
                 parent_clade_edges = len(parent.clades[clade].targets)
-                print(f"fixing edge between labels {parent.label} and {child.label}")
                 new_parent_clades = (frozenset(parent.clades.keys()) - {clade}) | frozenset(child.clades.keys())
-                print("New parent clades")
-                print(new_parent_clades)
                 if hash((parent.label, new_parent_clades)) in nodedict:
                     newparent = nodedict[hash((parent.label, new_parent_clades))]
-                    print("using node already present")
                 else:
                     newparent = empty_node(parent.label, new_parent_clades)
                     nodedict[hash(newparent)] = newparent
-                    print("making new node")
-
                 # Add parents of parent to newparent
                 for grandparent in parent.parents:
                     grandparent.add_edge(newparent) # check parents logic
@@ -673,7 +665,6 @@ class HistoryDag:
                 # Clean up the DAG:
                 # Delete old parent if it is no longer a valid node
                 if parent_clade_edges == 1:
-                    print("deleting old parent")
                     # Remove old parent as child of all of its parents
                     # no need for recursion here, all of its parents had
                     # edges added to new parent from the same clade.
@@ -748,11 +739,13 @@ class EdgeSet:
         )
 
     def remove_from_edgeset_byid(self, target_node):
-        idx_to_remove = [id(target) for target in self.targets].index(id(target_node))
-        self.targets.pop(idx_to_remove)
-        self.probs.pop(idx_to_remove)
-        self.weights.pop(idx_to_remove)
-        self._hashes = {hash(node) for node in self.targets}
+        idlist = [id(target) for target in self.targets]
+        if id(target_node) in idlist:
+            idx_to_remove = idlist.index(id(target_node))
+            self.targets.pop(idx_to_remove)
+            self.probs.pop(idx_to_remove)
+            self.weights.pop(idx_to_remove)
+            self._hashes = {hash(node) for node in self.targets}
 
 
     def sample(self, min_weight=False, distance_func=utils.hamming_distance):

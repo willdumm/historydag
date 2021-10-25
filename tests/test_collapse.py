@@ -38,5 +38,9 @@ def test_collapse():
     uncollapsed_dag.convert_to_collapsed()
     allcollapsedtrees = [utils.collapse_adjacent_sequences(tree) for tree in trees]
     collapsed_dag = hdag.history_dag_from_etes(allcollapsedtrees)
-    assert(set(utils.deterministic_newick(tree.to_ete()) for tree in uncollapsed_dag.get_trees()) == set(utils.deterministic_newick(tree.to_ete()) for tree in collapsed_dag.get_trees()))
-    
+    maybecollapsedtrees = [tree.to_ete() for tree in uncollapsed_dag.get_trees()]
+    collapsedtrees = [tree.to_ete() for tree in collapsed_dag.get_trees()]
+    assert all(utils.is_collapsed(tree) for tree in maybecollapsedtrees)
+    n_before = uncollapsed_dag.count_trees()
+    uncollapsed_dag.merge(collapsed_dag)
+    assert n_before == uncollapsed_dag.count_trees()
