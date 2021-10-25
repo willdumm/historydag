@@ -620,7 +620,7 @@ class HistoryDag:
         trees expressed by the old DAG."""
 
         self.recompute_parents()
-        nodes = reversed(list(postorder(self)))
+        nodes = list(reversed(list(postorder(self))))
         nodedict = {hash(node): node for node in nodes}
         edgequeue = [[parent, target]
                      for parent in nodes
