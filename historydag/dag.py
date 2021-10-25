@@ -633,6 +633,7 @@ class HistoryDag:
                 if not child.parents:
                     remove_node(child)
 
+        print(edgequeue)
         while edgequeue:
             parent, child = edgequeue.pop()
             clade = child.under_clade()
