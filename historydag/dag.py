@@ -635,7 +635,6 @@ class HistoryDag:
                 if not child.parents:
                     remove_node(child)
 
-
         print(edgequeue)
         while edgequeue:
             parent, child = edgequeue.pop()
@@ -665,6 +664,7 @@ class HistoryDag:
                 # Add children of old child to newparent
                 for grandchild in child.children():
                     newparent.add_edge(grandchild)
+                    edgequeue.append([newparent, grandchild])
                 # Clean up the DAG:
                 # Delete old parent if it is no longer a valid node
                 if len(parent.clades[clade].targets) == 1:

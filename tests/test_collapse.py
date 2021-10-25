@@ -11,7 +11,7 @@ newickstring3 = (
         "3[&&NHX:name=3:sequence=H])1[&&NHX:name=1:sequence=A];"
 )
 
-etetree = ete3.TreeNode(newick=newickstring3, format=1)
+etetree = list(hdag.history_dag_from_etes([ete3.TreeNode(newick=newickstring3, format=1)]).get_trees())[0].to_ete()
 etetree2 = utils.collapse_adjacent_sequences(etetree.copy())
 
 
@@ -30,7 +30,7 @@ def test_twotrees():
     dag = hdag.history_dag_from_etes([etetree, etetree2])
     dag.convert_to_collapsed()
     assert(dag.count_trees() == 1)
-    assert({utils.deterministic_newick(tree.to_ete()) for tree in dag.get_trees()} == {utils.deterministic_newick(tree) for tree in [etetree, etetree2]})
+    assert({utils.deterministic_newick(tree.to_ete()) for tree in dag.get_trees()} == {utils.deterministic_newick(etetree2)})
 
 
 def test_collapse():
