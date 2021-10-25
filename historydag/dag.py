@@ -637,6 +637,7 @@ class HistoryDag:
             parent, child = edgequeue.pop()
             clade = child.under_clade()
             if parent.label == child.label and hash(parent) in nodedict and hash(child) in nodedict and not child.is_leaf():
+                print(f"fixing edge between labels {parent.label} and {child.label}")
                 new_parent_clades = (frozenset(parent.clades.keys()) - {clade}) | frozenset(child.clades.keys())
                 # Do this before possibly changing parent
                 if parent in child.parents:     # This may be dangerous???
