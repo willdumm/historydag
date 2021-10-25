@@ -641,15 +641,16 @@ class HistoryDag:
             if parent.label == child.label and hash(parent) in nodedict and hash(child) in nodedict and not child.is_leaf():
                 print(f"fixing edge between labels {parent.label} and {child.label}")
                 new_parent_clades = (frozenset(parent.clades.keys()) - {clade}) | frozenset(child.clades.keys())
-                # Do this before possibly changing parent
-                if parent in child.parents:     # This may be dangerous???
-                    child.parents.remove(parent)
                 if len(parent.clades[clade].targets) == 1:
+                    for child2 in parent.children():
+                        child2.parents.remove(parent)
                     newparent = parent
                     nodedict.pop(hash(parent))
                     newparent.clades.pop(clade)
                     newparent.clades.update(child.clades)
                     nodedict[hash(newparent)] = newparent
+                    for child2 in newparent.children():
+                        child2.parents.add(newparent)
                 else:
                     if hash((parent.label, new_parent_clades)) in nodedict:
                         newparent = nodedict[hash((parent.label, new_parent_clades))]
@@ -674,6 +675,8 @@ class HistoryDag:
                 # Clean up the DAG:
                 # No need to remove parent. If parent clade had one descendant edge, parent was
                 # converted to newparent. Remove child though, if child no longer has parents
+                if parent in child.parents:     # This may be dangerous???
+                    child.parents.remove(parent)
                 if not child.parents:
                     # This recursively removes children of child too, if necessary
                     remove_node(child)
