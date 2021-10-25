@@ -1,4 +1,4 @@
-from historydag.dag import HistoryDag, EdgeSet, from_tree, postorder, sdag_from_newicks
+from historydag.dag import HistoryDag, EdgeSet, from_tree, postorder, history_dag_from_newicks
 import ete3
 
 """ HistoryDag tests:"""
@@ -142,6 +142,6 @@ def test_sample():
     newicks = ["((a, b)b, c)c;", "((a, b)c, c)c;", "((a, b)a, c)c;", "((a, b)r, c)r;"]
     newicks = ["((1, 2)2, 3)3;", "((1, 2)3, 3)3;", "((1, 2)1, 3)3;", "((1, 2)4, 3)4;"]
     namedict = {str(x): x for x in range(5)}
-    dag = sdag_from_newicks(newicks)
+    dag = history_dag_from_newicks(newicks)
     sample = dag.sample()
     return sample.to_graphviz(namedict)

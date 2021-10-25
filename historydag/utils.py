@@ -201,3 +201,7 @@ def deterministic_newick(tree: ete3.TreeNode):
         node.name = 1
         node.children.sort(key=lambda node: node.sequence)
     return newtree.write(format=1, features=['sequence'], format_root_node=True)
+
+def is_collapsed(tree: ete3.TreeNode):
+    return not any(node.sequence == node.up.sequence and not node.is_leaf() for node in tree.iter_descendants())
+

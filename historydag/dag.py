@@ -606,6 +606,77 @@ class HistoryDag:
         )
         return sum(edgesetsums)
 
+    def recompute_parents(self):
+        for node in postorder(self):
+            node.parents = set()
+        for node in postorder(self):
+            for child in node.children():
+                child.parents.add(node)
+
+    def convert_to_collapsed(self):
+        """Rebuilds the DAG so that no edge connects two nodes with the same label,
+        unless one of them is a leaf node.
+        This should be the same as building a new DAG by collapsing edges in all
+        trees expressed by the old DAG."""
+
+        self.recompute_parents()
+        nodes = reversed(list(postorder(self)))
+        nodedict = {hash(node): node for node in nodes}
+        edgequeue = [[parent, target]
+                     for parent in nodes
+                     for target in parent.children()]
+
+        def remove_node(node):
+            nodedict.pop(hash(node))
+            for child in node.children():
+                child.parents.remove(node)
+                if not child.parents:
+                    remove_node(child)
+
+        while edgequeue:
+            parent, child = edgequeue.pop()
+            clade = child.under_clade()
+            if parent.label == child.label and hash(parent) in nodedict and hash(child) in nodedict and not child.is_leaf():
+                new_parent_clades = (frozenset(parent.clades.keys()) - {clade}) | frozenset(child.clades.keys())
+                # Do this before possibly changing parent
+                if parent in child.parents:     # This may be dangerous???
+                    child.parents.remove(parent)
+                if len(parent.clades[clade].targets) == 1:
+                    newparent = parent
+                    nodedict.pop(hash(parent))
+                    newparent.clades.pop(clade)
+                    newparent.clades.update(child.clades)
+                    nodedict[hash(newparent)] = newparent
+                else:
+                    if hash((parent.label, new_parent_clades)) in nodedict:
+                        newparent = nodedict[hash((parent.label, new_parent_clades))]
+                    else:
+                        newparent = empty_node(parent.label, new_parent_clades)
+                        nodedict[hash(newparent)] = newparent
+
+                    # Add parents of parent to newparent
+                    for grandparent in parent.parents:
+                        grandparent.add_edge(newparent) # check parents logic
+                        edgequeue.append([grandparent, newparent])
+                    # Add children of other clades to newparent
+                    for otherclade in parent.clades:
+                        if otherclade != clade:
+                            for othertarget in parent.clades[otherclade].targets:
+                                newparent.add_edge(othertarget)
+                                edgequeue.append([newparent, othertarget])
+                    # Add children of old child to newparent
+                    for grandchild in child.children():
+                        newparent.add_edge(grandchild)
+
+                # Clean up the DAG:
+                # No need to remove parent. If parent clade had one descendant edge, parent was
+                # converted to newparent. Remove child though, if child no longer has parents
+                if not child.parents:
+                    # This recursively removes children of child too, if necessary
+                    remove_node(child)
+        self.recompute_parents()
+
+
 
 class EdgeSet:
     """Goal: associate targets (edges) with arbitrary parameters, but support
@@ -649,6 +720,13 @@ class EdgeSet:
             [node.copy() for node in self.targets],
             weights=self.weights.copy(),
             probs=self.probs.copy(),
+        )
+
+    def shallowcopy(self):
+        return EdgeSet(
+            [node for node in self.targets],
+            weights=self.weights.copy(),
+            probs=self.probs.copy()
         )
 
     def sample(self, min_weight=False, distance_func=utils.hamming_distance):
@@ -810,3 +888,7 @@ def recalculate_parsimony(tree: HistoryDag, distance_func=utils.hamming_distance
             for i in range(len(eset.targets)):
                 eset.weights[i] = distance_func(eset.targets[i].label, node.label)
     return tree.weight()
+
+
+def empty_node(label, clades):
+    return HistoryDag(label, {clade: EdgeSet() for clade in clades})
