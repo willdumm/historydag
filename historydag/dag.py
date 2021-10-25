@@ -668,6 +668,8 @@ class HistoryDag:
                 for grandchild in child.children():
                     newparent.add_edge(grandchild)
                     edgequeue.append([newparent, grandchild])
+                # Remove the edge we were fixing from old parent
+                parent.clades[clade].remove_from_edgeset_byid(child)
                 # Clean up the DAG:
                 # Delete old parent if it is no longer a valid node
                 if parent_clade_edges == 1:
