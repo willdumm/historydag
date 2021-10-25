@@ -627,11 +627,14 @@ class HistoryDag:
                      for target in parent.children()]
 
         def remove_node(node):
-            nodedict.pop(hash(node))
+            if hash(node) in nodedict:
+                nodedict.pop(hash(node))
             for child in node.children():
-                child.parents.remove(node)
+                if node in child.parents:
+                    child.parents.remove(node)
                 if not child.parents:
                     remove_node(child)
+
 
         print(edgequeue)
         while edgequeue:
@@ -641,41 +644,44 @@ class HistoryDag:
             if parent.label == child.label and hash(parent) in nodedict and hash(child) in nodedict and not child.is_leaf():
                 print(f"fixing edge between labels {parent.label} and {child.label}")
                 new_parent_clades = (frozenset(parent.clades.keys()) - {clade}) | frozenset(child.clades.keys())
+                print("New parent clades")
+                print(new_parent_clades)
+                if hash((parent.label, new_parent_clades)) in nodedict:
+                    newparent = nodedict[hash((parent.label, new_parent_clades))]
+                else:
+                    newparent = empty_node(parent.label, new_parent_clades)
+                    nodedict[hash(newparent)] = newparent
+
+                # Add parents of parent to newparent
+                for grandparent in parent.parents:
+                    grandparent.add_edge(newparent) # check parents logic
+                    edgequeue.append([grandparent, newparent])
+                # Add children of other clades to newparent
+                for otherclade in parent.clades:
+                    if otherclade != clade:
+                        for othertarget in parent.clades[otherclade].targets:
+                            newparent.add_edge(othertarget)
+                            edgequeue.append([newparent, othertarget])
+                # Add children of old child to newparent
+                for grandchild in child.children():
+                    newparent.add_edge(grandchild)
+                # Clean up the DAG:
+                # Delete old parent if it is no longer a valid node
                 if len(parent.clades[clade].targets) == 1:
+                    # Remove old parent as child of all of its parents
+                    # no need for recursion here, all of its parents had
+                    # edges added to new parent from the same clade.
+                    upclade = parent.under_clade()
+                    for grandparent in parent.parents:
+                        grandparent.clades[upclade].remove_from_edgeset_byid(parent)
                     for child2 in parent.children():
                         child2.parents.remove(parent)
-                    newparent = parent
+                        if not child2.parents:
+                            remove_node(child2)
                     nodedict.pop(hash(parent))
-                    newparent.clades.pop(clade)
-                    newparent.clades.update(child.clades)
-                    nodedict[hash(newparent)] = newparent
-                    for child2 in newparent.children():
-                        child2.parents.add(newparent)
-                else:
-                    if hash((parent.label, new_parent_clades)) in nodedict:
-                        newparent = nodedict[hash((parent.label, new_parent_clades))]
-                    else:
-                        newparent = empty_node(parent.label, new_parent_clades)
-                        nodedict[hash(newparent)] = newparent
 
-                    # Add parents of parent to newparent
-                    for grandparent in parent.parents:
-                        grandparent.add_edge(newparent) # check parents logic
-                        edgequeue.append([grandparent, newparent])
-                    # Add children of other clades to newparent
-                    for otherclade in parent.clades:
-                        if otherclade != clade:
-                            for othertarget in parent.clades[otherclade].targets:
-                                newparent.add_edge(othertarget)
-                                edgequeue.append([newparent, othertarget])
-                    # Add children of old child to newparent
-                    for grandchild in child.children():
-                        newparent.add_edge(grandchild)
-
-                # Clean up the DAG:
-                # No need to remove parent. If parent clade had one descendant edge, parent was
-                # converted to newparent. Remove child though, if child no longer has parents
-                if parent in child.parents:     # This may be dangerous???
+                # Remove child, if child no longer has parents
+                if parent in child.parents:
                     child.parents.remove(parent)
                 if not child.parents:
                     # This recursively removes children of child too, if necessary
@@ -734,6 +740,14 @@ class EdgeSet:
             weights=self.weights.copy(),
             probs=self.probs.copy()
         )
+
+    def remove_from_edgeset_byid(self, target_node):
+        idx_to_remove = [id(target) for target in self.targets].index(id(target_node))
+        self.targets.pop(idx_to_remove)
+        self.probs.pop(idx_to_remove)
+        self.weights.pop(idx_to_remove)
+        self._hashes = {hash(node) for node in self.targets}
+
 
     def sample(self, min_weight=False, distance_func=utils.hamming_distance):
         """Returns a randomly sampled child edge, and the corresponding entry from the
