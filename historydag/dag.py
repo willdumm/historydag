@@ -223,8 +223,8 @@ class HistoryDag:
                     if weight > 0.0:
                         label += f"w:{weight}"
                     G.edge(
-                        f"{id(node)}:{taxa(clade) if show_partitions else 'label'}",
-                        f"{id(target)}:label",
+                        f"{id(node)}:{taxa(clade) if show_partitions else 'label'}:s",
+                        f"{id(target)}:n",
                         label=label,
                     )
         return G
