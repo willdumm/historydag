@@ -154,7 +154,7 @@ class HistoryDag:
             if node.label in namedict:
                 name = namedict[node.label]
             else:
-                name = "1"
+                name = "unnamed_seq"
             if node.is_leaf():
                 return f"{name}[&&NHX:sequence={node.label}]"
             else:
@@ -244,9 +244,11 @@ class HistoryDag:
 
     def sample(self, min_weight=False, distance_func=utils.hamming_distance):
         """Samples a sub-history-DAG that is also a tree containing the root and
-        all leaf nodes. Returns a new HistoryDag object"""
+        all leaf nodes. Returns a new HistoryDag object."""
+        from_root = self.label == "DAG_root"
+        if from_root:
+            self.min_weight_annotate(distance_func=distance_func)
         sample = self.node_self()
-        from_root = sample.label == "DAG_root"
         for clade, eset in self.clades.items():
             sampled_target, target_weight = eset.sample(
                 min_weight=min_weight, distance_func=distance_func
@@ -438,6 +440,29 @@ class HistoryDag:
 
         return self.weight_counters
 
+    def expand_ambiguities(self):
+        """Each node with an ambiguous sequence is replaced by nodes with all possible disambiguations of the original sequence, and the same clades and parent and child edges."""
+        self.recompute_parents()
+        nodedict = {hash(node): node for node in postorder(self)}
+        for node in postorder(self):
+            if node.label != "DAG_root" and utils.is_ambiguous(node.label):
+                clades = frozenset(node.clades.keys())
+                for resolution in utils.sequence_resolutions(node.label):
+                    if hash((resolution, clades)) in nodedict:
+                        newnode = nodedict[hash((resolution, clades))]
+                    else:
+                        newnode = node.node_self()
+                        newnode.label = resolution
+                        nodedict[hash(newnode)] = newnode
+                    # Add all edges into and out of node to newnode
+                    for target in node.children():
+                        newnode.add_edge(target)
+                    for parent in node.parents:
+                        parent.add_edge(newnode)
+                    # Delete old node
+                    node.remove_node(nodedict=nodedict)
+
+
     def get_weight_counts_with_ambiguities(self, distance_func=utils.hamming_distance):
         """like get_weight_counts, but creates dictionaries of Counter objects at each node,
         keyed by possible sequences at that node.
@@ -613,6 +638,17 @@ class HistoryDag:
             for child in node.children():
                 child.parents.add(node)
 
+    def remove_node(self, nodedict={}):
+        """Recursively removes node self and any orphaned children from dag.
+        May not work on root?"""
+        if hash(self) in nodedict:
+            nodedict.pop(hash(self))
+        for child in self.children():
+            if self in child.parents:
+                child.parents.remove(self)
+            if not child.parents:
+                child.remove_node(nodedict=nodedict)
+                
     def convert_to_collapsed(self):
         """Rebuilds the DAG so that no edge connects two nodes with the same label,
         unless one of them is a leaf node.
@@ -626,6 +662,7 @@ class HistoryDag:
                      for parent in nodes
                      for target in parent.children()]
 
+        # Replace with remove_node method above (TODO)
         def remove_node(node):
             if hash(node) in nodedict:
                 nodedict.pop(hash(node))

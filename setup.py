@@ -18,5 +18,6 @@ setuptools.setup(
     install_requires=[
         "ete3",
         "biopython",
+        "graphviz"
     ],
 )
