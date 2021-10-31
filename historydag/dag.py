@@ -579,9 +579,11 @@ class HistoryDag:
         if focus_site is not None:
             old_distance_func = distance_func
 
-            @utils.weight_function
             def distance_func(seq1, seq2):
-                return old_distance_func(seq1[focus_site], seq2[focus_site])
+                if seq1 == "DAG_root" or seq2 == "DAG_root":
+                    return 0
+                else:
+                    return old_distance_func(seq1[focus_site], seq2[focus_site])
 
         self.min_weight_annotate(distance_func=distance_func)
         # It may not be okay to use preorder here. May need reverse postorder
