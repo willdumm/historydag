@@ -588,7 +588,7 @@ class HistoryDag:
                     print(focus_site)
                     return old_distance_func(seq1[focus_site], seq2[focus_site])
 
-        self.min_weight_annotate(distance_func=distance_func, focus_site=focus_site)
+        self.min_weight_annotate(distance_func=distance_func)
         # It may not be okay to use preorder here. May need reverse postorder
         # instead?
         for node in preorder(self):
