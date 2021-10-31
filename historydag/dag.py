@@ -360,7 +360,8 @@ class HistoryDag:
     def disambiguate_sitewise(self):
         ambigset = set()
         for node in postorder(self):
-            ambigset.update({site for site, base in enumerate(node.label) if base not in utils.bases})
+            if node.label != "DAG_root":
+                ambigset.update({site for site, base in enumerate(node.label) if base not in utils.bases})
         print(ambigset)
         for site in ambigset:
             self.expand_ambiguities(focus_site=site)
@@ -580,10 +581,8 @@ class HistoryDag:
         if focus_site is not None:
             old_distance_func = distance_func
 
+            @utils.weight_function
             def distance_func(seq1, seq2):
-                if seq1 == "DAG_root" or seq2 == "DAG_root":
-                    return 0
-                else:
                     print(seq1)
                     print(seq2)
                     print(focus_site)
