@@ -28,6 +28,93 @@ def hamming_distance(s1: str, s2: str) -> int:
 def is_ambiguous(sequence):
     return any(code not in bases for code in sequence)
 
+def disambiguate_sitewise(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
+     """Resolve tree and return list of all possible resolutions"""
+     code_vectors = {
+         code: [
+             0 if base in ambiguous_dna_values[code] else float("inf") for base in bases
+         ]
+         for code in ambiguous_dna_values
+     }
+     cost_adjust = {
+         base: [int(not i == j) for j in range(5)] for i, base in enumerate(bases)
+     }
+     if random_state is None:
+         random.seed(tree.write(format=1))
+     else:
+         random.setstate(random_state)
+
+     for node in tree.traverse(strategy="postorder"):
+
+         def cvup(node, site):
+             cv = code_vectors[node.sequence[site]].copy()
+             if not node.is_leaf():
+                 for i in range(5):
+                     for child in node.children:
+                         cv[i] += min(
+                             [
+                                 sum(v)
+                                 for v in zip(child.cvd[site], cost_adjust[bases[i]])
+                             ]
+                         )
+             return cv
+
+         # Make dictionary of cost vectors for each site
+         node.cvd = {site: cvup(node, site) for site in range(len(node.sequence))}
+
+     disambiguated = [tree.copy()]
+     ambiguous = True
+     while ambiguous:
+         ambiguous = False
+         treesindex = 0
+         while treesindex < len(disambiguated):
+             tree2 = disambiguated[treesindex]
+             treesindex += 1
+             for node in tree2.traverse(strategy="preorder"):
+                 ambiguous_sites = [
+                     site for site, code in enumerate(node.sequence) if code not in bases
+                 ]
+                 if not ambiguous_sites:
+                     continue
+                 else:
+                     ambiguous = True
+                     # Adjust cost vectors for ambiguous sites base on above
+                     if not node.is_root():
+                         for site in ambiguous_sites:
+                             base_above = node.up.sequence[site]
+                             node.cvd[site] = [
+                                 sum(v)
+                                 for v in zip(node.cvd[site], cost_adjust[base_above])
+                             ]
+                     option_dict = {site: "" for site in ambiguous_sites}
+                     # Enumerate min-cost choices
+                     for site in ambiguous_sites:
+                         min_cost = min(node.cvd[site])
+                         min_cost_sites = [
+                             bases[i]
+                             for i, val in enumerate(node.cvd[site])
+                             if val == min_cost
+                         ]
+                         option_dict[site] = "".join(min_cost_sites)
+
+                     sequences = list(_options(option_dict, node.sequence))
+                     # Give this tree the first sequence, append copies with all
+                     # others to disambiguated.
+                     numseqs = len(sequences)
+                     for idx, sequence in enumerate(sequences):
+                         node.sequence = sequence
+                         if idx < numseqs - 1:
+                             disambiguated.append(tree2.copy())
+                     break
+     for tree in disambiguated:
+         for node in tree.traverse():
+             try:
+                 node.del_feature("cvd")
+             except KeyError:
+                 pass
+     return disambiguated
+
+
 def disambiguate(tree: ete3.Tree, random_state=None, dist_func=hamming_distance) -> ete3.Tree:
     """Resolve ambiguous bases using a two-pass Sankoff Algorithm on entire tree and entire sequence at each node.
     This does not disambiguate sitewise, so trees with many ambiguities may make this run very slowly.
