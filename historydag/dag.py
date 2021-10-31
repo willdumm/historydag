@@ -673,7 +673,8 @@ class HistoryDag:
 
     def remove_node(self, nodedict={}):
         """Recursively removes node self and any orphaned children from dag.
-        May not work on root?"""
+        May not work on root?
+        Does not check to make sure that parent clade still has descendant edges."""
         if hash(self) in nodedict:
             nodedict.pop(hash(self))
         for child in self.children():
@@ -681,6 +682,8 @@ class HistoryDag:
                 child.parents.remove(self)
             if not child.parents:
                 child.remove_node(nodedict=nodedict)
+        for parent in self.parents:
+            parent.clades[self.under_clade()].remove_from_edgeset_byid(self)
                 
     def convert_to_collapsed(self):
         """Rebuilds the DAG so that no edge connects two nodes with the same label,
