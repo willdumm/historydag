@@ -577,9 +577,9 @@ class HistoryDag:
 
     def trim_min_weight(self, distance_func=utils.hamming_distance, focus_site=None):
         if focus_site is not None:
-            def new_distance_func(seq1, seq2):
-                return distance_func(seq1[focus_site], seq2[focus_site])
-            distance_func = new_distance_func
+            old_distance_func = distance_func
+            def distance_func(seq1, seq2):
+                return old_distance_func(seq1[focus_site], seq2[focus_site])
 
         self.min_weight_annotate(distance_func=distance_func)
         # It may not be okay to use preorder here. May need reverse postorder
