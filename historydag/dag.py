@@ -484,8 +484,8 @@ class HistoryDag:
                         newnode.add_edge(target)
                     for parent in node.parents:
                         parent.add_edge(newnode)
-                    # Delete old node
-                    node.remove_node(nodedict=nodedict)
+                # Delete old node
+                node.remove_node(nodedict=nodedict)
 
 
     def get_weight_counts_with_ambiguities(self, distance_func=utils.hamming_distance):
