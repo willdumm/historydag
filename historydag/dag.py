@@ -583,6 +583,9 @@ class HistoryDag:
                 if seq1 == "DAG_root" or seq2 == "DAG_root":
                     return 0
                 else:
+                    print(seq1)
+                    print(seq2)
+                    print(focus_site)
                     return old_distance_func(seq1[focus_site], seq2[focus_site])
 
         self.min_weight_annotate(distance_func=distance_func)
