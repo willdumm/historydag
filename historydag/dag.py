@@ -470,7 +470,7 @@ class HistoryDag:
         self.recompute_parents()
         nodedict = {hash(node): node for node in postorder(self)}
         for node in postorder(self):
-            if node.label != "DAG_root" and utils.is_ambiguous(node.label):
+            if node.label != "DAG_root" and is_ambiguous(node.label):
                 clades = frozenset(node.clades.keys())
                 for resolution in sequence_resolutions(node.label):
                     if hash((resolution, clades)) in nodedict:
