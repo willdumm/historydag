@@ -1,0 +1,9 @@
+name: gctree
+channels:
+  - conda-forge
+  - defaults
+  - bioconda
+dependencies:
+  - pip
+  - pip:
+    - . # installs gctree package from current directory "."

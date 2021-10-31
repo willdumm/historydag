@@ -304,7 +304,7 @@ class HistoryDag:
         """Return a generator to iterate through all trees expressed by the DAG."""
 
         if min_weight:
-            dag = self.prune_min_weight(distance_func=distance_func)
+            dag = self.copy().trim_min_weight(distance_func=distance_func)
         else:
             dag = self
 
@@ -312,12 +312,12 @@ class HistoryDag:
             # Return generator expression of all possible choices of tree
             # structure from dag below clade
             def f():
-                eset = self.clades[clade]
+                eset = dag.clades[clade]
                 return (
                     (clade, targettree, i)
                     for i, target in enumerate(eset.targets)
                     for targettree in target.get_trees(
-                        min_weight=min_weight, distance_func=distance_func
+                        min_weight=False, distance_func=distance_func
                     )
                 )
 
@@ -552,12 +552,11 @@ class HistoryDag:
                 node.weight_counter = counter_prod(cladecounters)
         return self.weight_counter
 
-    def prune_min_weight(self, distance_func=utils.hamming_distance):
-        newdag = self.copy()
-        newdag.min_weight_annotate(distance_func=distance_func)
+    def trim_min_weight(self, distance_func=utils.hamming_distance):
+        self.min_weight_annotate(distance_func=distance_func)
         # It may not be okay to use preorder here. May need reverse postorder
         # instead?
-        for node in preorder(newdag):
+        for node in preorder(self):
             for clade, eset in node.clades.items():
                 weightlist = [
                     (
@@ -579,7 +578,6 @@ class HistoryDag:
                 eset.weights = newweights
                 n = len(eset.targets)
                 eset.probs = [1.0 / n] * n
-        return newdag
 
     def serialize(self):
         """Represents HistoryDag object as a list of sequences, a list of node tuples containing
