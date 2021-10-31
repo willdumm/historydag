@@ -361,6 +361,7 @@ class HistoryDag:
         ambigset = set()
         for node in postorder(self):
             ambigset.update({site for site, base in enumerate(node.label) if base not in utils.bases})
+        print(ambigset)
         for site in ambigset:
             self.expand_ambiguities(focus_site=site)
             self.trim_min_weight(focus_site=site)
@@ -588,7 +589,7 @@ class HistoryDag:
                     print(focus_site)
                     return old_distance_func(seq1[focus_site], seq2[focus_site])
 
-        self.min_weight_annotate(distance_func=distance_func)
+        self.min_weight_annotate(distance_func=distance_func, focus_site=focus_site)
         # It may not be okay to use preorder here. May need reverse postorder
         # instead?
         for node in preorder(self):
