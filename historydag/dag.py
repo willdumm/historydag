@@ -337,6 +337,7 @@ class HistoryDag:
             yield tree
 
     def min_weight_annotate(self, distance_func=utils.hamming_distance):
+
         for node in postorder(self):
             if node.is_leaf():
                 node.min_weight_under = 0
@@ -355,6 +356,14 @@ class HistoryDag:
                 )
                 node.min_weight_under = min_sum
         return self.min_weight_under
+
+    def disambiguate_sitewise(self):
+        ambigset = set()
+        for node in postorder(self):
+            ambigset.update({site for site, base in enumerate(node.label) if base not in utils.bases})
+        for site in ambigset:
+            self.expand_ambiguities(focus_site=site)
+            self.trim_min_weight(focus_site=site)
 
     def two_pass_sankoff(self, distance_func=utils.hamming_distance):
         """Disambiguate using a two-pass Sankoff algorithm. The first pass is provided by the
@@ -440,14 +449,28 @@ class HistoryDag:
 
         return self.weight_counters
 
-    def expand_ambiguities(self):
+    def expand_ambiguities(self, focus_site=None):
         """Each node with an ambiguous sequence is replaced by nodes with all possible disambiguations of the original sequence, and the same clades and parent and child edges."""
+
+        def sequence_resolutions(sequence):
+            if focus_site is not None:
+                for base in utils.sequence_resolutions(sequence[focus_site]):
+                    yield sequence[:focus_site] + base + sequence[focus_site + 1:]
+            else:
+                yield from utils.sequence_resolutions(sequence)
+
+        def is_ambiguous(sequence):
+            if focus_site is not None:
+                return utils.is_ambiguous(sequence[focus_site])
+            else:
+                return utils.is_ambiguous(sequence)
+
         self.recompute_parents()
         nodedict = {hash(node): node for node in postorder(self)}
         for node in postorder(self):
             if node.label != "DAG_root" and utils.is_ambiguous(node.label):
                 clades = frozenset(node.clades.keys())
-                for resolution in utils.sequence_resolutions(node.label):
+                for resolution in sequence_resolutions(node.label):
                     if hash((resolution, clades)) in nodedict:
                         newnode = nodedict[hash((resolution, clades))]
                     else:
@@ -552,7 +575,12 @@ class HistoryDag:
                 node.weight_counter = counter_prod(cladecounters)
         return self.weight_counter
 
-    def trim_min_weight(self, distance_func=utils.hamming_distance):
+    def trim_min_weight(self, distance_func=utils.hamming_distance, focus_site=None):
+        if focus_site is not None:
+            def new_distance_func(seq1, seq2):
+                return distance_func(seq1[focus_site], seq2[focus_site])
+            distance_func = new_distance_func
+
         self.min_weight_annotate(distance_func=distance_func)
         # It may not be okay to use preorder here. May need reverse postorder
         # instead?
