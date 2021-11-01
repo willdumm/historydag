@@ -198,6 +198,10 @@ def sequence_resolutions(sequence, _accum=""):
     Recursion-depth-limited by number of ambiguity codes in
     sequence, not sequence length.
     """
+    # Remove this check at some point (TODO)
+    if sequence == "DAG_root":
+        yield sequence
+        return
     if sequence:
         for index, base in enumerate(sequence):
             if base in bases:

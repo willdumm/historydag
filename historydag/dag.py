@@ -469,7 +469,8 @@ class HistoryDag:
 
         self.recompute_parents()
         nodedict = {hash(node): node for node in postorder(self)}
-        for node in postorder(self):
+        nodeorder = list(postorder(self))
+        for node in nodeorder:
             if node.label != "DAG_root" and is_ambiguous(node.label):
                 clades = frozenset(node.clades.keys())
                 for resolution in sequence_resolutions(node.label):
@@ -583,9 +584,6 @@ class HistoryDag:
 
             @utils.weight_function
             def distance_func(seq1, seq2):
-                    print(seq1)
-                    print(seq2)
-                    print(focus_site)
                     return old_distance_func(seq1[focus_site], seq2[focus_site])
 
         self.min_weight_annotate(distance_func=distance_func)
@@ -684,6 +682,7 @@ class HistoryDag:
                 child.remove_node(nodedict=nodedict)
         for parent in self.parents:
             parent.clades[self.under_clade()].remove_from_edgeset_byid(self)
+            self.removed = True
                 
     def convert_to_collapsed(self):
         """Rebuilds the DAG so that no edge connects two nodes with the same label,
