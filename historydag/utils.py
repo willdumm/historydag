@@ -25,6 +25,15 @@ def hamming_distance(s1: str, s2: str) -> int:
         raise ValueError("Sequences must have the same length!")
     return sum(x != y for x, y in zip(s1, s2))
 
+
+def compare_site_func(site):
+    
+    @weight_function
+    def dist_func(s1: str, s2: str) -> int:
+        return int(s1[site] != s2[site])
+
+    return dist_func
+
 def is_ambiguous(sequence):
     return any(code not in bases for code in sequence)
 
@@ -260,6 +269,7 @@ def deterministic_newick(tree: ete3.TreeNode):
     for node in newtree.traverse():
         node.name = 1
         node.children.sort(key=lambda node: node.sequence)
+        node.dist = 1
     return newtree.write(format=1, features=['sequence'], format_root_node=True)
 
 def is_collapsed(tree: ete3.TreeNode):

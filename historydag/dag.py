@@ -358,14 +358,42 @@ class HistoryDag:
         return self.min_weight_under
 
     def disambiguate_sitewise(self):
+        """
+        Finds all sites at which DAG nodes have ambiguous bases, then expands ambiguities at each of those sites individually, pruning the expanded nodes that do not have optimal below-node tree weight. This method may be guaranteed to find all min-weight disambiguations, but if some of the original trees have higher minimum disambiguation weight, then some or all of their disambiguations may be missing from the resulting DAG structure.
+        """
         ambigset = set()
         for node in postorder(self):
             if node.label != "DAG_root":
                 ambigset.update({site for site, base in enumerate(node.label) if base not in utils.bases})
         print(ambigset)
         for site in ambigset:
-            self.expand_ambiguities(focus_site=site)
-            self.trim_min_weight(focus_site=site)
+            dist_func = utils.compare_site_func(site)
+            new_nodes = self.expand_ambiguities(focus_site=site)
+            print(sum(1 for _ in postorder(self)))
+            self.min_weight_annotate(distance_func=dist_func)
+            rporder = reversed(list(postorder(self)))
+            for node in rporder:
+                for clade, eset in node.clades.items():
+                    min_weights = [target.min_weight_under + dist_func(node.label, target.label) for target in eset.targets]
+                    min_weight = min(min_weights)
+                    to_delete = [index for index, weight in enumerate(min_weights) if weight != min_weight]
+                    # Guaranteed to preserve at least one eset target, but
+                    # could result in orphaned targets
+                    for index in reversed(to_delete):
+                        # only allow removal of newly created nodes
+                        if eset.targets[index] in new_nodes:
+                            oldtarget = eset.targets.pop(index)
+                            if node in oldtarget.parents:
+                                oldtarget.parents.remove(node)
+                            # Remove orphaned targets
+                            if not oldtarget.parents:
+                                oldtarget.remove_node()
+                            eset.weights.pop(index)
+                            eset.probs.pop(index)
+            # Remove orphaned nodes?
+            self.recompute_parents()
+                             
+
 
     def two_pass_sankoff(self, distance_func=utils.hamming_distance):
         """Disambiguate using a two-pass Sankoff algorithm. The first pass is provided by the
@@ -470,6 +498,7 @@ class HistoryDag:
         self.recompute_parents()
         nodedict = {hash(node): node for node in postorder(self)}
         nodeorder = list(postorder(self))
+        new_nodes = set()
         for node in nodeorder:
             if node.label != "DAG_root" and is_ambiguous(node.label):
                 clades = frozenset(node.clades.keys())
@@ -480,6 +509,7 @@ class HistoryDag:
                         newnode = node.node_self()
                         newnode.label = resolution
                         nodedict[hash(newnode)] = newnode
+                        new_nodes.add(newnode)
                     # Add all edges into and out of node to newnode
                     for target in node.children():
                         newnode.add_edge(target)
@@ -487,6 +517,13 @@ class HistoryDag:
                         parent.add_edge(newnode)
                 # Delete old node
                 node.remove_node(nodedict=nodedict)
+        return(new_nodes)
+
+
+    def summary(self):
+        print(f"Nodes:\t{sum(1 for _ in postorder(self))}")
+        print(f"Trees:\t{self.count_trees()}")
+        utils.hist(self.get_weight_counts_with_ambiguities()["DAG_root"])
 
 
     def get_weight_counts_with_ambiguities(self, distance_func=utils.hamming_distance):
