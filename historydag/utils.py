@@ -254,6 +254,7 @@ def total_weight(tree: ete3.TreeNode) -> float:
 def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
     """Collapse nonleaf nodes that have the same sequence"""
     # Need to keep doing this until the tree fully collapsed. See gctree for this!
+    tree = tree.copy()
     to_delete = []
     for node in tree.get_descendants():
         # This must stay invariably hamming distance, since it's measuring equality of strings

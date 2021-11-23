@@ -4,6 +4,7 @@ from historydag import utils
 import ete3
 import random
 from collections import Counter
+from gctree import CollapsedTree
 
 
 class HistoryDag:
@@ -91,8 +92,6 @@ class HistoryDag:
         # target clades must union to a clade of self
         key = target.under_clade()
         if key not in self.clades:
-            print(key)
-            print(self.clades)
             raise KeyError("Target clades' union is not a clade of this parent node")
         else:
             from_root = self.label == "DAG_root"
@@ -122,13 +121,17 @@ class HistoryDag:
         else:
             return (child for child, _, _ in self.clades[clade])
 
-    def add_all_allowed_edges(self, new_from_root=True, adjacent_labels=True):
+    def add_all_allowed_edges(self, new_from_root=True, adjacent_labels=True, preserve_parent_labels=False):
         """Add all allowed edges to the DAG, returning the number that were added.
         if new_from_root is False, no edges are added that start at DAG root.
         This is useful to enforce a single ancestral sequence.
-        If adjacent_labels is False, no edges will be added between nodes with the same labels"""
+        If adjacent_labels is False, no edges will be added between nodes with the same labels.
+        preserve_parent_labels was to show something was true....?"""
         n_added = 0
         clade_dict = {node.under_clade(): [] for node in postorder(self)}
+        if preserve_parent_labels is True:
+            self.recompute_parents()
+            uplabels = {node: {parent.label for parent in node.parents} for node in postorder(self)}
         for node in postorder(self):
             clade_dict[node.under_clade()].append(node)
         for node in postorder(self):
@@ -138,6 +141,8 @@ class HistoryDag:
                 for clade in node.clades:
                     for target in clade_dict[clade]:
                         if adjacent_labels is False and target.label == node.label:
+                            continue
+                        if preserve_parent_labels is True and node.label not in uplabels[target]:
                             continue
                         n_added += node.add_edge(target)
         return n_added
@@ -361,6 +366,7 @@ class HistoryDag:
         """
         Finds all sites at which DAG nodes have ambiguous bases, then expands ambiguities at each of those sites individually, pruning the expanded nodes that do not have optimal below-node tree weight. This method may be guaranteed to find all min-weight disambiguations, but if some of the original trees have higher minimum disambiguation weight, then some or all of their disambiguations may be missing from the resulting DAG structure.
         """
+        # Does not work yet!
         ambigset = set()
         for node in postorder(self):
             if node.label != "DAG_root":
@@ -426,25 +432,6 @@ class HistoryDag:
         keyed by possible sequences at that node.
         chooses a sequence that minimizes the below-node tree weight.
         This is a one-pass Sankoff algorithm??"""
-        # Replace prod function later
-
-        prod = lambda l: l[0] * prod(l[1:]) if l else 1
-
-        def counter_prod(counterlist):
-            newc = Counter()
-            for combi in utils.cartesian_product([c.items for c in counterlist]):
-                weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
-                newc.update({sum(weights): prod(counts)})
-            return newc
-
-        def counter_sum(counterlist):
-            newc = Counter()
-            for c in counterlist:
-                newc += c
-            return newc
-
-        def addweight(c, w):
-            return Counter({key + w: val for key, val in c.items()})
 
         for node in postorder(self):
             node.weight_counters = {}
@@ -466,7 +453,7 @@ class HistoryDag:
                         for clade in node.clades
                     ]
                     cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
-                    node.weight_counters[sequence] = counter_prod(cladecounters)
+                    node.weight_counters[sequence] = counter_prod(cladecounters, sum)
                 print(node.label)
                 print(node.weight_counters)
                 this_sequence_min_weight = min(node.weight_counters[sequence])
@@ -532,25 +519,6 @@ class HistoryDag:
         The total number of trees will be greater than count_trees(), as these are possible
         disambiguations of trees. These disambiguations may not be unique (?), but if two are
         the same, they come from different subtrees of the DAG."""
-        # Replace prod function later
-
-        prod = lambda l: l[0] * prod(l[1:]) if l else 1
-
-        def counter_prod(counterlist):
-            newc = Counter()
-            for combi in utils.cartesian_product([c.items for c in counterlist]):
-                weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
-                newc.update({sum(weights): prod(counts)})
-            return newc
-
-        def counter_sum(counterlist):
-            newc = Counter()
-            for c in counterlist:
-                newc += c
-            return newc
-
-        def addweight(c, w):
-            return Counter({key + w: val for key, val in c.items()})
 
         for node in postorder(self):
             node.weight_counters = {}
@@ -570,33 +538,13 @@ class HistoryDag:
                         for clade in node.clades
                     ]
                     cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
-                    node.weight_counters[sequence] = counter_prod(cladecounters)
+                    node.weight_counters[sequence] = counter_prod(cladecounters, sum)
         return self.weight_counters
 
     def get_weight_counts(self, distance_func=utils.hamming_distance):
         """Annotate each node in the DAG, in postorder traversal, with a Counter object
         keyed by weight, with values the number of possible unique trees below the node
         with that weight."""
-        # Replace prod function later
-
-        prod = lambda l: l[0] * prod(l[1:]) if l else 1
-
-        def counter_prod(counterlist):
-            newc = Counter()
-            for combi in utils.cartesian_product([c.items for c in counterlist]):
-                weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
-                newc.update({sum(weights): prod(counts)})
-            return newc
-
-        def counter_sum(counterlist):
-            newc = Counter()
-            for c in counterlist:
-                newc += c
-            return newc
-
-        def addweight(c, w):
-            return Counter({key + w: val for key, val in c.items()})
-
         for node in postorder(self):
             if node.is_leaf():
                 node.weight_counter = Counter({0: 1})
@@ -612,7 +560,7 @@ class HistoryDag:
                     for clade in node.clades
                 ]
                 cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
-                node.weight_counter = counter_prod(cladecounters)
+                node.weight_counter = counter_prod(cladecounters, sum)
         return self.weight_counter
 
     def trim_min_weight(self, distance_func=utils.hamming_distance, focus_site=None):
@@ -794,6 +742,43 @@ class HistoryDag:
                     remove_node(child)
         self.recompute_parents()
 
+    def add_abundances(self, abundances: dict):
+        """Expects DAG to be collapsed so that only edges targeting leaf nodes may have same label on parent and child nodes. Abundances should be a dictionary containing integers, keyed by node labels (sequences?)"""
+        for node in postorder(self):
+            if node.label in abundances:
+                node.abundance = int(abundances[node.label])
+            else:
+                node.abundance = 0
+
+        # This corresponds to https://github.com/matsengrp/gctree/blob/375f61e60ec87aabfb0e5a9d0575cf56f46f06a5/gctree/branching_processes.py#L319
+        nondagroot = list(self.children())[0]
+        if len(nondagroot.clades) == 1:
+            nondagroot.abundance = 1
+
+    def bp_loglikelihoods(self, p, q):
+        """Expects DAG to be collapsed so that only edges targeting leaf nodes may have the same label on parent and child nodes. p and q are branching process likelihoods."""
+
+        # Need to make this traversal ignore edges between nodes with the
+        # same label
+        for node in postorder(self):
+            if node.is_leaf():
+                node.below_loglikelihoods = Counter([CollapsedTree._ll_genotype(node.abundance, 0, p, q)[0]])
+            else:
+                cladelists = [
+                    [target.below_loglikelihoods for target in node.clades[clade].targets ]
+                    for clade in node.clades
+                    if not (len(clade) == 1 and list(clade)[0] == node.label)
+                ]
+                # Because construction of cladelists ignores child clades whose
+                # sole target is a leaf with the same sequence:
+                m = len(cladelists)
+                cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
+                if node.label == "DAG_root":
+                    return counter_prod(cladecounters, sum)
+                else:
+                    node.below_loglikelihoods = addweight(
+                        counter_prod(cladecounters, sum),
+                        CollapsedTree._ll_genotype(node.abundance, m, p, q)[0])
 
 
 class EdgeSet:
@@ -1020,3 +1005,37 @@ def recalculate_parsimony(tree: HistoryDag, distance_func=utils.hamming_distance
 
 def empty_node(label, clades):
     return HistoryDag(label, {clade: EdgeSet() for clade in clades})
+
+def prod(l: list):
+    """Return product of elements of the input list.
+    if passed list is empty, returns 1."""
+    n = len(l)
+    if n > 0:
+        accum = l[0]
+        if n > 1:
+            for item in l[1:]:
+                accum *= item
+    else:
+        accum = 1
+    return accum
+
+def counter_prod(counterlist, accumfunc):
+    """Really a sort of cartesian product, which does accumfunc to keys and counts all the ways each result
+    can be achieved using contents of counters in counterlist.
+    accumfunc must be a function like sum which acts on a list of arbitrary length. Probably should return an
+    object of the same type."""
+    newc = Counter()
+    for combi in utils.cartesian_product([c.items for c in counterlist]):
+        weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
+        newc.update({accumfunc(weights): prod(counts)})
+    return newc
+
+def counter_sum(counterlist):
+    """Sum a list of counters, like concatenating their representative lists"""
+    newc = Counter()
+    for c in counterlist:
+        newc += c
+    return newc
+
+def addweight(c, w):
+    return Counter({key + w: val for key, val in c.items()})
