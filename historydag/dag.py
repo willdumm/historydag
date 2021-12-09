@@ -202,10 +202,10 @@ class HistoryDag:
                 return ""
 
         def labeller(sequence):
-            if len(sequence) < 11:
-                return sequence
-            elif sequence in namedict:
+            if sequence in namedict:
                 return str(namedict[sequence])
+            elif len(sequence) < 11:
+                return sequence
             else:
                 return hash(sequence)
 
@@ -725,6 +725,7 @@ class HistoryDag:
                     # Remove old parent as child of all of its parents
                     # no need for recursion here, all of its parents had
                     # edges added to new parent from the same clade.
+                    # Why not use remove_node on parent?
                     upclade = parent.under_clade()
                     for grandparent in parent.parents:
                         grandparent.clades[upclade].remove_from_edgeset_byid(parent)
