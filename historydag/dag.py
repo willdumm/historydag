@@ -203,19 +203,20 @@ class HistoryDag:
             else:
                 return hash(sequence)
 
-        if labelfunc is not None:
-            labeller = labelfunc
+        if labelfunc is None:
+            def labelfunc(node):
+                return labeller(node.label)
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in postorder(self):
             if node.is_leaf() or show_partitions is False:
-                G.node(str(id(node)), f"<label> {labeller(node.label)}")
+                G.node(str(id(node)), f"<label> {labelfunc(node)}")
             else:
                 splits = "|".join(
                     [f"<{taxa(clade)}> {taxa(clade)}" for clade in node.clades]
                 )
                 G.node(
-                    str(id(node)), f"{{ <label> {labeller(node.label)} |{{{splits}}} }}"
+                    str(id(node)), f"{{ <label> {labelfunc(node)} |{{{splits}}} }}"
                 )
             for clade in node.clades:
                 for target, weight, prob in node.clades[clade]:
