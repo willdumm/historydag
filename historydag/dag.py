@@ -185,7 +185,7 @@ class HistoryDag:
     def to_ete(self, namedict={}):
         return ete3.TreeNode(newick=self.to_newick(namedict=namedict), format=1)
 
-    def to_graphviz(self, namedict={}, show_partitions=True):
+    def to_graphviz(self, labelfunc=None, namedict={}, show_partitions=True):
         """Converts to graphviz Digraph object. Namedict must associate sequences
         of all leaf nodes to a name
         """
@@ -195,12 +195,6 @@ class HistoryDag:
             l.sort()
             return ",".join(l)
 
-        def min_weight_under(node):
-            try:
-                return node.min_weight_under
-            except:
-                return ""
-
         def labeller(sequence):
             if sequence in namedict:
                 return str(namedict[sequence])
@@ -208,6 +202,9 @@ class HistoryDag:
                 return sequence
             else:
                 return hash(sequence)
+
+        if labelfunc is not None:
+            labeller = labelfunc
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in postorder(self):
