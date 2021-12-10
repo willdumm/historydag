@@ -1,9 +1,17 @@
-name: gctree
+name: historydag
 channels:
   - conda-forge
   - defaults
   - bioconda
 dependencies:
+  - python=3.9
+  - black
+  - flake8
+  - pytest
   - pip
+  - ete3
+  - six
+  - graphviz
   - pip:
     - . # installs gctree package from current directory "."
+    - gctree

@@ -5,6 +5,8 @@ import ete3
 import random
 from collections import Counter
 from gctree import CollapsedTree
+from multiset import FrozenMultiset
+from historydag.counterops import *
 
 
 class HistoryDag:
@@ -744,8 +746,12 @@ class HistoryDag:
     def add_abundances(self, abundances: dict):
         """Expects DAG to be collapsed so that only edges targeting leaf nodes may have same label on parent and child nodes. Abundances should be a dictionary containing integers, keyed by node labels (sequences?)"""
         for node in postorder(self):
+            # Although it's guaranteed to happen in max parsimony setting, only want internal nodes that are adjacent to a leaf with the same label to carry a nonzero abundance
             if node.label in abundances:
-                node.abundance = int(abundances[node.label])
+                if node.is_leaf() or frozenset({node.label}) in node.clades:
+                    node.abundance = int(abundances[node.label])
+                else:
+                    node.abundance = 0
             else:
                 node.abundance = 0
 
@@ -773,11 +779,47 @@ class HistoryDag:
                 m = len(cladelists)
                 cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
                 if node.label == "DAG_root":
-                    return counter_prod(cladecounters, sum)
+                    node.below_loglikelihoods = counter_prod(cladecounters, sum)
+                    return node.below_loglikelihoods
                 else:
                     node.below_loglikelihoods = addweight(
                         counter_prod(cladecounters, sum),
                         CollapsedTree._ll_genotype(node.abundance, m, p, q)[0])
+
+    def cmcounters(self):
+        """Expects DAG to be collapsed so that only edges targeting leaf nodes may have the same label on parent and child nodes. p and q are branching process likelihoods."""
+        self.cmlist = self._construct_cmlists()
+        return self.below_cm
+
+    def _construct_cmlists(self):
+        """Constructs a Counter object, containing one FrozenMultiset object for each
+        (sub) tree below each node. The FrozenMultiset contains (c, m) tuples (c is abundance and
+        m is mutant descendants) for the corresponding (sub) tree."""
+        # Need to make this traversal ignore edges between nodes with the
+        # same label
+        def accumfunc(counterlist):
+            return counter_sum(counterlist, counter_type=FrozenMultiset)
+
+        for node in postorder(self):
+            if node.is_leaf():
+                node.below_cm = Counter([FrozenMultiset([(node.abundance, 0)])])
+            else:
+                cladelists = [
+                    [target.below_cm for target in node.clades[clade].targets ]
+                    for clade in node.clades
+                    if not (len(clade) == 1 and list(clade)[0] == node.label)
+                ]
+                # Because construction of cladelists ignores child clades whose
+                # sole target is a leaf with the same sequence:
+                m = len(cladelists)
+                cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
+                if node.label == "DAG_root":
+                    node.below_cm = counter_prod(cladecounters, accumfunc)
+                    return node.below_cm
+                else:
+                    node.below_cm = addweight(
+                        counter_prod(cladecounters, accumfunc),
+                        {(node.abundance, m)})
 
 
 class EdgeSet:
@@ -1001,40 +1043,5 @@ def recalculate_parsimony(tree: HistoryDag, distance_func=utils.hamming_distance
                 eset.weights[i] = distance_func(eset.targets[i].label, node.label)
     return tree.weight()
 
-
 def empty_node(label, clades):
     return HistoryDag(label, {clade: EdgeSet() for clade in clades})
-
-def prod(l: list):
-    """Return product of elements of the input list.
-    if passed list is empty, returns 1."""
-    n = len(l)
-    if n > 0:
-        accum = l[0]
-        if n > 1:
-            for item in l[1:]:
-                accum *= item
-    else:
-        accum = 1
-    return accum
-
-def counter_prod(counterlist, accumfunc):
-    """Really a sort of cartesian product, which does accumfunc to keys and counts all the ways each result
-    can be achieved using contents of counters in counterlist.
-    accumfunc must be a function like sum which acts on a list of arbitrary length. Probably should return an
-    object of the same type."""
-    newc = Counter()
-    for combi in utils.cartesian_product([c.items for c in counterlist]):
-        weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
-        newc.update({accumfunc(weights): prod(counts)})
-    return newc
-
-def counter_sum(counterlist):
-    """Sum a list of counters, like concatenating their representative lists"""
-    newc = Counter()
-    for c in counterlist:
-        newc += c
-    return newc
-
-def addweight(c, w):
-    return Counter({key + w: val for key, val in c.items()})
