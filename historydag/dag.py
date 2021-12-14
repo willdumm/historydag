@@ -282,7 +282,7 @@ class HistoryDag:
         self,
         min_weight=False,
         count_resolutions=False,
-        distance_func=utils.hamming_distance,
+        distance_func=lambda x, y: utils.hamming_distance(x.label, y.label),
     ):
         r"""Annotates each node in the DAG with the number of complete trees underneath (extending to leaves,
         and containing exactly one edge for each node-clade pair). Returns the total number of unique
@@ -542,10 +542,10 @@ class HistoryDag:
                     node.weight_counters[sequence] = counter_prod(cladecounters, sum)
         return self.weight_counters
 
-    def get_weight_counts(self, distance_func=utils.hamming_distance):
+    def get_weight_counts(self, distance_func=lambda n1, n2: utils.hamming_distance(n1.label, n2.label), addfunc=operator.add):
         r"""Annotate each node in the DAG, in postorder traversal, with a Counter object
         keyed by weight, with values the number of possible unique trees below the node
-        with that weight."""
+        with that weight. Addfunc tells how to add two weights together, so that arbitrary types can be used as weights."""
         for node in postorder(self):
             if node.is_leaf():
                 node.weight_counter = Counter({0: 1})
@@ -554,7 +554,8 @@ class HistoryDag:
                     [
                         addweight(
                             target.weight_counter,
-                            distance_func(target.label, node.label),
+                            distance_func(node, target),
+                            addfunc=addfunc,
                         )
                         for target in node.clades[clade].targets
                     ]

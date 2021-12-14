@@ -50,8 +50,8 @@ test_collapsed_counters = [
 ]
 
 def test_collapsed_counts():
-    assert [dag.get_weight_counts(distance_func=lambda x, y: x == y) for dag in dags] == test_uncollapsed_counters
-    assert [dag.get_weight_counts(distance_func=lambda x, y: x == y) for dag in cdags] == test_collapsed_counters
+    assert [dag.get_weight_counts(distance_func=lambda x, y: x.label == y.label) for dag in dags] == test_uncollapsed_counters
+    assert [dag.get_weight_counts(distance_func=lambda x, y: x.label == y.label) for dag in cdags] == test_collapsed_counters
 
 
 def test_min_weight():

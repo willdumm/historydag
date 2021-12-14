@@ -1,6 +1,6 @@
-from multiset import FrozenMultiset
 from collections import Counter
 import historydag.utils as utils
+import operator
 
 
 def prod(l: list):
@@ -34,5 +34,5 @@ def counter_sum(counterlist, counter_type=Counter):
         newc += c
     return newc
 
-def addweight(c, w):
-    return Counter({key + w: val for key, val in c.items()})
+def addweight(c, w, addfunc=operator.add):
+    return Counter({addfunc(key, w): val for key, val in c.items()})
