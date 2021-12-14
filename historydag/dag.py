@@ -6,11 +6,13 @@ import graphviz as gv
 from historydag import utils
 import ete3
 import random
-from typing import List, Callable, Any
+from typing import List, Callable, Any, TypeVar
 from collections import Counter
 from gctree import CollapsedTree
 from multiset import FrozenMultiset
-from historydag.counterops import *
+from historydag.counterops import counter_sum, counter_prod, addweight
+
+Weight = TypeVar('Weight')
 
 
 class HistoryDag:
@@ -258,7 +260,9 @@ class HistoryDag:
         return cumsum / float(n - 1)
 
     def min_weight_annotate(self, distance_func=utils.hamming_distance):
-        self.optimal_weight_annotate(edge_weight_func=(lambda x, y: distance_func(x.label, y.label)))
+        self.optimal_weight_annotate(
+            edge_weight_func=(lambda x, y: distance_func(x.label, y.label))
+        )
 
     def sample(self, min_weight=False, distance_func=utils.hamming_distance):
         r"""Samples a sub-history-DAG that is also a tree containing the root and
@@ -542,10 +546,46 @@ class HistoryDag:
                     node.weight_counters[sequence] = counter_prod(cladecounters, sum)
         return self.weight_counters
 
-    def get_weight_counts(self, distance_func=lambda n1, n2: utils.hamming_distance(n1.label, n2.label), addfunc=operator.add, start_val=0):
-        r"""Annotate each node in the DAG, in postorder traversal, with a Counter object
-        keyed by weight, with values the number of possible unique trees below the node
-        with that weight. Addfunc tells how to add two weights together, so that arbitrary types can be used as weights."""
+
+    def get_weight_counts(
+        self,
+        start_val: Weight = 0,
+        distance_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
+            lambda x, y: utils.hamming_distance(x.label, y.label)
+        ),
+        addfunc: Callable[[Weight, Weight], Weight] = operator.add,
+    ):
+        return self.postorder_cladetree_accum_dp(
+            start_val=start_val,
+            edge_weight_func=distance_func,
+            accum_within_clade=counter_sum,
+            accum_between_clade=lambda x: counter_prod(
+                x, lambda x: reduce(addfunc, x, start_val)
+            ),
+            addweight_func=addfunc,
+        )
+
+    def postorder_cladetree_accum_dp(
+        self,
+        start_val: Weight = 0,
+        edge_weight_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
+            lambda x, y: utils.hamming_distance(x.label, y.label)
+        ),
+        accum_within_clade: Callable[[List[Counter]], Counter] = counter_sum,
+        accum_between_clade: Callable[
+            [List[Counter]], Counter
+        ] = lambda x: counter_prod(x, sum),
+        addweight_func: Callable[[Weight, Weight], Weight] = operator.add,
+    ):
+        r"""
+        This will take further generalization, so that it can do min_weight_annotate task too.
+        distance_func reports the weight of an edge -> edge_weight_func takes two nodes and reports a Weight
+        start_val is the initial Weight to use for leaf nodes
+        Addweight adds a Weight object to each Weight in a counter, so needs addweight_func, a way of adding together two Weights.
+        counter_sum combines counters associated to targets under the same clade -> (reduce) accum_within_clade should take two Counters and 'add' them
+        for reduce, need within_clade_identity, what to return when there aren't any counters to add
+        counter_prod combines summed counters associated to targets under different clades -> (reduce) accum_between_clade should take two Counters and 'multiply' them
+        for reduce, need between_clade_identity, what to return when there aren't any counters to multiply"""
         for node in postorder(self):
             if node.is_leaf():
                 node.weight_counter = Counter({start_val: 1})
@@ -554,15 +594,17 @@ class HistoryDag:
                     [
                         addweight(
                             target.weight_counter,
-                            distance_func(node, target),
-                            addfunc=addfunc,
+                            edge_weight_func(node, target),
+                            addfunc=addweight_func,
                         )
                         for target in node.clades[clade].targets
                     ]
                     for clade in node.clades
                 ]
-                cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
-                node.weight_counter = counter_prod(cladecounters, sum)
+                cladecounters = [
+                    accum_within_clade(cladelist) for cladelist in cladelists
+                ]
+                node.weight_counter = accum_between_clade(cladecounters)
         return self.weight_counter
 
     def optimal_weight_annotate(
@@ -616,7 +658,6 @@ class HistoryDag:
                 node.min_weight_under = accum_func(min_sum, node_weight_func(node))
         return self.min_weight_under
 
-
     def trim_optimal_weight(
         self,
         edge_weight_func: Callable[[Any, Any], Any] = (
@@ -640,7 +681,9 @@ class HistoryDag:
             for clade, eset in node.clades.items():
                 weightlist = [
                     (
-                        accum_func(target.min_weight_under, edge_weight_func(node, target)),
+                        accum_func(
+                            target.min_weight_under, edge_weight_func(node, target)
+                        ),
                         target,
                         index,
                     )
@@ -662,15 +705,21 @@ class HistoryDag:
 
     def trim_min_weight(self, distance_func=utils.hamming_distance, focus_site=None):
         if focus_site is None:
+
             def getlabel(node):
                 return node.label
+
         else:
+
             def getlabel(node):
-                if node.label == 'DAG_root':
-                    return 'DAG_root'
+                if node.label == "DAG_root":
+                    return "DAG_root"
                 else:
                     return node.label[focus_site]
-        self.trim_optimal_weight(edge_weight_func=(lambda x, y: distance_func(x.label, y.label)))
+
+        self.trim_optimal_weight(
+            edge_weight_func=(lambda x, y: distance_func(x.label, y.label))
+        )
 
     def serialize(self):
         r"""Represents HistoryDag object as a list of sequences, a list of node tuples containing
@@ -1135,6 +1184,7 @@ def recalculate_parsimony(tree: HistoryDag, distance_func=utils.hamming_distance
 
 def empty_node(label, clades):
     return HistoryDag(label, {clade: EdgeSet() for clade in clades})
+
 
 def add_abundances(self, abundances: dict):
     """Expects DAG to be collapsed so that only edges targeting leaf nodes may have same label on parent and child nodes. Abundances should be a dictionary containing integers, keyed by node labels (sequences?)"""
