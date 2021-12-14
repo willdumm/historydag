@@ -542,13 +542,13 @@ class HistoryDag:
                     node.weight_counters[sequence] = counter_prod(cladecounters, sum)
         return self.weight_counters
 
-    def get_weight_counts(self, distance_func=lambda n1, n2: utils.hamming_distance(n1.label, n2.label), addfunc=operator.add):
+    def get_weight_counts(self, distance_func=lambda n1, n2: utils.hamming_distance(n1.label, n2.label), addfunc=operator.add, start_val=0):
         r"""Annotate each node in the DAG, in postorder traversal, with a Counter object
         keyed by weight, with values the number of possible unique trees below the node
         with that weight. Addfunc tells how to add two weights together, so that arbitrary types can be used as weights."""
         for node in postorder(self):
             if node.is_leaf():
-                node.weight_counter = Counter({0: 1})
+                node.weight_counter = Counter({start_val: 1})
             else:
                 cladelists = [
                     [
