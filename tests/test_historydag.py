@@ -75,7 +75,7 @@ def test_from_tree():
     tree = ete3.Tree(newickstring2, format=1)
     print(tree.sequence)
     dag = from_tree(tree)
-    G = dag.to_graphviz(namedict)
+    G = dag.to_graphviz(namedict=namedict)
     return G
 
 
@@ -115,7 +115,7 @@ def test_merge():
     tree2 = ete3.Tree(newickstring3, format=1)
     dag2 = from_tree(tree2)
     dag1.merge(dag2)
-    return dag1.to_graphviz(namedict)
+    return dag1.to_graphviz(namedict=namedict)
 
 
 def test_weight():
@@ -124,7 +124,7 @@ def test_weight():
     tree2 = ete3.Tree(newickstring3, format=1)
     dag2 = from_tree(tree2)
     dag1.merge(dag2)
-    return dag1.to_graphviz(namedict)
+    return dag1.to_graphviz(namedict=namedict)
     assert dag1.weight() == 16
 
 
@@ -134,7 +134,7 @@ def test_internal_avg_parents():
     tree2 = ete3.Tree(newickstring3, format=1)
     dag2 = from_tree(tree2)
     dag1.merge(dag2)
-    return dag1.to_graphviz(namedict)
+    return dag1.to_graphviz(namedict=namedict)
     assert dag1.internal_avg_parents() == 9 / 7
 
 
@@ -144,4 +144,4 @@ def test_sample():
     namedict = {str(x): x for x in range(5)}
     dag = history_dag_from_newicks(newicks)
     sample = dag.sample()
-    return sample.to_graphviz(namedict)
+    return sample.to_graphviz(namedict=namedict)
