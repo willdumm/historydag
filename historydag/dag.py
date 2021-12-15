@@ -8,7 +8,7 @@ import ete3
 import random
 from typing import List, Callable, Any, TypeVar
 from collections import Counter
-from gctree import CollapsedTree
+# from gctree import CollapsedTree
 from multiset import FrozenMultiset
 from historydag.counterops import counter_sum, counter_prod, addweight
 
@@ -891,37 +891,37 @@ class HistoryDag:
         if len(nondagroot.clades) == 1:
             nondagroot.abundance = 1
 
-    def bp_loglikelihoods(self, p, q):
-        r"""Expects DAG to be collapsed so that only edges targeting leaf nodes may have the same label on parent and child nodes. p and q are branching process likelihoods."""
+    # def bp_loglikelihoods(self, p, q):
+    #     r"""Expects DAG to be collapsed so that only edges targeting leaf nodes may have the same label on parent and child nodes. p and q are branching process likelihoods."""
 
-        # Need to make this traversal ignore edges between nodes with the
-        # same label
-        for node in postorder(self):
-            if node.is_leaf():
-                node.below_loglikelihoods = Counter(
-                    [CollapsedTree._ll_genotype(node.abundance, 0, p, q)[0]]
-                )
-            else:
-                cladelists = [
-                    [
-                        target.below_loglikelihoods
-                        for target in node.clades[clade].targets
-                    ]
-                    for clade in node.clades
-                    if not (len(clade) == 1 and list(clade)[0] == node.label)
-                ]
-                # Because construction of cladelists ignores child clades whose
-                # sole target is a leaf with the same sequence:
-                m = len(cladelists)
-                cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
-                if node.label == "DAG_root":
-                    node.below_loglikelihoods = counter_prod(cladecounters, sum)
-                    return node.below_loglikelihoods
-                else:
-                    node.below_loglikelihoods = addweight(
-                        counter_prod(cladecounters, sum),
-                        CollapsedTree._ll_genotype(node.abundance, m, p, q)[0],
-                    )
+    #     # Need to make this traversal ignore edges between nodes with the
+    #     # same label
+    #     for node in postorder(self):
+    #         if node.is_leaf():
+    #             node.below_loglikelihoods = Counter(
+    #                 [CollapsedTree._ll_genotype(node.abundance, 0, p, q)[0]]
+    #             )
+    #         else:
+    #             cladelists = [
+    #                 [
+    #                     target.below_loglikelihoods
+    #                     for target in node.clades[clade].targets
+    #                 ]
+    #                 for clade in node.clades
+    #                 if not (len(clade) == 1 and list(clade)[0] == node.label)
+    #             ]
+    #             # Because construction of cladelists ignores child clades whose
+    #             # sole target is a leaf with the same sequence:
+    #             m = len(cladelists)
+    #             cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
+    #             if node.label == "DAG_root":
+    #                 node.below_loglikelihoods = counter_prod(cladecounters, sum)
+    #                 return node.below_loglikelihoods
+    #             else:
+    #                 node.below_loglikelihoods = addweight(
+    #                     counter_prod(cladecounters, sum),
+    #                     CollapsedTree._ll_genotype(node.abundance, m, p, q)[0],
+    #                 )
 
     def cmcounters(self):
         r"""Expects DAG to be collapsed so that only edges targeting leaf nodes may have the same label on parent and child nodes. p and q are branching process likelihoods."""
