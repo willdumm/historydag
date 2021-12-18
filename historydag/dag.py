@@ -175,6 +175,7 @@ class HistoryDag:
             if node.label in namedict:
                 name = namedict[node.label]
             else:
+                print(f"sequence={node.label} not found in namedict")
                 name = "unnamed_seq"
             if node.is_leaf():
                 return f"{name}[&&NHX:sequence={node.label}]"
@@ -281,6 +282,14 @@ class HistoryDag:
                 from_root=from_root,
             )
         return sample
+
+    def make_uniform(self):
+        """Adjust edge probabilities so that the DAG expresses a uniform distribution on expressed trees"""
+        self.count_trees()
+        for node in hdag.postorder(self):
+            for clade, eset in node.clades.items():
+                for i, target in enumerate(eset.targets):
+                    eset.probs[i] = target.trees_under
 
     def count_trees(
         self,
