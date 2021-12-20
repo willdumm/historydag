@@ -562,16 +562,16 @@ class HistoryDag:
         distance_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
             lambda x, y: utils.hamming_distance(x.label, y.label)
         ),
-        addfunc: Callable[[Weight, Weight], Weight] = operator.add,
+        addfunc: Callable[[Weight, Weight], Weight] = sum,
     ):
         return self.postorder_cladetree_accum_dp(
             start_val=lambda n: start_val,
             edge_weight_func=distance_func,
             accum_within_clade=counter_sum,
             accum_between_clade=lambda x: counter_prod(
-                x, lambda x: reduce(addfunc, x, start_val)
+                x, addfunc)
             ),
-            addweight_func=addfunc,
+            addweight_func=lambda w1, w2: addfunc([w1, w2]),
         )
 
     def postorder_cladetree_accum_dp(
