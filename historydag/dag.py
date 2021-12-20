@@ -558,7 +558,7 @@ class HistoryDag:
 
     def get_weight_counts(
         self,
-        start_val: Weight = 0,
+        start_val: Callable[['HistoryDag'], Weight] = lambda n: 0,
         distance_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
             lambda x, y: utils.hamming_distance(x.label, y.label)
         ),
@@ -576,7 +576,7 @@ class HistoryDag:
 
     def postorder_cladetree_accum_dp(
         self,
-        start_val: Weight = 0,
+        start_val: Callable[['HistoryDag'], Weight] = lambda n: 0,
         edge_weight_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
             lambda x, y: utils.hamming_distance(x.label, y.label)
         ),
@@ -597,7 +597,7 @@ class HistoryDag:
         for reduce, need between_clade_identity, what to return when there aren't any counters to multiply"""
         for node in postorder(self):
             if node.is_leaf():
-                node.weight_counter = Counter({start_val: 1})
+                node.weight_counter = Counter({start_val(node): 1})
             else:
                 cladelists = [
                     [
