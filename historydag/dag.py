@@ -286,7 +286,7 @@ class HistoryDag:
     def make_uniform(self):
         """Adjust edge probabilities so that the DAG expresses a uniform distribution on expressed trees"""
         self.count_trees()
-        for node in hdag.postorder(self):
+        for node in postorder(self):
             for clade, eset in node.clades.items():
                 for i, target in enumerate(eset.targets):
                     eset.probs[i] = target.trees_under
@@ -562,15 +562,13 @@ class HistoryDag:
         distance_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
             lambda x, y: utils.hamming_distance(x.label, y.label)
         ),
-        addfunc: Callable[[Weight, Weight], Weight] = sum,
+        addfunc: Callable[[List], Weight] = sum,
     ):
         return self.postorder_cladetree_accum_dp(
             start_val=lambda n: start_val,
             edge_weight_func=distance_func,
             accum_within_clade=counter_sum,
-            accum_between_clade=lambda x: counter_prod(
-                x, addfunc)
-            ),
+            accum_between_clade=lambda x: counter_prod(x, addfunc),
             addweight_func=lambda w1, w2: addfunc([w1, w2]),
         )
 
