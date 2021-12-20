@@ -558,14 +558,14 @@ class HistoryDag:
 
     def get_weight_counts(
         self,
-        start_val: Callable[['HistoryDag'], Weight] = lambda n: 0,
+        start_val: Weight = 0,
         distance_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
             lambda x, y: utils.hamming_distance(x.label, y.label)
         ),
         addfunc: Callable[[Weight, Weight], Weight] = operator.add,
     ):
         return self.postorder_cladetree_accum_dp(
-            start_val=start_val,
+            start_val=lambda n: start_val,
             edge_weight_func=distance_func,
             accum_within_clade=counter_sum,
             accum_between_clade=lambda x: counter_prod(
