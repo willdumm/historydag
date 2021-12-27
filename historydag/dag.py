@@ -261,9 +261,9 @@ class HistoryDag:
         return cumsum / float(n - 1)
 
     def min_weight_annotate(self, distance_func=utils.hamming_distance):
-        self.optimal_weight_annotate(
+        return(self.optimal_weight_annotate(
             edge_weight_func=(lambda x, y: distance_func(x.label, y.label))
-        )
+        ))
 
     def sample(self, min_weight=False, distance_func=utils.hamming_distance):
         r"""Samples a sub-history-DAG that is also a tree containing the root and
