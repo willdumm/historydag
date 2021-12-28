@@ -7,7 +7,7 @@ from historydag import utils
 import ete3
 import random
 from typing import List, Callable, Any, TypeVar
-from collections import Counter
+from collections import Counter, namedtuple
 # from gctree import CollapsedTree
 from multiset import FrozenMultiset
 from historydag.counterops import counter_sum, counter_prod, addweight
@@ -15,17 +15,18 @@ from historydag.counterops import counter_sum, counter_prod, addweight
 Weight = TypeVar('Weight')
 
 
-class HistoryDag:
+class HistoryDagNode:
     r"""A recursive representation of a history DAG object
     - a dictionary keyed by clades (frozensets) containing EdgeSet objects
-    - a label
+    - a label, which is a namedtuple.
     """
 
-    def __init__(self, label, clades: dict = {}):
+    def __init__(self, label, clades: dict = {}, attr=None):
         self.clades = clades
         # If passed a nonempty dictionary, need to add self to children's parents
         self.label = label
         self.parents = set()
+        self.attr = attr
         if self.clades:
             for _, edgeset in self.clades.items():
                 edgeset.parent = self
@@ -42,7 +43,7 @@ class HistoryDag:
         return self.__hash__() == other.__hash__()
 
     def node_self(self):
-        return HistoryDag(self.label, {clade: EdgeSet() for clade in self.clades})
+        return HistoryDagNode(self.label, {clade: EdgeSet() for clade in self.clades})
 
     def under_clade(self):
         r"""Returns the union of all child clades"""
@@ -148,7 +149,7 @@ class HistoryDag:
         for node in postorder(self):
             clade_dict[node.under_clade()].append(node)
         for node in postorder(self):
-            if new_from_root is False and node.label == "DAG_root":
+            if new_from_root is False and node.is_root():
                 continue
             else:
                 for clade in node.clades:
@@ -169,16 +170,18 @@ class HistoryDag:
         If fixed_order is True, with same namedict, two trees' newick representations are
         equal iff the two trees have the same topology and node sequences.
         Should be usable for equality in this sense on general DAG too, with include_root
-        True"""
+        True
+        TODO refactor and add dp option"""
 
         def newick(node):
+            features = ','.join(f'{name}={val}' for name, val in t._asdict().items())
             if node.label in namedict:
                 name = namedict[node.label]
             else:
                 print(f"sequence={node.label} not found in namedict")
                 name = "unnamed_seq"
             if node.is_leaf():
-                return f"{name}[&&NHX:sequence={node.label}]"
+                return f"{name}[&&NHX:{features}]"
             else:
                 if fixed_order:
                     # Sort child nodes by their hash, which is a function of
@@ -191,10 +194,10 @@ class HistoryDag:
                     "("
                     + ",".join([newick(node2) for node2 in children])
                     + ")"
-                    + f"{name}[&&NHX:sequence={node.label}]"
+                    + f"{name}[&&NHX:{features}]"
                 )
 
-        if self.label == "DAG_root" and include_root is False:
+        if self.is_root() and include_root is False:
             return newick(next(self.children())) + ";"
         else:
             return newick(self) + ";"
@@ -223,7 +226,7 @@ class HistoryDag:
         if labelfunc is None:
 
             def labelfunc(node):
-                return labeller(node.label)
+                return labeller(str(node.label))
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in postorder(self):
@@ -260,15 +263,11 @@ class HistoryDag:
         # Exclude root:
         return cumsum / float(n - 1)
 
-    def min_weight_annotate(self, distance_func=utils.hamming_distance):
-        return(self.optimal_weight_annotate(
-            edge_weight_func=(lambda x, y: distance_func(x.label, y.label))
-        ))
 
     def sample(self, min_weight=False, distance_func=utils.hamming_distance):
         r"""Samples a sub-history-DAG that is also a tree containing the root and
-        all leaf nodes. Returns a new HistoryDag object."""
-        from_root = self.label == "DAG_root"
+        all leaf nodes. Returns a new HistoryDagNode object."""
+        from_root = self.is_root()
         if from_root:
             self.min_weight_annotate(distance_func=distance_func)
         sample = self.node_self()
@@ -299,7 +298,8 @@ class HistoryDag:
     ):
         r"""Annotates each node in the DAG with the number of complete trees underneath (extending to leaves,
         and containing exactly one edge for each node-clade pair). Returns the total number of unique
-        complete trees below the root node."""
+        complete trees below the root node.
+        TODO: Replace with abstract dp method call"""
         if min_weight:
             if not count_resolutions:
                 c = self.get_weight_counts(distance_func=distance_func)
@@ -326,6 +326,7 @@ class HistoryDag:
                     ]
                 )
                 if count_resolutions:
+                    # TODO reconcile with new labeling scheme
                     node.trees_under *= len(
                         list(utils.sequence_resolutions(node.label))
                     )
@@ -356,9 +357,10 @@ class HistoryDag:
 
         optionlist = [genexp_func(clade) for clade in self.clades]
 
+        # TODO is this duplicated code?
         for option in utils.cartesian_product(optionlist):
             tree = dag.node_self()
-            from_root = tree.label == "DAG_root"
+            from_root = tree.is_root()
             for clade, targettree, index in option:
                 tree.clades[clade].add_to_edgeset(
                     targettree,
@@ -367,123 +369,9 @@ class HistoryDag:
                 )
             yield tree
 
-    def disambiguate_sitewise(self):
-        r"""
-        Finds all sites at which DAG nodes have ambiguous bases, then expands ambiguities at each of those sites individually, pruning the expanded nodes that do not have optimal below-node tree weight. This method may be guaranteed to find all min-weight disambiguations, but if some of the original trees have higher minimum disambiguation weight, then some or all of their disambiguations may be missing from the resulting DAG structure.
-        """
-        # Does not work yet!
-        ambigset = set()
-        for node in postorder(self):
-            if node.label != "DAG_root":
-                ambigset.update(
-                    {
-                        site
-                        for site, base in enumerate(node.label)
-                        if base not in utils.bases
-                    }
-                )
-        print(ambigset)
-        for site in ambigset:
-            dist_func = utils.compare_site_func(site)
-            new_nodes = self.expand_ambiguities(focus_site=site)
-            print(sum(1 for _ in postorder(self)))
-            self.min_weight_annotate(distance_func=dist_func)
-            rporder = reversed(list(postorder(self)))
-            for node in rporder:
-                for clade, eset in node.clades.items():
-                    min_weights = [
-                        target.min_weight_under + dist_func(node.label, target.label)
-                        for target in eset.targets
-                    ]
-                    min_weight = min(min_weights)
-                    to_delete = [
-                        index
-                        for index, weight in enumerate(min_weights)
-                        if weight != min_weight
-                    ]
-                    # Guaranteed to preserve at least one eset target, but
-                    # could result in orphaned targets
-                    for index in reversed(to_delete):
-                        # only allow removal of newly created nodes
-                        if eset.targets[index] in new_nodes:
-                            oldtarget = eset.targets.pop(index)
-                            if node in oldtarget.parents:
-                                oldtarget.parents.remove(node)
-                            # Remove orphaned targets
-                            if not oldtarget.parents:
-                                oldtarget.remove_node()
-                            eset.weights.pop(index)
-                            eset.probs.pop(index)
-            # Remove orphaned nodes?
-            self.recompute_parents()
-
-    def two_pass_sankoff(self, distance_func=utils.hamming_distance):
-        r"""Disambiguate using a two-pass Sankoff algorithm. The first pass is provided by the
-        get_weight_counts_with_ambiguities method. The second (downward) pass involves choosing a minimum weight
-        resolution of each node, then updating sequence weights of all child nodes."""
-
-        def addweight(c, w):
-            return Counter({key + w: val for key, val in c.items()})
-
-        self.get_weight_counts_with_ambiguities(distance_func=distance_func)
-        rporder = list(postorder(self))
-        rporder.reverse()
-        for node in rporder:
-            min_weight = float("inf")
-            best_sequence = None
-            for sequence in node.weight_counters:
-                this_min = min(node.weight_counters[sequence])
-                if this_min < min_weight:
-                    min_weight = this_min
-                    best_sequence = sequence
-            node.label = best_sequence
-            for child in node.children():
-                for sequence in child.weight_counters:
-                    before = child.weight_counters[sequence]
-                    after = addweight(before, distance_func(sequence, node.label))
-                    child.weight_counters[sequence] = after
-
-    def disambiguate_dag(self, distance_func=utils.hamming_distance):
-        r"""like get_weight_counts_with_ambiguities, but creates dictionaries of Counter objects at each node,
-        keyed by possible sequences at that node.
-        chooses a sequence that minimizes the below-node tree weight.
-        This is a one-pass Sankoff algorithm??"""
-
-        for node in postorder(self):
-            node.weight_counters = {}
-            min_weight = float("inf")
-            best_sequence = None
-            for sequence in utils.sequence_resolutions(node.label):
-                if node.is_leaf():
-                    node.weight_counters[sequence] = Counter({0: 1})
-                else:
-                    cladelists = [
-                        [
-                            addweight(
-                                target_wc,
-                                distance_func(target_seq, sequence),
-                            )
-                            for target in node.clades[clade].targets
-                            for target_seq, target_wc in target.weight_counters.items()
-                        ]
-                        for clade in node.clades
-                    ]
-                    cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
-                    node.weight_counters[sequence] = counter_prod(cladecounters, sum)
-                print(node.label)
-                print(node.weight_counters)
-                this_sequence_min_weight = min(node.weight_counters[sequence])
-                if this_sequence_min_weight < min_weight:
-                    min_weight = this_sequence_min_weight
-                    best_sequence = sequence
-            n_min_weight = node.weight_counters[sequence][min_weight]
-            node.weight_counters = {sequence: Counter({min_weight: n_min_weight})}
-            node.label = best_sequence
-
-        return self.weight_counters
-
     def expand_ambiguities(self, focus_site=None):
-        r"""Each node with an ambiguous sequence is replaced by nodes with all possible disambiguations of the original sequence, and the same clades and parent and child edges."""
+        r"""Each node with an ambiguous sequence is replaced by nodes with all possible disambiguations of the original sequence, and the same clades and parent and child edges.
+        TODO: refactor for new label scheme..."""
 
         def sequence_resolutions(sequence):
             if focus_site is not None:
@@ -503,7 +391,7 @@ class HistoryDag:
         nodeorder = list(postorder(self))
         new_nodes = set()
         for node in nodeorder:
-            if node.label != "DAG_root" and is_ambiguous(node.label):
+            if node.is_root() and is_ambiguous(node.label):
                 clades = frozenset(node.clades.keys())
                 for resolution in sequence_resolutions(node.label):
                     if hash((resolution, clades)) in nodedict:
@@ -532,7 +420,8 @@ class HistoryDag:
         keyed by possible sequences at that node.
         The total number of trees will be greater than count_trees(), as these are possible
         disambiguations of trees. These disambiguations may not be unique (?), but if two are
-        the same, they come from different subtrees of the DAG."""
+        the same, they come from different subtrees of the DAG.
+        TODO: replace with call to abstract method"""
 
         for node in postorder(self):
             node.weight_counters = {}
@@ -556,82 +445,50 @@ class HistoryDag:
         return self.weight_counters
 
 
-    def get_weight_counts(
-        self,
-        start_val: Weight = 0,
-        distance_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
-            lambda x, y: utils.hamming_distance(x.label, y.label)
-        ),
-        addfunc: Callable[[List], Weight] = sum,
-    ):
-        return self.postorder_cladetree_accum_dp(
-            start_val=lambda n: start_val,
-            edge_weight_func=distance_func,
-            accum_within_clade=counter_sum,
-            accum_between_clade=lambda x: counter_prod(x, addfunc),
-            addweight_func=lambda w1, w2: addfunc([w1, w2]),
-        )
+    ######## Abstract dp method and derivatives: ########
 
-    def postorder_cladetree_accum_dp(
+    def postorder_cladetree_accum(
         self,
-        start_val: Callable[['HistoryDag'], Weight] = lambda n: 0,
-        edge_weight_func: Callable[['HistoryDag', 'HistoryDag'], Weight] = (
-            lambda x, y: utils.hamming_distance(x.label, y.label)
-        ),
-        accum_within_clade: Callable[[List[Counter]], Counter] = counter_sum,
-        accum_between_clade: Callable[
-            [List[Counter]], Counter
-        ] = lambda x: counter_prod(x, sum),
-        addweight_func: Callable[[Weight, Weight], Weight] = operator.add,
+        leaf_func: Callable[['HistoryDagNode'], Weight],
+        edge_func: Callable[['HistoryDagNode', 'HistoryDagNode'], Weight],
+        accum_within_clade: Callable[[List[Counter]], Counter],
+        accum_between_clade: Callable[[List[Counter]], Counter],
     ):
-        r"""
-        This will take further generalization, so that it can do min_weight_annotate task too.
-        distance_func reports the weight of an edge -> edge_weight_func takes two nodes and reports a Weight
-        start_val is the initial Weight to use for leaf nodes
-        Addweight adds a Weight object to each Weight in a counter, so needs addweight_func, a way of adding together two Weights.
-        counter_sum combines counters associated to targets under the same clade -> (reduce) accum_within_clade should take two Counters and 'add' them
-        for reduce, need within_clade_identity, what to return when there aren't any counters to add
-        counter_prod combines summed counters associated to targets under different clades -> (reduce) accum_between_clade should take two Counters and 'multiply' them
-        for reduce, need between_clade_identity, what to return when there aren't any counters to multiply"""
+        """TODO Docstring"""
         for node in postorder(self):
             if node.is_leaf():
-                node.weight_counter = Counter({start_val(node): 1})
+                node.weight_counter = leaf_func(node)
             else:
-                cladelists = [
+                node.weight_counter = accum_between_clade(
                     [
-                        addweight(
-                            target.weight_counter,
-                            edge_weight_func(node, target),
-                            addfunc=addweight_func,
+                        accum_within_clade(
+                            [
+                                accum_between_clade(
+                                    [target.weight_counter,
+                                    edge_func(node, target)],
+                                )
+                                for target in node.clades[clade].targets
+                            ]
                         )
-                        for target in node.clades[clade].targets
+                        for clade in node.clades
                     ]
-                    for clade in node.clades
-                ]
-                cladecounters = [
-                    accum_within_clade(cladelist) for cladelist in cladelists
-                ]
-                node.weight_counter = accum_between_clade(cladecounters)
+                )
         return self.weight_counter
 
     def optimal_weight_annotate(
         self,
-        edge_weight_func: Callable[[Any, Any], Any] = (
-            lambda x, y: utils.hamming_distance(x.label, y.label)
-        ),
-        node_weight_func: Callable[[Any], Any] = (lambda node: 0),
-        accum_func: Callable[[Any, Any], Any] = operator.add,
-        accum_identity: Any = 0,
-        optimal_func: Callable[[List[Any]], Any] = min,
+        start_func: Callable[['HistoryDagNode'], Weight] = lambda n: 0,
+        edge_weight_func: Callable[['HistoryDagNode', 'HistoryDagNode'], Weight] = lambda n1, n2: utils.hamming_distance(n1.label, n2.label),
+        accum_func: Callable[[List[Weight]], Weight] = sum,
+        optimal_func: Callable[[List[Weight]], Weight] = min
     ):
         r"""
         Dynamically annotates each node in the DAG with the optimal weight of a clade sub-tree beneath it, so that the DAG root node is annotated with the optimal weight of a clade tree in the DAG.
 
         Args:
-            edge_weight_func: A function which assigns weights to DAG edges based on the label of the parent node and the label of the child node, in that order.
-            node_weight_func: A function which assigns weights to DAG nodes.
-            accum_func: A function which takes two weights and returns a weight, like sum.
-            accum_identity: A left identity value for accum_func, so that accum_func(accum_identity, x) = x. "If we want to accum_func a list of 0 items, what should the result be? accum_identity."
+            start_func: A function which assigns starting weights to leaves.
+            edge_weight_func: A function which assigns weights to DAG edges based on the parent node and the child node, in that order.
+            accum_func: A function which takes a list of weights and returns a weight, like sum.
             optimal_func: A function which takes a list of weights and returns the optimal one, like min.
 
         At each node, if :math:`U` is the set of clades under the node, and for each clade :math:`C\in U`, :math:`V_C` is the set of target nodes beneath that clade, and if for each node :math:`v\in V_C`, :math:`OW(v)` is the optimal weight of a clade sub-tree below :math:`v`, then:
@@ -642,28 +499,52 @@ class HistoryDag:
 
         where :math:`\sum` and :math:`+` are used for clarity, while accum_func is meant.
         """
-        for node in postorder(self):
-            if node.is_leaf():
-                node.min_weight_under = node_weight_func(node)
+        return postorder_cladetree_accum(
+            self,
+            start_func,
+            edge_weight_func,
+            optimal_func,
+            accum_func,
+        )
+
+
+    def weight_count(
+        self,
+        start_func: Callable[['HistoryDagNode'], Weight] = lambda n: 0,
+        edge_weight_func: Callable[['HistoryDagNode', 'HistoryDagNode'], Weight] = lambda n1, n2: utils.hamming_distance(n1.label, n2.label),
+        accum_func: Callable[[List[Weight]], Weight] = sum,
+    ):
+        return postorder_cladetree_accum(
+            self,
+            lambda n: Counter([start_func(n)]),
+            lambda n1, n2: Counter([edge_weight_func(n1, n2)]),
+            counter_sum,
+            lambda x: counter_prod(x, accum_func)
+        )
+
+    def to_newicks(self):
+        """Returns a list of extended newick strings formed with label fields.
+        TODO: Make this true (right now just uses label naively)"""
+        def newicksum(newicks):
+            if len(newicks) == 2:
+                if '' in newicks:
+                    return ''.join(newicks)
+                elif newicks[0][-1] == ')':
+                    return ''.join(newicks)
+                elif newicks[1][-1] == ')':
+                    return ''.join(reversed(newicks))
+                else:
+                    return '(' + ', '.join(newicks) + ')'
             else:
-                min_sum = reduce(
-                    accum_func,
-                    [
-                        optimal_func(
-                            [
-                                accum_func(
-                                    child.min_weight_under,
-                                    edge_weight_func(node, child),
-                                )
-                                for child in node.clades[clade].targets
-                            ]
-                        )
-                        for clade in node.clades
-                    ],
-                    accum_identity,
-                )
-                node.min_weight_under = accum_func(min_sum, node_weight_func(node))
-        return self.min_weight_under
+                return '(' + ', '.join(newicks) + ')'
+
+        def newickedgeweight(n1, n2):
+            return n2.label
+
+        newicks = list(self.weight_count(start_func=lambda n: '', edge_weight_func=newickedgeweight, accum_func=newicksum))
+        return [newick + ';' for newick in newicks]
+    ######## End abstract dp methods #######
+
 
     def trim_optimal_weight(
         self,
@@ -676,6 +557,7 @@ class HistoryDag:
         abs_tol=0.0,
         **kwargs,
     ):
+        """TODO: make work with new abstract dp methods"""
         self.optimal_weight_annotate(
             edge_weight_func=edge_weight_func,
             accum_func=accum_func,
@@ -729,29 +611,38 @@ class HistoryDag:
         )
 
     def serialize(self):
-        r"""Represents HistoryDag object as a list of sequences, a list of node tuples containing
-        (node sequence index, frozenset of frozenset of leaf sequence indices)
-        and an edge list containing a tuple for each edge:
+        r"""Serializes a HistoryDag object as a bytestring.
+        To do so, represents HistoryDagNode object as a list of sequences:
+        label_fields: The names of label fields.
+        label_list: labels used in nodes, without duplicates. Indices are mapped to nodes in node_list
+        node_list: node tuples containing
+        (node label index in label_list, frozenset of frozenset of leaf label indices).
+        attr_list: list of node attr attributes in the same order as node_list
+        edge_list: a tuple for each edge:
         (origin node index, target node index, edge weight, edge probability)"""
-        sequence_list = []
+
+        label_fields = self.label._fields
+        label_list = []
         node_list = []
         edge_list = []
-        sequence_indices = {}
+        attr_list = []
+        label_indices = {}
         node_indices = {id(node): idx for idx, node in enumerate(postorder(self))}
 
         def cladesets(node):
             clades = {
-                frozenset({sequence_indices[sequence] for sequence in clade})
+                frozenset({label_indices[sequence] for sequence in clade})
                 for clade in node.clades
             }
             return frozenset(clades)
 
         for node in postorder(self):
-            if node.label not in sequence_indices:
-                sequence_indices[node.label] = len(sequence_list)
-                sequence_list.append(node.label)
-                assert sequence_list[sequence_indices[node.label]] == node.label
-            node_list.append((sequence_indices[node.label], cladesets(node)))
+            if node.label not in label_indices:
+                label_indices[node.label] = len(label_list)
+                label_list.append(tuple(node.label))
+                assert label_list[label_indices[node.label]] == node.label
+            attr_list.append(node.attr)
+            node_list.append((label_indices[node.label], cladesets(node)))
             node_idx = len(node_list) - 1
             for eset in node.clades.values():
                 for idx, target in enumerate(eset.targets):
@@ -764,9 +655,11 @@ class HistoryDag:
                         )
                     )
         serial_dict = {
-            "sequence_list": sequence_list,
+            "label_fields": label_fields,
+            "label_list": label_list,
             "node_list": node_list,
             "edge_list": edge_list,
+            "attr_list": attr_list
         }
         return pickle.dumps(serial_dict)
 
@@ -898,38 +791,6 @@ class HistoryDag:
         if len(nondagroot.clades) == 1:
             nondagroot.abundance = 1
 
-    # def bp_loglikelihoods(self, p, q):
-    #     r"""Expects DAG to be collapsed so that only edges targeting leaf nodes may have the same label on parent and child nodes. p and q are branching process likelihoods."""
-
-    #     # Need to make this traversal ignore edges between nodes with the
-    #     # same label
-    #     for node in postorder(self):
-    #         if node.is_leaf():
-    #             node.below_loglikelihoods = Counter(
-    #                 [CollapsedTree._ll_genotype(node.abundance, 0, p, q)[0]]
-    #             )
-    #         else:
-    #             cladelists = [
-    #                 [
-    #                     target.below_loglikelihoods
-    #                     for target in node.clades[clade].targets
-    #                 ]
-    #                 for clade in node.clades
-    #                 if not (len(clade) == 1 and list(clade)[0] == node.label)
-    #             ]
-    #             # Because construction of cladelists ignores child clades whose
-    #             # sole target is a leaf with the same sequence:
-    #             m = len(cladelists)
-    #             cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
-    #             if node.label == "DAG_root":
-    #                 node.below_loglikelihoods = counter_prod(cladecounters, sum)
-    #                 return node.below_loglikelihoods
-    #             else:
-    #                 node.below_loglikelihoods = addweight(
-    #                     counter_prod(cladecounters, sum),
-    #                     CollapsedTree._ll_genotype(node.abundance, m, p, q)[0],
-    #                 )
-
     def cmcounters(self):
         r"""Expects DAG to be collapsed so that only edges targeting leaf nodes may have the same label on parent and child nodes. p and q are branching process likelihoods."""
         self.cmlist = self._construct_cmlists()
@@ -939,6 +800,7 @@ class HistoryDag:
         r"""Constructs a Counter object, containing one FrozenMultiset object for each
         (sub) tree below each node. The FrozenMultiset contains (c, m) tuples (c is abundance and
         m is mutant descendants) for the corresponding (sub) tree."""
+        #TODO rewrite with abstract dp methods
         # Need to make this traversal ignore edges between nodes with the
         # same label
         def accumfunc(counterlist):
@@ -964,6 +826,12 @@ class HistoryDag:
                     node.below_cm = addweight(
                         counter_prod(cladecounters, accumfunc), {(node.abundance, m)}
                     )
+
+
+class HistoryDag(HistoryDagNode):
+    r"""A HistoryDagNode which is the root node of the DAG it belongs to."""
+    def __init__(self, label, clades: dict = {}):
+        super().__init__(self, label, clades)
 
 
 class EdgeSet:
@@ -1083,7 +951,7 @@ def from_tree(tree: ete3.TreeNode):
         return frozenset((node.sequence for node in r.get_leaves()))
 
     def _unrooted_from_tree(tree):
-        dag = HistoryDag(
+        dag = HistoryDagNode(
             tree.sequence,
             {
                 leaf_names(child): EdgeSet(
@@ -1095,7 +963,7 @@ def from_tree(tree: ete3.TreeNode):
         return dag
 
     dag = _unrooted_from_tree(tree)
-    dagroot = HistoryDag(
+    dagroot = HistoryDagNode(
         "DAG_root",
         {
             frozenset({taxon for s in dag.clades for taxon in s}): EdgeSet(
@@ -1112,10 +980,10 @@ def from_newick(tree: str):
     return from_tree(etetree)
 
 
-def postorder(dag: HistoryDag):
+def postorder(dag: HistoryDagNode):
     visited = set()
 
-    def traverse(node: HistoryDag):
+    def traverse(node: HistoryDagNode):
         visited.add(id(node))
         if not node.is_leaf():
             for child in node.children():
@@ -1126,12 +994,12 @@ def postorder(dag: HistoryDag):
     yield from traverse(dag)
 
 
-def preorder(dag: HistoryDag):
+def preorder(dag: HistoryDagNode):
     """Careful! remember this is not guaranteed to visit a parent node before any of its children.
     for that, need reverse postorder traversal."""
     visited = set()
 
-    def traverse(node: HistoryDag):
+    def traverse(node: HistoryDagNode):
         visited.add(id(node))
         yield node
         if not node.is_leaf():
@@ -1143,20 +1011,23 @@ def preorder(dag: HistoryDag):
 
 
 def deserialize(bstring):
-    """reloads an HistoryDag serialized object, as ouput by HistoryDag.serialize"""
+    """reloads an HistoryDagNode serialized object, as ouput by HistoryDagNode.serialize"""
     serial_dict = pickle.loads(bstring)
-    sequence_list = serial_dict["sequence_list"]
+    label_list = serial_dict["label_list"]
     node_list = serial_dict["node_list"]
     edge_list = serial_dict["edge_list"]
+    attr_list = serial_dict["attr_list"]
+    label_fields = serial_dict["label_fields"]
+    Label = namedtuple('Label', label_fields, defaults=[None] * len(label_fields))
 
-    def unpack_seqs(seqset):
-        return frozenset({sequence_list[idx] for idx in seqset})
+    def unpack_labels(labelset):
+        return frozenset({Label(*label_list[idx]) for idx in labelset})
 
     node_postorder = [
-        HistoryDag(
-            sequence_list[idx], {unpack_seqs(clade): EdgeSet() for clade in clades}
+        HistoryDagNode(
+            Label(*label_list[labelidx]), {unpack_labels(clade): EdgeSet() for clade in clades}, attr=attr_list[idx]
         )
-        for idx, clades in node_list
+        for idx, (labelidx, clades) in enumerate(node_list)
     ]
     # Last node in list is root
     for origin_idx, target_idx, weight, prob in edge_list:
@@ -1181,7 +1052,7 @@ def history_dag_from_etes(treelist):
     return dag
 
 
-def recalculate_parsimony(tree: HistoryDag, distance_func=utils.hamming_distance):
+def recalculate_parsimony(tree: HistoryDagNode, distance_func=utils.hamming_distance):
     for node in postorder(tree):
         for clade, eset in node.clades.items():
             for i in range(len(eset.targets)):
@@ -1190,22 +1061,4 @@ def recalculate_parsimony(tree: HistoryDag, distance_func=utils.hamming_distance
 
 
 def empty_node(label, clades):
-    return HistoryDag(label, {clade: EdgeSet() for clade in clades})
-
-
-def add_abundances(self, abundances: dict):
-    """Expects DAG to be collapsed so that only edges targeting leaf nodes may have same label on parent and child nodes. Abundances should be a dictionary containing integers, keyed by node labels (sequences?)"""
-    for node in postorder(self):
-        # Although it's guaranteed to happen in max parsimony setting, only want internal nodes that are adjacent to a leaf with the same label to carry a nonzero abundance
-        if node.label in abundances:
-            if node.is_leaf() or frozenset({node.label}) in node.clades:
-                node.abundance = int(abundances[node.label])
-            else:
-                node.abundance = 0
-        else:
-            node.abundance = 0
-
-    # This corresponds to https://github.com/matsengrp/gctree/blob/375f61e60ec87aabfb0e5a9d0575cf56f46f06a5/gctree/branching_processes.py#L319
-    nondagroot = list(self.children())[0]
-    if len(nondagroot.clades) == 1:
-        nondagroot.abundance = 1
+    return HistoryDagNode(label, {clade: EdgeSet() for clade in clades})
