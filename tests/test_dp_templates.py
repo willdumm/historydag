@@ -25,7 +25,7 @@ abundance_dicts = [{
     'GA': 2,
 }]
 
-dags = [hdag.history_dag_from_newicks(newicklist) for newicklist in newicks]
+dags = [hdag.history_dag_from_newicks(newicklist, ['name']) for newicklist in newicks]
 cdags = [dag.copy() for dag in dags]
 for dag in cdags:
     dag.convert_to_collapsed()
@@ -36,8 +36,8 @@ test_parsimony_counters = [
 ]
 
 def test_parsimony_counts():
-    assert [dag.get_weight_counts() for dag in dags] == test_parsimony_counters
-    assert [dag.get_weight_counts() for dag in cdags] == test_parsimony_counters
+    assert [dag.weight_count() for dag in dags] == test_parsimony_counters
+    assert [dag.weight_count() for dag in cdags] == test_parsimony_counters
 
 test_uncollapsed_counters = [
     Counter({0: 2, 2: 2}),
@@ -50,17 +50,17 @@ test_collapsed_counters = [
 ]
 
 def test_collapsed_counts():
-    assert [dag.get_weight_counts(distance_func=lambda x, y: x.label == y.label) for dag in dags] == test_uncollapsed_counters
-    assert [dag.get_weight_counts(distance_func=lambda x, y: x.label == y.label) for dag in cdags] == test_collapsed_counters
+    assert [dag.weight_count(edge_weight_func=lambda x, y: x.label == y.label) for dag in dags] == test_uncollapsed_counters
+    assert [dag.weight_count(edge_weight_func=lambda x, y: x.label == y.label) for dag in cdags] == test_collapsed_counters
 
 
 def test_min_weight():
     for dag in dags:
-        dag.min_weight_annotate()
+        dag.optimal_weight_annotate()
     for dag in cdags:
-        dag.min_weight_annotate()
-    assert [dag.min_weight_under for dag in dags] == [5, 8]
-    assert [dag.min_weight_under for dag in cdags] == [5, 8]
+        dag.optimal_weight_annotate()
+    assert [dag.dagroot._dp_data for dag in dags] == [5, 8]
+    assert [dag.dagroot._dp_data for dag in cdags] == [5, 8]
 
 def test_cm_counter():
     pass

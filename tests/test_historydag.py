@@ -1,4 +1,4 @@
-from historydag.dag import HistoryDag, EdgeSet, from_tree, postorder, history_dag_from_newicks
+from historydag.dag import HistoryDagNode, EdgeSet, from_tree, postorder, history_dag_from_newicks
 import ete3
 
 """ HistoryDag tests:"""
@@ -39,29 +39,29 @@ namedict = {
     "I": 7,
     "J": 6,
     "K": 4,
-    "DAG_root": "DAG_root",
+    None: "DAG_root",
 }
 
 
 def test_init():
-    r = HistoryDag("a")
+    r = HistoryDagNode(("a",))
     assert r.is_leaf() == True
-    r = HistoryDag(
-        "a", clades={frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet()}
+    r = HistoryDagNode(
+        ("a", ), clades={frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet()}
     )
     assert r.is_leaf() == False
-    s = HistoryDag(
-        "b",
+    s = HistoryDagNode(
+        ("b", ),
         clades={frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet([r])},
     )
     assert s.is_leaf() == False
 
 
 def test_edge():
-    r = HistoryDag("a")
-    r2 = HistoryDag("b", {frozenset({"z", "y"}): EdgeSet(), frozenset({"a"}): EdgeSet()})
-    s = HistoryDag(
-        "b", clades={frozenset(["a"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet()}
+    r = HistoryDagNode(("a",))
+    r2 = HistoryDagNode(("b",), {frozenset({("z", ), ("y", )}): EdgeSet(), frozenset({("a",)}): EdgeSet()})
+    s = HistoryDagNode(
+        ("b",), clades={frozenset([("a",)]): EdgeSet(), frozenset([("c",), ("d",)]): EdgeSet()}
     )
     s.add_edge(r)
     try:
@@ -74,15 +74,15 @@ def test_edge():
 def test_from_tree():
     tree = ete3.Tree(newickstring2, format=1)
     print(tree.sequence)
-    dag = from_tree(tree)
+    dag = from_tree(tree, ['sequence'])
     G = dag.to_graphviz(namedict=namedict)
     return G
 
 
 def test_postorder():
     tree = ete3.Tree(newickstring2, format=1)
-    dag = from_tree(tree)
-    assert [namedict[node.label] for node in postorder(dag)] == [
+    dag = from_tree(tree, ['sequence'])
+    assert [namedict[node.label.sequence] for node in postorder(dag)] == [
         4,
         6,
         7,
@@ -101,9 +101,9 @@ def test_postorder():
 
 def test_children():
     tree = ete3.Tree(newickstring2, format=1)
-    dag = from_tree(tree)
-    print([child.label for child in dag.children()])
-    for child in dag.children():
+    dag = from_tree(tree, ['sequence'])
+    print([child.label for child in dag.dagroot.children()])
+    for child in dag.dagroot.children():
         print([cc.label for cc in child.children()])
         for ccc in child.children():
             print([cccc.label for cccc in ccc.children()])
@@ -111,18 +111,18 @@ def test_children():
 
 def test_merge():
     tree1 = ete3.Tree(newickstring2, format=1)
-    dag1 = from_tree(tree1)
+    dag1 = from_tree(tree1, ['sequence'])
     tree2 = ete3.Tree(newickstring3, format=1)
-    dag2 = from_tree(tree2)
+    dag2 = from_tree(tree2, ['sequence'])
     dag1.merge(dag2)
     return dag1.to_graphviz(namedict=namedict)
 
 
 def test_weight():
     tree1 = ete3.Tree(newickstring2, format=1)
-    dag1 = from_tree(tree1)
+    dag1 = from_tree(tree1, ['sequence'])
     tree2 = ete3.Tree(newickstring3, format=1)
-    dag2 = from_tree(tree2)
+    dag2 = from_tree(tree2, ['sequence'])
     dag1.merge(dag2)
     return dag1.to_graphviz(namedict=namedict)
     assert dag1.weight() == 16
@@ -130,9 +130,9 @@ def test_weight():
 
 def test_internal_avg_parents():
     tree1 = ete3.Tree(newickstring2, format=1)
-    dag1 = from_tree(tree1)
+    dag1 = from_tree(tree1, ['sequence'])
     tree2 = ete3.Tree(newickstring3, format=1)
-    dag2 = from_tree(tree2)
+    dag2 = from_tree(tree2, ['sequence'])
     dag1.merge(dag2)
     return dag1.to_graphviz(namedict=namedict)
     assert dag1.internal_avg_parents() == 9 / 7
@@ -142,6 +142,6 @@ def test_sample():
     newicks = ["((a, b)b, c)c;", "((a, b)c, c)c;", "((a, b)a, c)c;", "((a, b)r, c)r;"]
     newicks = ["((1, 2)2, 3)3;", "((1, 2)3, 3)3;", "((1, 2)1, 3)3;", "((1, 2)4, 3)4;"]
     namedict = {str(x): x for x in range(5)}
-    dag = history_dag_from_newicks(newicks)
+    dag = history_dag_from_newicks(newicks, ['name'])
     sample = dag.sample()
     return sample.to_graphviz(namedict=namedict)

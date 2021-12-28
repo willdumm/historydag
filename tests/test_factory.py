@@ -14,7 +14,7 @@ newicklistlist = [
            ],
 ]
 
-dags = [hdag.history_dag_from_newicks(newicklist) for newicklist in newicklistlist]
+dags = [hdag.history_dag_from_newicks(newicklist, ['name']) for newicklist in newicklistlist]
 cdags = [dag.copy() for dag in dags]
 
 for dag in cdags:
@@ -34,6 +34,12 @@ def test_parsimony():
                    for node in hdag.postorder(tree)
                    if node.parents)
 
-    _testfactory(lambda dag: dag.get_weight_counts(), parsimony)
+    _testfactory(lambda dag: dag.weight_count(), parsimony)
+
+def test_copy():
+    _testfactory(lambda dag: Counter(tree.to_newick() for tree in dag.copy().get_trees()), lambda tree: tree.to_newick())
+
+def test_newicks():
+    _testfactory(lambda dag: dag.to_newicks(), lambda tree: tree.to_newick())
 
 
