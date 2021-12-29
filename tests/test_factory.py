@@ -13,21 +13,26 @@ newicklistlist = [
                "((CA, GG)CA, AA, (TT, (CC, GA)CA)CA)AA;",
                "((CA, GG)CG, AA, (TT, (CC, GA)GC)GC)AG;"
            ],
+           [
+               "(((AA, CT)CG, (TA, CC)CG)CC)GC;",
+               "(((AA, CT)CA, (TA, CC)CC)CC)GC;"
+           ],
 ]
 
 dags = [hdag.history_dag_from_newicks(newicklist, [], label_functions={'sequence': lambda n: n.name}) for newicklist in newicklistlist]
 
 with open('sample_data/toy_trees_100_uncollapsed.p', 'rb') as fh:
     uncollapsed = pickle.load(fh)
-# dags.append(hdag.history_dag_from_etes(uncollapsed, [], label_functions={'sequence': lambda n: n.sequence[0]}))
-uncollapsed_newicks = [tree.write(format=1, features=['sequence'], format_root_node=True) for tree in uncollapsed]
-dags.append(hdag.history_dag_from_newicks(uncollapsed_newicks, [], label_functions={'sequence': lambda n: n.sequence[0]}))
-# dags.extend([dag.add_all_allowed_edges(new_from_root=False) for dag in dags])
+dags.append(hdag.history_dag_from_etes(uncollapsed[0:5], [], label_functions={'sequence': lambda n: n.sequence}))
 
-cdags = dags
-# cdags = [dag.copy() for dag in dags]
-# for dag in cdags:
-#     dag.convert_to_collapsed()
+compdags = [dag.copy() for dag in dags]
+for dag in compdags:
+    dag.add_all_allowed_edges(new_from_root=False)
+dags.extend(compdags)
+
+cdags = [dag.copy() for dag in dags]
+for dag in cdags:
+    dag.convert_to_collapsed()
 
 def _testfactory(resultfunc, verify_func, collapse_invariant=False, accum_func=Counter):
     for dag, cdag in zip(dags, cdags):
@@ -45,6 +50,23 @@ def _testfactory(resultfunc, verify_func, collapse_invariant=False, accum_func=C
         if collapse_invariant:
             assert result == cresult
 
+def test_valid_dags():
+    for dag in dags + cdags:
+        # each edge is allowed:
+        for node in hdag.postorder(dag):
+            for clade in node.clades:
+                for target in node.clades[clade].targets:
+                    assert target.under_clade() == clade
+        
+        # each clade has a descendant edge:
+        for node in hdag.postorder(dag):
+            for clade in node.clades:
+                assert len(node.clades[clade].targets) > 0
+
+        # leaf labels are unique:
+        leaf_labels = [node.label for node in hdag.postorder(dag) if len(node.clades) == 0]
+        assert len(set(leaf_labels)) == len(leaf_labels)
+
 def test_parsimony():
     # test parsimony counts without ete
     def parsimony(tree):
@@ -53,16 +75,15 @@ def test_parsimony():
                    for node in hdag.postorder(tree)
                    if node.parents)
 
-    _testfactory(lambda dag: dag.weight_count(), parsimony, collapse_invariant=True)
+    _testfactory(lambda dag: dag.weight_count(), parsimony)
 
 def test_parsimony_counts():
     # test parsimony counts using ete
     def parsimony(tree):
         etetree = tree.to_ete(features=['sequence'])
-        print(etetree)
         return(sum(dagutils.hamming_distance(n.up.sequence, n.sequence) for n in etetree.iter_descendants()))
 
-    _testfactory(lambda dag: dag.weight_count(), parsimony, collapse_invariant=True)
+    _testfactory(lambda dag: dag.weight_count(), parsimony)
 
 def test_copy():
     # Copying the DAG gives the same DAG back, or at least a DAG expressing

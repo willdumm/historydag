@@ -57,7 +57,7 @@ class HistoryDagNode:
     def _copy(self):
         r"""Add each child node's copy, below this node, by merging."""
         newnode = self.node_self()
-        from_root = newnode.label == "DAG_root"
+        from_root = newnode.is_root()
         for clade in self.clades:
             for index, target in enumerate(self.clades[clade].targets):
                 othernode = self.node_self()
@@ -75,9 +75,10 @@ class HistoryDagNode:
         # target clades must union to a clade of self
         key = target.under_clade()
         if key not in self.clades:
-            raise KeyError("Target clades' union is not a clade of this parent node")
+            raise KeyError("Target clades' union is not a clade of this parent node: "
+                           + str(key) + " not in " + str(self.clades))
         else:
-            from_root = self.label == "DAG_root"
+            from_root = self.is_root()
             target.parents.add(self)
             return self.clades[key].add_to_edgeset(
                 target,
@@ -267,7 +268,6 @@ class HistoryDag(object):
     def to_newick(
         self,
         name_func=lambda n: "unnamed",
-        include_root=False,
         features=None,
         feature_funcs={},
     ):
@@ -293,10 +293,7 @@ class HistoryDag(object):
                     + node._newick_label(name_func, features=features, feature_funcs={})
                 )
 
-        if include_root is False:
-            return newick(next(self.dagroot.children())) + ";"
-        else:
-            return newick(self.dagroot) + ";"
+        return newick(next(self.dagroot.children())) + ";"
 
     def to_ete(self, name_func=lambda n: "unnamed", features=None):
         return ete3.TreeNode(
@@ -457,7 +454,7 @@ class HistoryDag(object):
     def summary(self):
         print(f"Nodes:\t{sum(1 for _ in postorder(self))}")
         print(f"Trees:\t{self.count_trees()}")
-        utils.hist(self.get_weight_counts_with_ambiguities()["DAG_root"])
+        utils.hist(self.get_weight_counts_with_ambiguities()[self.dagroot.label])
 
     def get_weight_counts_with_ambiguities(self, distance_func=utils.hamming_distance):
         r"""like get_weight_counts, but creates dictionaries of Counter objects at each node,
@@ -651,7 +648,7 @@ class HistoryDag(object):
         else:
 
             def getlabel(node):
-                if node.label == "DAG_root":
+                if node.is_root():
                     return "DAG_root"
                 else:
                     return node.label[focus_site]
@@ -723,19 +720,13 @@ class HistoryDag(object):
         node_indices = {id(node): idx for idx, node in enumerate(postorder(self))}
 
         def cladesets(node):
-            try:
-                clades = {
-                    frozenset({label_indices[label] for label in clade})
-                    for clade in node.clades
-                }
-            except KeyError as e:
-                print('error', label_indices, node)
-                raise e
+            clades = {
+                frozenset({label_indices[label] for label in clade})
+                for clade in node.clades
+            }
             return frozenset(clades)
 
-        print("starting loop")
         for node in postorder(self):
-            print(node.label)
             if node.label not in label_indices:
                 label_indices[node.label] = len(label_list)
                 label_list.append(tuple(node.label))
@@ -759,14 +750,6 @@ class HistoryDag(object):
             "edge_list": edge_list,
         }
         return pickle.dumps(serial_dict)
-
-    def weight(self):
-        "Sums weights of all edges in the DAG"
-        nodes = postorder(self)
-        edgesetsums = (
-            sum(edgeset.weights) for node in nodes for edgeset in node.clades.values()
-        )
-        return sum(edgesetsums)
 
     def recompute_parents(self):
         for node in postorder(self):
@@ -901,7 +884,7 @@ class HistoryDag(object):
                 # sole target is a leaf with the same sequence:
                 m = len(cladelists)
                 cladecounters = [counter_sum(cladelist) for cladelist in cladelists]
-                if node.label == "DAG_root":
+                if node.is_root():
                     node.below_cm = counter_prod(cladecounters, accumfunc)
                     return node.below_cm
                 else:
@@ -984,7 +967,7 @@ class EdgeSet:
         """currently does nothing if edge is already present. Also does nothing
         if the target node has one child clade, and parent node is not the DAG root.
         Returns whether an edge was added"""
-        if target.label == "DAG_root":
+        if target.is_root():
             return False
         elif hash(target) in self._hashes:
             return False
@@ -1061,6 +1044,11 @@ def from_tree(
             },
         )
         return dag
+
+    if len(list(tree.get_leaves())) != len(leaf_names(tree)):
+        raise TypeError("This tree's leaf labels are not unique. Check your tree, "
+                        "or modify the label fields so that leaves are unique.\n"
+                        + str(leaf_names(tree)))
 
     dag = _unrooted_from_tree(tree)
     dagroot = HistoryDagNode(
@@ -1146,7 +1134,8 @@ def history_dag_from_etes(
 
 
 def history_dag_from_clade_trees(treelist):
-    dag = treelist[0].copy()
+    #TODO this should be a copy of first tree...
+    dag = treelist[0]
     for tree in treelist[1:]:
         dag.merge(tree)
     return dag
@@ -1198,7 +1187,8 @@ def deserialize(bstring):
     Label = namedtuple("Label", label_fields, defaults=[None] * len(label_fields))
 
     def unpack_labels(labelset):
-        return frozenset({Label(*label_list[idx]) for idx in labelset})
+        res = frozenset({Label(*label_list[idx]) for idx in labelset})
+        return res
 
     node_postorder = [
         HistoryDagNode(
@@ -1214,11 +1204,3 @@ def deserialize(bstring):
             node_postorder[target_idx], weight=weight, prob=prob, prob_norm=False
         )
     return HistoryDag(node_postorder[-1])
-
-
-def recalculate_parsimony(tree: HistoryDagNode, distance_func=utils.hamming_distance):
-    for node in postorder(tree):
-        for clade, eset in node.clades.items():
-            for i in range(len(eset.targets)):
-                eset.weights[i] = distance_func(eset.targets[i].label, node.label)
-    return tree.weight()
