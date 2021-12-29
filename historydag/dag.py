@@ -176,6 +176,14 @@ class HistoryDagNode:
                 )
             yield tree
 
+    def _newick_label(self, name_func=lambda n: 'unnamed', features=None):
+        if features is None:
+            features = self.label._fields
+        featurestr = ':'.join(f'{name}={val}' for name, val in self.label._asdict().items() if name in features)
+        return (
+            name_func(self) + (f"[&&NHX:{featurestr}]" if featurestr else '')
+        )
+
 
 
 class HistoryDag(object):
@@ -253,7 +261,7 @@ class HistoryDag(object):
                         n_added += node.add_edge(target)
         return n_added
 
-    def to_newick(self, namedict={}, include_root=False):
+    def to_newick(self, name_func=lambda n: "unnamed", include_root=False, features=None):
         r"""Converts to extended newick format with arbitrary node names and a
         sequence feature. For use on tree-shaped DAG.
         If fixed_order is True, with same namedict, two trees' newick representations are
@@ -263,21 +271,15 @@ class HistoryDag(object):
         TODO refactor and add dp option"""
 
         def newick(node):
-            features = ','.join(f'{name}={val}' for name, val in node.label._asdict().items())
-            if node.label in namedict:
-                name = namedict[node.label]
-            else:
-                print(f"sequence={node.label} not found in namedict")
-                name = "unnamed_seq"
             if node.is_leaf():
-                return f"{name}[&&NHX:{features}]"
+                return node._newick_label(name_func, features=features)
             else:
                 childnewicks = sorted([newick(node2) for node2 in node.children()])
                 return (
                     "("
                     + ",".join(childnewicks)
                     + ")"
-                    + f"{name}[&&NHX:{features}]"
+                    + node._newick_label(name_func, features=features)
                 )
 
         if include_root is False:
@@ -285,8 +287,8 @@ class HistoryDag(object):
         else:
             return newick(self.dagroot) + ";"
 
-    def to_ete(self, namedict={}):
-        return ete3.TreeNode(newick=self.to_newick(namedict=namedict), format=1)
+    def to_ete(self, name_func=lambda n: "unnamed", features=None):
+        return ete3.TreeNode(newick=self.to_newick(name_func=name_func, features=features), format=1)
 
     def to_graphviz(self, labelfunc=None, namedict={}, show_partitions=True):
         r"""Converts to graphviz Digraph object. Namedict must associate sequences
@@ -505,7 +507,7 @@ class HistoryDag(object):
     def optimal_weight_annotate(
         self,
         start_func: Callable[['HistoryDagNode'], Weight] = lambda n: 0,
-        edge_weight_func: Callable[['HistoryDagNode', 'HistoryDagNode'], Weight] = lambda n1, n2: utils.hamming_distance(n1.label, n2.label),
+        edge_weight_func: Callable[['HistoryDagNode', 'HistoryDagNode'], Weight] = lambda n1, n2: utils.hamming_distance(n1.label.sequence, n2.label.sequence),
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min
     ):
@@ -537,7 +539,7 @@ class HistoryDag(object):
     def weight_count(
         self,
         start_func: Callable[['HistoryDagNode'], Weight] = lambda n: 0,
-        edge_weight_func: Callable[['HistoryDagNode', 'HistoryDagNode'], Weight] = lambda n1, n2: utils.hamming_distance(n1.label, n2.label),
+        edge_weight_func: Callable[['HistoryDagNode', 'HistoryDagNode'], Weight] = lambda n1, n2: utils.hamming_distance(n1.label.sequence, n2.label.sequence),
         accum_func: Callable[[List[Weight]], Weight] = sum,
     ):
         return self.postorder_cladetree_accum(
@@ -547,34 +549,28 @@ class HistoryDag(object):
             lambda x: counter_prod(x, accum_func)
         )
 
-    def to_newicks(self, namedict={}):
+    def to_newicks(self, name_func=lambda n: "unnamed", features=None):
         """Returns a list of extended newick strings formed with label fields.
         TODO: Make this true (right now just uses label naively)"""
         def newicksum(newicks):
             snewicks = sorted(newicks)
-            if len(newicks) == 2:
-                if '' in newicks:
-                    return ''.join(newicks)
-                elif newicks[0][-1] == ')':
-                    return ''.join(newicks)
-                elif newicks[1][-1] == ')':
-                    return ''.join(reversed(newicks))
+            if len(snewicks) == 2:
+                if '' in snewicks:
+                    return ''.join(snewicks)
+                elif snewicks[0][-1] == ')':
+                    return ''.join(snewicks)
+                elif snewicks[1][-1] == ')':
+                    return ''.join(reversed(snewicks))
                 else:
-                    return '(' + ','.join(newicks) + ')'
+                    return '(' + ','.join(snewicks) + ')'
             else:
-                return '(' + ','.join(newicks) + ')'
+                return '(' + ','.join(snewicks) + ')'
 
         def newickedgeweight(n1, n2):
-            features = ','.join(f'{name}={val}' for name, val in n2.label._asdict().items())
-            if n2.label in namedict:
-                name = namedict[n2.label]
-            else:
-                print(f"sequence={n2.label} not found in namedict")
-                name = "unnamed_seq"
-            return f"{name}[&&NHX:{features}]"
+            return n2._newick_label(name_func=name_func, features=features)
 
-        newicks = list(self.weight_count(start_func=lambda n: '', edge_weight_func=newickedgeweight, accum_func=newicksum))
-        return [newick + ';' for newick in newicks]
+        newicks = self.weight_count(start_func=lambda n: '', edge_weight_func=newickedgeweight, accum_func=newicksum).elements()
+        return [newick[1: -1] + ';' for newick in newicks]
     ######## End abstract dp methods #######
 
 

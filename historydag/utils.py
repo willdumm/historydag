@@ -8,10 +8,10 @@ ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
 
 
 def weight_function(func):
-    """A wrapper to allow distance to label 'DAG_root' to be zero"""
+    """A wrapper to allow distance to label None to be zero"""
 
     def wrapper(s1, s2):
-        if s1 == "DAG_root" or s2 == "DAG_root":
+        if s1 is None or s2 is None:
             return 0
         else:
             return func(s1, s2)
