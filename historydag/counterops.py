@@ -33,3 +33,7 @@ def counter_sum(counterlist, counter_type=Counter):
     for c in counterlist:
         newc += c
     return newc
+
+# TODO: Remove this!
+def addweight(c, w, addfunc=operator.add):
+    return Counter({addfunc(key, w): val for key, val in c.items()})
