@@ -634,7 +634,7 @@ class HistoryDag(object):
         edge_weight_func: Callable[[HistoryDagNode, HistoryDagNode], Weight] = (
             lambda x, y: utils.hamming_distance(x.label, y.label)
         ),
-        accum_func: Callable[List[Weight], Weight] = sum,
+        accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         **kwargs,
     ):
