@@ -2,14 +2,16 @@ import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 import random
+from functools import wraps
+from typing import List, Any
 
 bases = "AGCT-"
 ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
 
 
 def weight_function(func):
-    """A wrapper to allow distance to label None to be zero"""
-
+    """A decorator to allow distance to label None to be zero"""
+    @wraps(func)
     def wrapper(s1, s2):
         if s1 is None or s2 is None:
             return 0
@@ -18,6 +20,26 @@ def weight_function(func):
 
     return wrapper
 
+def explode_label(labelfield: str):
+    """A decorator to make it easier to expand a Label by a certain field.
+
+    Args:
+        labelfield: the name of the field whose contents the wrapped function is expected to
+            explode
+
+    Returns:
+        A decorator which converts a function which explodes a field value, into a function
+            which explodes the whole label at that field."""
+    def decorator(func):
+        @wraps(func)
+        def wrapfunc(label, *args, **kwargs):
+            Label = type(label)
+            d = label._asdict()
+            for newval in func(d[labelfield], *args, **kwargs):
+                d[labelfield] = newval
+                yield Label(**d)
+        return wrapfunc
+    return decorator
 
 @weight_function
 def hamming_distance(s1: str, s2: str) -> int:
@@ -36,150 +58,6 @@ def compare_site_func(site):
 
 def is_ambiguous(sequence):
     return any(code not in bases for code in sequence)
-
-def disambiguate_sitewise(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
-     """Resolve tree and return list of all possible resolutions"""
-     code_vectors = {
-         code: [
-             0 if base in ambiguous_dna_values[code] else float("inf") for base in bases
-         ]
-         for code in ambiguous_dna_values
-     }
-     cost_adjust = {
-         base: [int(not i == j) for j in range(5)] for i, base in enumerate(bases)
-     }
-     if random_state is None:
-         random.seed(tree.write(format=1))
-     else:
-         random.setstate(random_state)
-
-     for node in tree.traverse(strategy="postorder"):
-
-         def cvup(node, site):
-             cv = code_vectors[node.sequence[site]].copy()
-             if not node.is_leaf():
-                 for i in range(5):
-                     for child in node.children:
-                         cv[i] += min(
-                             [
-                                 sum(v)
-                                 for v in zip(child.cvd[site], cost_adjust[bases[i]])
-                             ]
-                         )
-             return cv
-
-         # Make dictionary of cost vectors for each site
-         node.cvd = {site: cvup(node, site) for site in range(len(node.sequence))}
-
-     disambiguated = [tree.copy()]
-     ambiguous = True
-     while ambiguous:
-         ambiguous = False
-         treesindex = 0
-         while treesindex < len(disambiguated):
-             tree2 = disambiguated[treesindex]
-             treesindex += 1
-             for node in tree2.traverse(strategy="preorder"):
-                 ambiguous_sites = [
-                     site for site, code in enumerate(node.sequence) if code not in bases
-                 ]
-                 if not ambiguous_sites:
-                     continue
-                 else:
-                     ambiguous = True
-                     # Adjust cost vectors for ambiguous sites base on above
-                     if not node.is_root():
-                         for site in ambiguous_sites:
-                             base_above = node.up.sequence[site]
-                             node.cvd[site] = [
-                                 sum(v)
-                                 for v in zip(node.cvd[site], cost_adjust[base_above])
-                             ]
-                     option_dict = {site: "" for site in ambiguous_sites}
-                     # Enumerate min-cost choices
-                     for site in ambiguous_sites:
-                         min_cost = min(node.cvd[site])
-                         min_cost_sites = [
-                             bases[i]
-                             for i, val in enumerate(node.cvd[site])
-                             if val == min_cost
-                         ]
-                         option_dict[site] = "".join(min_cost_sites)
-
-                     sequences = list(_options(option_dict, node.sequence))
-                     # Give this tree the first sequence, append copies with all
-                     # others to disambiguated.
-                     numseqs = len(sequences)
-                     for idx, sequence in enumerate(sequences):
-                         node.sequence = sequence
-                         if idx < numseqs - 1:
-                             disambiguated.append(tree2.copy())
-                     break
-     for tree in disambiguated:
-         for node in tree.traverse():
-             try:
-                 node.del_feature("cvd")
-             except KeyError:
-                 pass
-     return disambiguated
-
-
-def disambiguate(tree: ete3.Tree, random_state=None, dist_func=hamming_distance) -> ete3.Tree:
-    """Resolve ambiguous bases using a two-pass Sankoff Algorithm on entire tree and entire sequence at each node.
-    This does not disambiguate sitewise, so trees with many ambiguities may make this run very slowly.
-    Returns a list of all possible disambiguations, minimizing the passed distance function dist_func.
-    """
-    if random_state is None:
-        random.seed(tree.write(format=1))
-    else:
-        random.setstate(random_state)
-    # First pass of Sankoff: compute cost vectors
-    for node in tree.traverse(strategy="postorder"):
-        node.add_feature(
-            "costs", [[seq, 0] for seq in sequence_resolutions(node.sequence)]
-        )
-        if not node.is_leaf():
-            for seq_cost in node.costs:
-                for child in node.children:
-                    seq_cost[1] += min(
-                        [
-                            dist_func(seq_cost[0], child_seq) + child_cost
-                            for child_seq, child_cost in child.costs
-                        ]
-                    )
-    disambiguate_queue = [tree]
-    disambiguated = []
-
-    def incremental_disambiguate(ambig_tree):
-        for node in ambig_tree.traverse(strategy="preorder"):
-            if not is_ambiguous(node.sequence):
-                continue
-            else:
-                if not node.is_root():
-                    node.costs = [
-                        [
-                            sequence,
-                            cost + dist_func(node.up.sequence, sequence),
-                        ]
-                        for sequence, cost in node.costs
-                    ]
-                min_cost = min([cost for _, cost in node.costs])
-                for resolved_sequence in [sequence for sequence, cost in node.costs if cost == min_cost]:
-                    node.sequence = resolved_sequence
-                    disambiguate_queue.append(ambig_tree.copy())
-                return
-        disambiguated.append(ambig_tree)
-                        
-    while disambiguate_queue:
-        incremental_disambiguate(disambiguate_queue.pop())
-    for tree in disambiguated:
-        for node in tree.traverse():
-            try:
-                node.del_feature("costs")
-            except (AttributeError, KeyError):
-                pass
-    return disambiguated
-
 
 def cartesian_product(optionlist, accum=tuple()):
     """Takes a list of functions which each return a fresh generator
@@ -202,26 +80,25 @@ def _options(option_dict, sequence):
     else:
         yield sequence
 
-def sequence_resolutions(sequence, _accum=""):
+@explode_label('sequence')
+def sequence_resolutions(sequence):
     """Iterates through possible disambiguations of sequence, recursively.
     Recursion-depth-limited by number of ambiguity codes in
     sequence, not sequence length.
     """
-    # Remove this check at some point (TODO)
-    if sequence == "DAG_root":
-        yield sequence
-        return
-    if sequence:
-        for index, base in enumerate(sequence):
-            if base in bases:
-                _accum += base
-            else:
-                for newbase in ambiguous_dna_values[base]:
-                    yield from sequence_resolutions(
-                        sequence[index + 1 :], _accum=(_accum + newbase)
-                    )
-                return
-    yield _accum
+    def _sequence_resolutions(sequence, _accum=""):
+        if sequence:
+            for index, base in enumerate(sequence):
+                if base in bases:
+                    _accum += base
+                else:
+                    for newbase in ambiguous_dna_values[base]:
+                        yield from _sequence_resolutions(
+                            sequence[index + 1 :], _accum=(_accum + newbase)
+                        )
+                    return
+        yield _accum
+    return _sequence_resolutions(sequence)
 
 def disambiguate_all(treelist):
     resolvedsamples = []
@@ -275,4 +152,5 @@ def deterministic_newick(tree: ete3.TreeNode):
 
 def is_collapsed(tree: ete3.TreeNode):
     return not any(node.sequence == node.up.sequence and not node.is_leaf() for node in tree.iter_descendants())
+
 

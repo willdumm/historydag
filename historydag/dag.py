@@ -6,7 +6,7 @@ import graphviz as gv
 from historydag import utils
 import ete3
 import random
-from typing import List, Callable, Any, TypeVar, Mapping
+from typing import List, Callable, Any, TypeVar, Mapping, Generator, Iterable, Set
 from collections import Counter, namedtuple
 from numbers import Number
 
@@ -87,7 +87,7 @@ class HistoryDagNode:
         return frozenset(self.clades.keys())
 
     def children(
-        self, clade: set[Label] = None
+        self, clade: Set[Label] = None
     ) -> Generator["HistoryDagNode", None, None]:
         r"""Returns generator object containing child nodes.
 
@@ -160,7 +160,8 @@ class HistoryDagNode:
         return sample
 
     def _get_trees(
-        self, min_weight: bool = False, **kwargs
+        self, min_weight: bool = False,
+        distance_func=utils.hamming_distance, **kwargs
     ) -> Generator["HistoryDagNode", None, None]:
         r"""Return a generator to iterate through all trees expressed by the DAG.
 
@@ -441,31 +442,33 @@ class HistoryDag(object):
                     )
             return self.dagroot.trees_under
 
-    def expand_ambiguities(self, focus_site=None):
-        r"""Each node with an ambiguous sequence is replaced by nodes with all possible disambiguations of the original sequence, and the same clades and parent and child edges.
-        TODO: refactor for new label scheme..."""
+    def explode_nodes(self, expand_func: Callable[[Label], Iterable[Label]]=utils.sequence_resolutions, expandable_func: Callable[[Label], bool]=None):
+        r"""Explode nodes according to a provided function, adding copies of each node to the DAG with
+        exploded labels, but with the same parents and children as the original node.
+        
+        Args:
+            expand_func: A function that takes a node label, and returns an iterable containing
+                'exploded' or 'disambiguated' labels corresponding to the original.
+                The wrapper :meth:`utils.explode_label` is provided to make such a function easy to write.
+            expandable_func: A function that takes a node label, and returns whether the iterable returned by calling expand_func on that label would contain more than one item.
+        """
 
-        def sequence_resolutions(sequence):
-            if focus_site is not None:
-                for base in utils.sequence_resolutions(sequence[focus_site]):
-                    yield sequence[:focus_site] + base + sequence[focus_site + 1 :]
-            else:
-                yield from utils.sequence_resolutions(sequence)
-
-        def is_ambiguous(sequence):
-            if focus_site is not None:
-                return utils.is_ambiguous(sequence[focus_site])
-            else:
-                return utils.is_ambiguous(sequence)
+        if expandable_func is None:
+            def is_ambiguous(label):
+                # Check if expand_func(label) has at least two items, without
+                # exhausting the (arbitrarily expensive) generator
+                return len(list(zip([1,2], expand_func(label)))) > 1
+        else:
+            is_ambiguous = expandable_func
 
         self.recompute_parents()
         nodedict = {hash(node): node for node in postorder(self)}
         nodeorder = list(postorder(self))
         new_nodes = set()
         for node in nodeorder:
-            if node.is_root() and is_ambiguous(node.label):
+            if not node.is_root() and is_ambiguous(node.label):
                 clades = frozenset(node.clades.keys())
-                for resolution in sequence_resolutions(node.label):
+                for resolution in expand_func(node.label):
                     if hash((resolution, clades)) in nodedict:
                         newnode = nodedict[hash((resolution, clades))]
                     else:
@@ -628,16 +631,24 @@ class HistoryDag(object):
 
     def trim_optimal_weight(
         self,
-        edge_weight_func: Callable[[Any, Any], Any] = (
+        edge_weight_func: Callable[[HistoryDagNode, HistoryDagNode], Weight] = (
             lambda x, y: utils.hamming_distance(x.label, y.label)
         ),
-        accum_func: Callable[[Any, Any], Any] = operator.add,
-        optimal_func: Callable[[List[Any]], Any] = min,
-        rel_tol=1e-09,
-        abs_tol=0.0,
+        accum_func: Callable[List[Weight], Weight] = sum,
+        optimal_func: Callable[[List[Weight]], Weight] = min,
         **kwargs,
     ):
-        """TODO: make work with new abstract dp methods"""
+        """Trims the DAG to only express trees with optimal weight.
+        This is guaranteed to be possible when edge_weight_func depends only on the labels of
+        an edge's parent and child node.
+
+        Requires that weights are of a type that supports reliable equality testing. In particular,
+        floats are not recommended. Instead, consider defining weights to be a precursor type, and
+        define `optimal_func` to choose the one whose corresponding float is maximized/minimized.
+
+        If floats must be used, a Numpy type may help.
+
+        For argument details, see :meth:`HistoryDag.optimal_weight_annotate`."""
         self.optimal_weight_annotate(
             edge_weight_func=edge_weight_func,
             accum_func=accum_func,
@@ -650,7 +661,7 @@ class HistoryDag(object):
             for clade, eset in node.clades.items():
                 weightlist = [
                     (
-                        accum_func(target._dp_data, edge_weight_func(node, target)),
+                        accum_func([target._dp_data, edge_weight_func(node, target)]),
                         target,
                         index,
                     )
@@ -660,9 +671,7 @@ class HistoryDag(object):
                 newtargets = []
                 newweights = []
                 for weight, target, index in weightlist:
-                    if math.isclose(
-                        weight, optimalweight, rel_tol=rel_tol, abs_tol=abs_tol
-                    ):
+                    if weight == optimalweight:
                         newtargets.append(target)
                         newweights.append(eset.weights[index])
                 eset.targets = newtargets
@@ -670,23 +679,23 @@ class HistoryDag(object):
                 n = len(eset.targets)
                 eset.probs = [1.0 / n] * n
 
-    def trim_min_weight(self, distance_func=utils.hamming_distance, focus_site=None):
-        if focus_site is None:
+    # def trim_min_weight(self, distance_func=utils.hamming_distance, focus_site=None):
+    #     if focus_site is None:
 
-            def getlabel(node):
-                return node.label
+    #         def getlabel(node):
+    #             return node.label
 
-        else:
+    #     else:
 
-            def getlabel(node):
-                if node.is_root():
-                    return "DAG_root"
-                else:
-                    return node.label[focus_site]
+    #         def getlabel(node):
+    #             if node.is_root():
+    #                 return "DAG_root"
+    #             else:
+    #                 return node.label[focus_site]
 
-        self.trim_optimal_weight(
-            edge_weight_func=(lambda x, y: distance_func(x.label, y.label))
-        )
+    #     self.trim_optimal_weight(
+    #         edge_weight_func=(lambda x, y: distance_func(x.label, y.label))
+    #     )
 
     # def serialize(self):
     #     r"""Serializes a HistoryDag object as a bytestring.
