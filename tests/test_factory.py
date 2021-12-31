@@ -5,8 +5,8 @@ from collections import Counter
 
 newicklistlist = [
            [
-               "((AA, CT)CG, (TA, CC)CG)CC;",
-               "((AA, CT)CA, (TA, CC)CC)CC;"
+               "((AA, CT)CG, (TA, CC)CG;",
+               "((AA, CT)CA, (TA, CC)CC;"
            ],
            [
                "((CA, GG)CA, AA, (TT, (CC, GA)CC)CC)AA;",

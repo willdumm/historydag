@@ -37,6 +37,11 @@ class HistoryDagNode:
             for child in self.children():
                 child.parents.add(self)
 
+        if not self.is_root() and len(self.clades) == 1:
+            raise TypeError(f"Internal nodes (those which are not the DAG UA root node) "
+                            f"may not have exactly one child clade; Unifurcations cannot be expressed "
+                            f"in the history DAG. A HistoryDagNode with {label} and clades {set(clades.keys())} is not allowed.")
+
     def __repr__(self) -> str:
         return str((self.label, set(self.clades.keys())))
 
@@ -49,13 +54,12 @@ class HistoryDagNode:
     def _copy(self) -> "HistoryDagNode":
         r"""Add each child node's copy, below this node, by merging."""
         newnode = self.node_self()
-        from_root = newnode.is_root()
         for clade in self.clades:
             for index, target in enumerate(self.clades[clade].targets):
                 othernode = self.node_self()
                 # In this line lies the recursive call
                 othernode.clades[clade].add_to_edgeset(
-                    target._copy(), from_root=from_root
+                    target._copy()
                 )
                 newnode.merge(othernode)
                 newnode.clades[clade].weights[index] = self.clades[clade].weights[index]
@@ -120,14 +124,12 @@ class HistoryDagNode:
                 + str(self.clades)
             )
         else:
-            from_root = self.is_root()
             target.parents.add(self)
             return self.clades[key].add_to_edgeset(
                 target,
                 weight=weight,
                 prob=prob,
                 prob_norm=prob_norm,
-                from_root=from_root,
             )
 
     def remove_node(self, nodedict: Mapping[int, "HistoryDagNode"] = {}):
@@ -148,14 +150,12 @@ class HistoryDagNode:
     def _sample(self) -> "HistoryDagNode":
         r"""Samples a sub-history-DAG that is also a tree containing the root and
         all leaf nodes. Returns a new HistoryDagNode object."""
-        from_root = self.is_root()
         sample = self.node_self()
         for clade, eset in self.clades.items():
             sampled_target, target_weight = eset.sample()
             sample.clades[clade].add_to_edgeset(
                 sampled_target._sample(),
                 weight=target_weight,
-                from_root=from_root,
             )
         return sample
 
@@ -194,12 +194,10 @@ class HistoryDagNode:
         # TODO is this duplicated code?
         for option in utils.cartesian_product(optionlist):
             tree = dag.node_self()
-            from_root = tree.is_root()
             for clade, targettree, index in option:
                 tree.clades[clade].add_to_edgeset(
                     targettree,
                     weight=dag.clades[clade].weights[index],
-                    from_root=from_root,
                 )
             yield tree
 
@@ -632,7 +630,7 @@ class HistoryDag(object):
     def trim_optimal_weight(
         self,
         edge_weight_func: Callable[[HistoryDagNode, HistoryDagNode], Weight] = (
-            lambda x, y: utils.hamming_distance(x.label, y.label)
+            lambda x, y: utils.hamming_distance(x.label.sequence, y.label.sequence)
         ),
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
@@ -999,16 +997,16 @@ class EdgeSet:
         return (self.targets[index], self.weights[index])
 
     def add_to_edgeset(
-        self, target, weight=0, prob=None, prob_norm=True, from_root=False
+        self, target, weight=0, prob=None, prob_norm=True
     ):
         """currently does nothing if edge is already present. Also does nothing
         if the target node has one child clade, and parent node is not the DAG root.
         Returns whether an edge was added"""
         if target.is_root():
-            return False
+            raise ValueError("Edges that target UA nodes are not allowed. "
+                             f"Target node has label {target.label} and therefore "
+                             "is assumed to be the DAG UA root node.")
         elif hash(target) in self._hashes:
-            return False
-        elif not from_root and len(target.clades) == 1:
             return False
         else:
             self._hashes.add(hash(target))
@@ -1077,17 +1075,20 @@ def from_tree(
                 leaf_names(child): EdgeSet(
                     [_unrooted_from_tree(child)], weights=[child.dist]
                 )
-                for child in tree.get_children()
+                for child in tree.children
             },
         )
         return dag
 
+    # Check for unique leaf labels:
     if len(list(tree.get_leaves())) != len(leaf_names(tree)):
         raise TypeError(
-            "This tree's leaf labels are not unique. Check your tree, "
+            "This tree's leaves are not labeled uniquely. Check your tree, "
             "or modify the label fields so that leaves are unique.\n"
             + str(leaf_names(tree))
         )
+
+    # Checking for unifurcation is handled in HistoryDagNode.__init__.
 
     dag = _unrooted_from_tree(tree)
     dagroot = HistoryDagNode(
@@ -1129,6 +1130,8 @@ def from_newick(
         required UA node added as a new root.
     """
     etetree = ete3.Tree(tree, format=newick_format)
+    # from_tree checks that leaves are labeled uniquely. If this function is
+    # ever rewritten to avoid ete newick parsing, we'd need to do that here.
     return from_tree(
         etetree, label_features, label_functions=label_functions, attr_func=attr_func
     )
@@ -1175,8 +1178,9 @@ def history_dag_from_etes(
 
 
 def history_dag_from_clade_trees(treelist):
-    # TODO this should be a copy of first tree...
-    dag = treelist[0]
+    # merge checks that all clade trees have the same leaf label set.
+    # Is copying the first enough to avoid mutating treelist?
+    dag = treelist[0].copy()
     for tree in treelist[1:]:
         dag.merge(tree)
     return dag

@@ -7,7 +7,26 @@ from collections import Counter
 bases = "AGCT-"
 ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
 
-def disambiguate_sitewise(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNode:
+def sequence_resolutions(sequence):
+    """Iterates through possible disambiguations of sequence, recursively.
+    Recursion-depth-limited by number of ambiguity codes in
+    sequence, not sequence length.
+    """
+    def _sequence_resolutions(sequence, _accum=""):
+        if sequence:
+            for index, base in enumerate(sequence):
+                if base in bases:
+                    _accum += base
+                else:
+                    for newbase in ambiguous_dna_values[base]:
+                        yield from _sequence_resolutions(
+                            sequence[index + 1 :], _accum=(_accum + newbase)
+                        )
+                    return
+        yield _accum
+    return _sequence_resolutions(sequence)
+
+def disambiguate_sitewise(tree: ete3.TreeNode) -> ete3.TreeNode:
      """Resolve tree and return list of all possible resolutions"""
      code_vectors = {
          code: [
@@ -18,10 +37,6 @@ def disambiguate_sitewise(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNo
      cost_adjust = {
          base: [int(not i == j) for j in range(5)] for i, base in enumerate(bases)
      }
-     if random_state is None:
-         random.seed(tree.write(format=1))
-     else:
-         random.setstate(random_state)
 
      for node in tree.traverse(strategy="postorder"):
 
@@ -76,7 +91,7 @@ def disambiguate_sitewise(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNo
                          ]
                          option_dict[site] = "".join(min_cost_sites)
 
-                     sequences = list(_options(option_dict, node.sequence))
+                     sequences = list(utils._options(option_dict, node.sequence))
                      # Give this tree the first sequence, append copies with all
                      # others to disambiguated.
                      numseqs = len(sequences)
@@ -94,15 +109,11 @@ def disambiguate_sitewise(tree: ete3.TreeNode, random_state=None) -> ete3.TreeNo
      return disambiguated
 
 
-def disambiguate(tree: ete3.Tree, random_state=None, dist_func=utils.hamming_distance) -> ete3.Tree:
+def disambiguate(tree: ete3.Tree, dist_func=utils.hamming_distance):
     """Resolve ambiguous bases using a two-pass Sankoff Algorithm on entire tree and entire sequence at each node.
     This does not disambiguate sitewise, so trees with many ambiguities may make this run very slowly.
     Returns a list of all possible disambiguations, minimizing the passed distance function dist_func.
     """
-    if random_state is None:
-        random.seed(tree.write(format=1))
-    else:
-        random.setstate(random_state)
     # First pass of Sankoff: compute cost vectors
     for node in tree.traverse(strategy="postorder"):
         node.add_feature(
@@ -122,7 +133,7 @@ def disambiguate(tree: ete3.Tree, random_state=None, dist_func=utils.hamming_dis
 
     def incremental_disambiguate(ambig_tree):
         for node in ambig_tree.traverse(strategy="preorder"):
-            if not is_ambiguous(node.sequence):
+            if not utils.is_ambiguous(node.sequence):
                 continue
             else:
                 if not node.is_root():
@@ -153,13 +164,12 @@ def disambiguate(tree: ete3.Tree, random_state=None, dist_func=utils.hamming_dis
 
 
 newick_tree2 = (
-    "((((12[&&NHX:name=12:sequence=TT])4[&&NHX:name=4:sequence=CT],"
-    "(6[&&NHX:name=6:sequence=CT],"
-    "7[&&NHX:name=7:sequence=AT])5[&&NHX:name=5:sequence=?T])"
+    "((12[&&NHX:name=12:sequence=TT],"
+    "(6[&&NHX:name=6:sequence=CG],"
+    "7[&&NHX:name=7:sequence=AC])5[&&NHX:name=5:sequence=??])"
     "3[&&NHX:name=3:sequence=?T],8[&&NHX:name=8:sequence=AA],"
     "(11[&&NHX:name=11:sequence=AG],10[&&NHX:name=10:sequence=GT])"
-    "9[&&NHX:name=9:sequence=?T])2[&&NHX:name=2:sequence=?T])"
-    "1[&&NHX:name=1:sequence=GT];"
+    "9[&&NHX:name=9:sequence=?T])2[&&NHX:name=2:sequence=?T];"
 )
 tree2 = ete3.TreeNode(newick=newick_tree2, format=1)
 dags = [hdag.history_dag_from_newicks(newicklist, ['sequence']) for newicklist in [[newick_tree2]]]
@@ -172,12 +182,18 @@ def treeprint(tree: ete3.TreeNode):
 def test_expand_ambiguities():
     for dag in dags:
         cdag = dag.copy()
+        print(cdag.count_trees())
         cdag.explode_nodes()
+        print(cdag.count_trees())
         cdag.trim_optimal_weight()
-        assert ({dagutils.deterministic_newick(tree)
-                 for cladetree in dag.get_trees()
-                 for tree in disambiguate_sitewise(cladetree.to_ete(['sequence']))}
-                == set(cdag.to_newicks()))
+        print(cdag.count_trees())
+        print(cdag.weight_count())
+        checkset = {utils.deterministic_newick(tree)
+                   for cladetree in dag.get_trees()
+                   for tree in disambiguate(cladetree.to_ete(features=['sequence']))}
+        print(len(checkset))
+        assert (checkset == {utils.deterministic_newick(cladetree.to_ete(features=['sequence']))
+                    for cladetree in cdag.get_trees()})
 
 #     newickset = {treeprint(tree) for tree in utils.disambiguate(tree2)}
 #     correctset = {

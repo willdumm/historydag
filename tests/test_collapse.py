@@ -4,14 +4,14 @@ from historydag import utils
 import pickle
 import random
 newickstring3 = (
-        "(((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=J],"
+        "((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=J],"
         "7[&&NHX:name=7:sequence=I])5[&&NHX:name=5:sequence=H])2[&&NHX:name=2:sequence=H],"
         "8[&&NHX:name=8:sequence=F],(11[&&NHX:name=11:sequence=E],"
-        "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=C])"
-        "3[&&NHX:name=3:sequence=H])1[&&NHX:name=1:sequence=A];"
+        "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=C], 12[&&NHX:name=9:sequence=Z])"
+        "3[&&NHX:name=3:sequence=H];"
 )
 
-etetree = list(hdag.history_dag_from_etes([ete3.TreeNode(newick=newickstring3, format=1)], ['sequence']).get_trees())[0].to_ete()
+etetree = list(hdag.history_dag_from_etes([ete3.TreeNode(newick=newickstring3, format=1)], ['sequence']).get_trees())[0].to_ete(features=['sequence'])
 etetree2 = utils.collapse_adjacent_sequences(etetree.copy())
 
 
