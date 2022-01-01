@@ -1,4 +1,5 @@
 from historydag.utils import *
+from historydag.counterops import *
 from collections import Counter
 
 def test_hamming_distance():
@@ -17,3 +18,6 @@ def test_ualabel():
 
 def test_hist():
     hist(Counter([1,2,3,3,3,3,4]))
+
+def test_prod():
+    assert prod([]) == 1

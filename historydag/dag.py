@@ -269,12 +269,13 @@ class HistoryDag(object):
                     for target in clade_dict[clade]:
                         if adjacent_labels is False and target.label == node.label:
                             continue
-                        if (
+                        elif (
                             preserve_parent_labels is True
                             and node.label not in uplabels[target]
                         ):
                             continue
-                        n_added += node.add_edge(target)
+                        else:
+                            n_added += node.add_edge(target)
         return n_added
 
     def to_newick(
@@ -920,7 +921,7 @@ def from_tree(
         UA node added as a new root.
         TODO remove root unifurcation if present.
     """
-    feature_maps = {name: lambda n: getattr(n, name) for name in label_features}
+    feature_maps = {name: (lambda n: getattr(n, name)) for name in label_features}
     feature_maps.update(label_functions)
     Label = namedtuple(
         "Label", list(feature_maps.keys()), defaults=[None] * len(feature_maps)
@@ -971,9 +972,9 @@ def from_tree(
 
 def from_newick(
     tree: str,
-    label_features: List[str] = ["name"],
-    newick_format=8,
+    label_features: List[str],
     label_functions: Mapping[str, Callable[[ete3.TreeNode], Any]] = {},
+    newick_format=8,
     attr_func: Callable[[ete3.TreeNode], Any] = lambda n: None,
 ):
     """

@@ -146,35 +146,35 @@ def test_sample():
 def test_unifurcation():
     # Make sure that unifurcations are handled correctly
     # First make sure the call works when the problem is fixed:
-    from_newick("((a, b)b, c)c;")
+    from_newick("((a, b)b, c)c;", ['name'])
     try:
-        from_newick("(((a, b)b, c)d)c;")
-        from_newick("(((a, b)d)b, c)c;")
+        from_newick("(((a, b)b, c)d)c;", ['name'])
+        from_newick("(((a, b)d)b, c)c;", ['name'])
+        raise RuntimeError("history DAG was allowed to be constructed from a tree with a unifurcation.")
     except ValueError:
         return
-    raise RuntimeError("history DAG was allowed to be constructed from a tree with a unifurcation.")
 
-def test_unifurcation():
+def test_unique_leaves():
     # Make sure non-unique leaf labels won't be allowed
-    from_newick("((a, b)b, c)c;")
+    from_newick("((a, b)b, c)c;", ['name'])
     try:
-        from_newick("(((a, b)b, a)d)c;")
+        from_newick("(((a, b)b, a)d)c;", ['name'])
+        raise RuntimeError("history DAG creation was allowed with non-unique leaf labels")
     except ValueError:
         return
-    raise RuntimeError("history DAG creation was allowed with non-unique leaf labels")
 
 def test_explode_rejects_leaf_ambiguities():
     # Make sure explode won't expand a leaf
     # First make sure it works if we fix the problem:
-    dag = from_newick("((A, C)W, C)C;", label_features = {'sequence': lambda n: n.name})
+    dag = from_newick("((A, C)W, T)C;", [], label_functions = {'sequence': lambda n: n.name})
     dag.explode_nodes(expandable_func=None)
 
-    dag = from_newick("((A, N)W, C)C;", label_features = {'sequence': lambda n: n.name})
+    dag = from_newick("((A, N)W, T)C;", [], label_functions = {'sequence': lambda n: n.name})
     try:
         dag.explode_nodes(expandable_func=None)
-    except:
+        raise RuntimeError("history DAG explode accepted expand_func that would explode a leaf")
+    except ValueError:
         return
-    raise RuntimeError("history DAG explode accepted expand_func that would explode a leaf")
 
 def test_differentleaves():
     # Make sure that a DAG will not be created from trees with different leaf
@@ -183,9 +183,9 @@ def test_differentleaves():
     history_dag_from_newicks(["((a, b)b, c)c;","((a, b)b, c)c;"], ['name'])
     try:
         history_dag_from_newicks(["((z, b)b, c)c;","((a, b)b, c)c;"], ['name'])
+        raise RuntimeError("history DAG was allowed to be constructed from trees with different leaf labels.")
     except ValueError:
         return
-    raise RuntimeError("history DAG was allowed to be constructed from trees with different leaf labels.")
 
 def test_print():
     tree1 = ete3.Tree(newickstring2, format=1)
@@ -201,7 +201,7 @@ def test_eq():
     assert dag1.dagroot != dag2.dagroot
 
 def test_to_graphviz():
-    dag = from_newick("((aaaaaaaaa, bbbbbbbbb)bbbbbbbbb, ccccccccc)ccccccccc;")
+    dag = from_newick("((aaaaaaaaa, bbbbbbbbb)bbbbbbbbb, ccccccccc)ccccccccc;", ['name'])
     dag.to_graphviz()
 
 def test_make_uniform():

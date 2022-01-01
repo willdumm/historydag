@@ -11,6 +11,20 @@ newickstring3 = (
         "3[&&NHX:name=3:sequence=H];"
 )
 
+def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
+    """Collapse nonleaf nodes that have the same sequence"""
+    # Need to keep doing this until the tree fully collapsed. See gctree for this!
+    tree = tree.copy()
+    to_delete = []
+    for node in tree.get_descendants():
+        # This must stay invariably hamming distance, since it's measuring equality of strings
+        if not node.is_leaf() and utils.hamming_distance(node.up.sequence, node.sequence) == 0:
+            to_delete.append(node)
+    for node in to_delete:
+        node.delete()
+    return tree
+
+
 etetree = list(hdag.history_dag_from_etes([ete3.TreeNode(newick=newickstring3, format=1)], ['sequence']).get_trees())[0].to_ete(features=['sequence'])
 etetree2 = utils.collapse_adjacent_sequences(etetree.copy())
 
@@ -58,9 +72,10 @@ def test_add_allowed_edges():
     dag.add_all_allowed_edges(preserve_parent_labels=True)
     c = dag.weight_count()
     assert min(c) == max(c)
-
+    
     # See that adding only edges between nodes with different labels preserves collapse
-    allcollapsedtrees = [utils.collapse_adjacent_sequences(tree) for tree in trees]
+    allcollapsedtrees = [collapse_adjacent_sequences(tree) for tree in trees]
     collapsed_dag = hdag.history_dag_from_etes(allcollapsedtrees, ['sequence'])
+    collapsed_dag.convert_to_collapsed()
     collapsed_dag.add_all_allowed_edges(adjacent_labels=False)
-    assert all(parent.label != target.label for parent in collapsed_dag.postorder() for target in parent.children())
+    assert all(parent.label != target.label for parent in collapsed_dag.postorder() for target in parent.children() if not target.is_leaf())
