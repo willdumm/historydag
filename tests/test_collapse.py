@@ -20,6 +20,13 @@ with open('sample_data/toy_trees_100_collapsed.p', 'rb') as fh:
 with open('sample_data/toy_trees_100_uncollapsed.p', 'rb') as fh:
     uncollapsed = pickle.load(fh)
 trees = collapsed + uncollapsed
+for tree in trees:
+    if len(tree.children) == 1:
+        newchild = tree.copy()
+        for child in newchild.get_children():
+            newchild.remove_child(child)
+        tree.add_child(newchild)
+        assert newchild.is_leaf()
 
 def test_fulltree():
     dag = hdag.history_dag_from_etes([etetree], ['sequence'])
@@ -44,3 +51,16 @@ def test_collapse():
     n_before = uncollapsed_dag.count_trees()
     uncollapsed_dag.merge(collapsed_dag)
     assert n_before == uncollapsed_dag.count_trees()
+
+def test_add_allowed_edges():
+    # See that adding only edges that preserve parent labels preserves parsimony
+    dag = hdag.history_dag_from_etes(trees, ['sequence'])
+    dag.add_all_allowed_edges(preserve_parent_labels=True)
+    c = dag.weight_count()
+    assert min(c) == max(c)
+
+    # See that adding only edges between nodes with different labels preserves collapse
+    allcollapsedtrees = [utils.collapse_adjacent_sequences(tree) for tree in trees]
+    collapsed_dag = hdag.history_dag_from_etes(allcollapsedtrees, ['sequence'])
+    collapsed_dag.add_all_allowed_edges(adjacent_labels=False)
+    assert all(parent.label != target.label for parent in collapsed_dag.postorder() for target in parent.children())

@@ -1,30 +1,28 @@
-from historydag.dag import HistoryDagNode, EdgeSet, from_tree, postorder, history_dag_from_newicks
+from historydag.dag import HistoryDagNode, EdgeSet, from_tree, history_dag_from_newicks, from_newick
 import ete3
+from collections import Counter
 
 """ HistoryDag tests:"""
 
 newickstring1 = (
-    "(((4[&&NHX:name=4:sequence=C],(6[&&NHX:name=6:sequence=C],"
-    "7[&&NHX:name=7:sequence=A])5[&&NHX:name=5:sequence=M])3[&&NHX:name=3:sequence=M],"
-    "8[&&NHX:name=8:sequence=A],(11[&&NHX:name=11:sequence=A],"
-    "10[&&NHX:name=10:sequence=G])9[&&NHX:name=9:sequence=R])"
-    "2[&&NHX:name=2:sequence=R])1[&&NHX:name=1:sequence=G];"
+    "((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=S],"
+    "7[&&NHX:name=7:sequence=T])5[&&NHX:name=5:sequence=M])3[&&NHX:name=3:sequence=M],"
+    "8[&&NHX:name=8:sequence=W],(11[&&NHX:name=11:sequence=V],"
+    "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=R])1[&&NHX:name=1:sequence=G];"
 )
 
 newickstring2 = (
-    "(((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=J],"
-    "7[&&NHX:name=7:sequence=I])5[&&NHX:name=5:sequence=H])3[&&NHX:name=3:sequence=G],"
-    "8[&&NHX:name=8:sequence=F],(11[&&NHX:name=11:sequence=E],"
-    "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=C])"
-    "2[&&NHX:name=2:sequence=B])1[&&NHX:name=1:sequence=A];"
+    "((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=S],"
+    "7[&&NHX:name=7:sequence=T])5[&&NHX:name=5:sequence=H])3[&&NHX:name=3:sequence=G],"
+    "8[&&NHX:name=8:sequence=W],(11[&&NHX:name=11:sequence=V],"
+    "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=C])1[&&NHX:name=1:sequence=A];"
 )
 
 newickstring3 = (
-    "(((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=J],"
-    "7[&&NHX:name=7:sequence=I])5[&&NHX:name=5:sequence=H])2[&&NHX:name=2:sequence=B],"
-    "8[&&NHX:name=8:sequence=F],(11[&&NHX:name=11:sequence=E],"
-    "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=C])"
-    "3[&&NHX:name=3:sequence=G])1[&&NHX:name=1:sequence=A];"
+    "((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=S],"
+    "7[&&NHX:name=7:sequence=T])5[&&NHX:name=5:sequence=H])2[&&NHX:name=2:sequence=B],"
+    "8[&&NHX:name=8:sequence=W],(11[&&NHX:name=11:sequence=V],"
+    "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=C])1[&&NHX:name=1:sequence=A];"
 )
 
 namedict = {
@@ -32,12 +30,12 @@ namedict = {
     "B": 2,
     "C": 9,
     "D": 10,
-    "E": 11,
-    "F": 8,
+    "V": 11,
+    "W": 8,
     "G": 3,
     "H": 5,
-    "I": 7,
-    "J": 6,
+    "T": 7,
+    "S": 6,
     "K": 4,
     None: "DAG_root",
 }
@@ -82,7 +80,7 @@ def test_from_tree():
 def test_postorder():
     tree = ete3.Tree(newickstring2, format=1)
     dag = from_tree(tree, ['sequence'])
-    assert [namedict[node.label.sequence] for node in postorder(dag)] == [
+    assert [namedict[node.label.sequence] if isinstance(node.label, tuple) else str(node.label) for node in dag.postorder()] == [
         4,
         6,
         7,
@@ -92,9 +90,8 @@ def test_postorder():
         11,
         10,
         9,
-        2,
         1,
-        "DAG_root",
+        "UA_node",
     ]
     # print([namedict[node.label] for node in postorder(dag)])
 
@@ -134,14 +131,99 @@ def test_internal_avg_parents():
     tree2 = ete3.Tree(newickstring3, format=1)
     dag2 = from_tree(tree2, ['sequence'])
     dag1.merge(dag2)
-    return dag1.to_graphviz(namedict=namedict)
-    assert dag1.internal_avg_parents() == 9 / 7
+    dag1.to_graphviz(namedict=namedict)
+    assert dag1.internal_avg_parents() == 1.2
 
 
 def test_sample():
     newicks = ["((a, b)b, c)c;", "((a, b)c, c)c;", "((a, b)a, c)c;", "((a, b)r, c)r;"]
     newicks = ["((1, 2)2, 3)3;", "((1, 2)3, 3)3;", "((1, 2)1, 3)3;", "((1, 2)4, 3)4;"]
-    namedict = {str(x): x for x in range(5)}
+    namedict = {(str(x), ): x for x in range(5)}
     dag = history_dag_from_newicks(newicks, ['name'])
     sample = dag.sample()
     return sample.to_graphviz(namedict=namedict)
+
+def test_unifurcation():
+    # Make sure that unifurcations are handled correctly
+    # First make sure the call works when the problem is fixed:
+    from_newick("((a, b)b, c)c;")
+    try:
+        from_newick("(((a, b)b, c)d)c;")
+        from_newick("(((a, b)d)b, c)c;")
+    except ValueError:
+        return
+    raise RuntimeError("history DAG was allowed to be constructed from a tree with a unifurcation.")
+
+def test_unifurcation():
+    # Make sure non-unique leaf labels won't be allowed
+    from_newick("((a, b)b, c)c;")
+    try:
+        from_newick("(((a, b)b, a)d)c;")
+    except ValueError:
+        return
+    raise RuntimeError("history DAG creation was allowed with non-unique leaf labels")
+
+def test_explode_rejects_leaf_ambiguities():
+    # Make sure explode won't expand a leaf
+    # First make sure it works if we fix the problem:
+    dag = from_newick("((A, C)W, C)C;", label_features = {'sequence': lambda n: n.name})
+    dag.explode_nodes(expandable_func=None)
+
+    dag = from_newick("((A, N)W, C)C;", label_features = {'sequence': lambda n: n.name})
+    try:
+        dag.explode_nodes(expandable_func=None)
+    except:
+        return
+    raise RuntimeError("history DAG explode accepted expand_func that would explode a leaf")
+
+def test_differentleaves():
+    # Make sure that a DAG will not be created from trees with different leaf
+    # labels
+    # First make sure the call works when the problem is fixed
+    history_dag_from_newicks(["((a, b)b, c)c;","((a, b)b, c)c;"], ['name'])
+    try:
+        history_dag_from_newicks(["((z, b)b, c)c;","((a, b)b, c)c;"], ['name'])
+    except ValueError:
+        return
+    raise RuntimeError("history DAG was allowed to be constructed from trees with different leaf labels.")
+
+def test_print():
+    tree1 = ete3.Tree(newickstring2, format=1)
+    dag1 = from_tree(tree1, ['sequence'])
+    dag1.__repr__()
+
+def test_eq():
+    tree1 = ete3.Tree(newickstring2, format=1)
+    dag1 = from_tree(tree1, ['sequence'])
+    tree2 = ete3.Tree("((z, b)b, c)c;", format=1)
+    dag2 = from_tree(tree2, ['name'])
+    assert dag1.dagroot == dag1.copy().dagroot
+    assert dag1.dagroot != dag2.dagroot
+
+def test_to_graphviz():
+    dag = from_newick("((aaaaaaaaa, bbbbbbbbb)bbbbbbbbb, ccccccccc)ccccccccc;")
+    dag.to_graphviz()
+
+def test_make_uniform():
+    def normalize_counts(counter):
+        n = len(list(counter.elements()))
+        return ([num / n for _, num in counter.items()], (n / len(counter)) / n )
+
+    def is_close(f1, f2):
+        return abs(f1 - f2) < .03
+
+    dag = history_dag_from_newicks([newickstring1, newickstring2, newickstring3], ['sequence'])
+    take1 = Counter([dag.sample().to_newick() for _ in range(1000)])
+    dag.make_uniform()
+    take2 = Counter([dag.sample().to_newick() for _ in range(1000)])
+    
+    take1norms, avg1 = normalize_counts(take1)
+    assert any(not is_close(norm, avg1) for norm in take1norms)
+
+    take2norms, avg2 = normalize_counts(take2)
+    assert all(is_close(norm, avg2) for norm in take2norms)
+
+def test_summary():
+    dag = history_dag_from_newicks([newickstring1, newickstring2, newickstring3], ['sequence'])
+    dag.summary()
+
