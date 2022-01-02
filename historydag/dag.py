@@ -538,35 +538,15 @@ class HistoryDag(object):
             lambda x: counter_prod(x, accum_func),
         )
 
+    def hamming_parsimony_count(self):
+        return self.weight_count(**utils.hamming_distance_countfuncs)
+
     def to_newicks(
-        self, name_func=lambda n: "unnamed", features=None, feature_funcs={}
+        self, **kwargs
     ):
         """Returns a list of extended newick strings formed with label fields."""
 
-        def newicksum(newicks):
-            snewicks = sorted(newicks)
-            if len(snewicks) == 2:
-                if "" in snewicks:
-                    return "".join(snewicks)
-                elif snewicks[0][-1] == ")":
-                    return "".join(snewicks)
-                elif snewicks[1][-1] == ")":
-                    return "".join(reversed(snewicks))
-                else:
-                    return "(" + ",".join(snewicks) + ")"
-            else:
-                return "(" + ",".join(snewicks) + ")"
-
-        def newickedgeweight(n1, n2):
-            return n2._newick_label(
-                name_func=name_func, features=features, feature_funcs=feature_funcs
-            )
-
-        newicks = self.weight_count(
-            start_func=lambda n: "",
-            edge_weight_func=newickedgeweight,
-            accum_func=newicksum,
-        ).elements()
+        newicks = self.weight_count(**utils.make_newickcountfuncs(**kwargs)).elements()
         return [newick[1:-1] + ";" for newick in newicks]
 
     def count_trees(

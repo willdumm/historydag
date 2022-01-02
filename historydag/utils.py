@@ -1,3 +1,4 @@
+from collections import UserDict
 import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
@@ -145,6 +146,18 @@ def hist(c: Counter, samples=1):
     for weight, freq in l:
         print(f"{weight}  \t| {freq if samples==1 else freq/samples}")
 
+def deterministic_newick(tree: ete3.TreeNode):
+    """For use in comparing TreeNodes with newick strings"""
+    newtree = tree.copy()
+    for node in newtree.traverse():
+        node.name = 1
+        node.children.sort(key=lambda node: node.sequence)
+        node.dist = 1
+    return newtree.write(format=1, features=['sequence'], format_root_node=True)
+
+def is_collapsed(tree: ete3.TreeNode):
+    return not any(node.sequence == node.up.sequence and not node.is_leaf() for node in tree.iter_descendants())
+
 def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
     """Collapse nonleaf nodes that have the same sequence"""
     # Need to keep doing this until the tree fully collapsed. See gctree for this!
@@ -158,16 +171,87 @@ def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
         node.delete()
     return tree
 
-def deterministic_newick(tree: ete3.TreeNode):
-    """For use in comparing TreeNodes with newick strings"""
-    newtree = tree.copy()
-    for node in newtree.traverse():
-        node.name = 1
-        node.children.sort(key=lambda node: node.sequence)
-        node.dist = 1
-    return newtree.write(format=1, features=['sequence'], format_root_node=True)
+class AddFuncDict(UserDict):
 
-def is_collapsed(tree: ete3.TreeNode):
-    return not any(node.sequence == node.up.sequence and not node.is_leaf() for node in tree.iter_descendants())
+    requiredkeys = {'start_func', 'edge_weight_func', 'accum_func'}
 
+    def __init__(self, initialdata, names='unnamed_weight'):
+        self.names = names
+        if not set(initialdata.keys()) == self.requiredkeys:
+            raise ValueError('Must provide functions named ' + ', '.join(self.requiredkeys))
+        super().__init__(initialdata)
 
+    def __add__(self, other) -> 'AddFuncDict':
+        fdict1 = self._convert_to_tupleargs()
+        fdict2 = other._convert_to_tupleargs()
+        newdict = {}
+        n = len(fdict1.names)
+        def newaccumfunc(weightlist):
+            return (fdict1['accum_func']([weight[0:n] for weight in weightlist])
+                    + fdict2['accum_func']([weight[n:] for weight in weightlist]))
+
+        def addfuncs(func1, func2):
+            def newfunc(*args):
+                return func1(*args) + func2(*args)
+            return newfunc
+
+        return AddFuncDict({
+                            'start_func': addfuncs(fdict1['start_func'], fdict2['start_func']),
+                            'edge_weight_func': addfuncs(fdict1['edge_weight_func'], fdict2['edge_weight_func']),
+                            'accum_func': newaccumfunc},
+                            names = fdict1.names + fdict2.names)
+    
+    def _convert_to_tupleargs(self):
+        if isinstance(self.names, str):
+            def node_to_weight_decorator(func):
+                @wraps(func)
+                def wrapper(*args):
+                    return (func(*args), )
+                return wrapper
+
+            def list_of_weights_to_weight_decorator(func):
+                @wraps(func)
+                def wrapper(weighttuplelist: List[Weight]):
+                    return (func([wt[0] for wt in weighttuplelist]), )
+                return wrapper
+
+            return AddFuncDict({'start_func': node_to_weight_decorator(self['start_func']),
+                                'edge_weight_func': node_to_weight_decorator(self['edge_weight_func']),
+                                'accum_func': list_of_weights_to_weight_decorator(self['accum_func'])},
+                               names=(self.names, ))
+        else:
+            return self
+
+hamming_distance_countfuncs = AddFuncDict(
+        {'start_func': lambda n: 0,
+         'edge_weight_func': lambda n1, n2: wrapped_hamming_distance(n1.label, n2.label),
+         'accum_func': sum},
+    names = 'HammingParsimony'
+)
+
+def make_newickcountfuncs(name_func=lambda n: "unnamed", features=None, feature_funcs={}):
+    def _newicksum(newicks):
+        snewicks = sorted(newicks)
+        if len(snewicks) == 2:
+            if "" in snewicks:
+                return "".join(snewicks)
+            elif snewicks[0][-1] == ")":
+                return "".join(snewicks)
+            elif snewicks[1][-1] == ")":
+                return "".join(reversed(snewicks))
+            else:
+                return "(" + ",".join(snewicks) + ")"
+        else:
+            return "(" + ",".join(snewicks) + ")"
+
+    def _newickedgeweight(n1, n2):
+        return n2._newick_label(
+            name_func=name_func, features=features, feature_funcs=feature_funcs
+        )
+
+    return AddFuncDict(
+        {'start_func': lambda n: "",
+         'edge_weight_func': _newickedgeweight,
+         'accum_func': _newicksum},
+        names='NewickString'
+    )
