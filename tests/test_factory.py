@@ -156,7 +156,7 @@ def test_count_weights_expanded():
     for dag in dags + cdags:
         ndag = dag.copy()
         ndag.explode_nodes()
-        assert dag.weight_count() == ndag.get_weight_counts_with_ambiguities().popitem()[1]
+        assert dag.hamming_parsimony_count() == ndag.weight_counts_with_ambiguities()
 
 def test_cm_counter():
     pass

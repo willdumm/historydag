@@ -1,6 +1,7 @@
 from historydag.dag import HistoryDagNode, EdgeSet, from_tree, history_dag_from_newicks, from_newick
 import ete3
 from collections import Counter
+import random
 
 """ HistoryDag tests:"""
 
@@ -205,6 +206,7 @@ def test_to_graphviz():
     dag.to_graphviz()
 
 def test_make_uniform():
+    random.seed(1)
     def normalize_counts(counter):
         n = len(list(counter.elements()))
         return ([num / n for _, num in counter.items()], (n / len(counter)) / n )
@@ -227,3 +229,10 @@ def test_summary():
     dag = history_dag_from_newicks([newickstring1, newickstring2, newickstring3], ['sequence'])
     dag.summary()
 
+def test_to_newick():
+    dag = history_dag_from_newicks([newickstring1, newickstring2, newickstring3], ['sequence'])
+    try:
+        dag.to_newick()
+        raise RuntimeError("to_newick shouldn't accept a DAG that's not a tree")
+    except ValueError:
+        pass
