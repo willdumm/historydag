@@ -1,7 +1,7 @@
 import pickle
 import graphviz as gv
 from historydag import utils
-from historydag.utils import UALabel
+from historydag.utils import UALabel, Weight, Label, NTLabel
 import ete3
 import random
 from typing import (
@@ -15,16 +15,14 @@ from typing import (
     Set,
     Optional,
     Tuple,
+    NamedTuple,
+    Dict,
 )
-from numbers import Number
-from collections import Counter, namedtuple
+from collections import Counter
 
 # from gctree import CollapsedTree
 from multiset import FrozenMultiset
 from historydag.counterops import counter_sum, counter_prod, addweight, prod
-
-Weight = TypeVar("Weight")
-Label = TypeVar("Label")
 
 
 class HistoryDagNode:
@@ -33,13 +31,14 @@ class HistoryDagNode:
     - a label, which is a namedtuple.
     """
 
-    def __init__(self, label: Label, clades: dict = {}, attr: Any = None) -> 'HistoryDagNode':
+    def __init__(self, label: Label, clades: dict = {}, attr: Any = None):
         assert isinstance(label, tuple) or isinstance(label, UALabel)
         self.clades = clades
         # If passed a nonempty dictionary, need to add self to children's parents
         self.label = label
-        self.parents = set()
+        self.parents: Set[HistoryDagNode] = set()
         self.attr = attr
+        self._dp_data: Any = None
         if self.clades:
             for _, edgeset in self.clades.items():
                 edgeset.parent = self
@@ -59,17 +58,21 @@ class HistoryDagNode:
     def __hash__(self) -> int:
         return hash((self.label, self.partitions()))
 
-    def __eq__(self, other: "HistoryDagNode") -> bool:
-        return (self.label, self.partitions()) == (other.label, other.partitions())
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, HistoryDagNode):
+            return (self.label, self.partitions()) == (other.label, other.partitions())
+        else:
+            raise NotImplementedError
 
     def node_self(self) -> "HistoryDagNode":
         """Returns a HistoryDagNode object with the same clades and label,
         but no descendant edges."""
         return HistoryDagNode(self.label, {clade: EdgeSet() for clade in self.clades})
 
-    def under_clade(self) -> frozenset:
+    def under_clade(self) -> frozenset[NTLabel]:
         r"""Returns the union of this node's child clades"""
         if self.is_leaf():
+            assert not isinstance(self.label, UALabel)
             return frozenset([self.label])
         else:
             return frozenset().union(*self.clades.keys())
@@ -128,7 +131,7 @@ class HistoryDagNode:
                 prob_norm=prob_norm,
             )
 
-    def remove_node(self, nodedict: Mapping["HistoryDagNode", "HistoryDagNode"] = {}):
+    def remove_node(self, nodedict: Dict["HistoryDagNode", "HistoryDagNode"] = {}):
         r"""Recursively removes node self and any orphaned children from dag.
         May not work on root.
         Does not check to make sure that parent clade still has descendant edges."""
@@ -183,11 +186,10 @@ class HistoryDagNode:
                 )
             yield tree
 
-    @utils.ignore_ualabel("UA_Node")
     def _newick_label(
         self,
         name_func: Callable[["HistoryDagNode"], str] = (lambda n: "unnamed"),
-        features: List[str] = None,
+        features: Iterable[str] = None,
         feature_funcs: Mapping[str, Callable[["HistoryDagNode"], str]] = {},
     ) -> str:
         """Return an extended newick format node label.
@@ -202,24 +204,27 @@ class HistoryDagNode:
         Returns:
             A string which can be used as a node name in a newick string.
                 For example, `namefuncresult[&&NHX:feature1=val1:feature2=val2]`"""
-        if features is None:
-            features = self.label._fields
-        # Use dict to avoid duplicate fields
-        nameval_dict = {
-            name: val for name, val in self.label._asdict().items() if name in features
-        }
-        nameval_dict.update({name: f(self) for name, f in feature_funcs.items()})
-        featurestr = ":".join(f"{name}={val}" for name, val in nameval_dict.items())
-        return name_func(self) + (f"[&&NHX:{featurestr}]" if featurestr else "")
+        if self.is_root():
+            return "UA_node"
+        else:
+            if features is None:
+                features = self.label._fields
+            # Use dict to avoid duplicate fields
+            nameval_dict = {
+                name: val for name, val in self.label._asdict().items() if name in features
+            }
+            nameval_dict.update({name: f(self) for name, f in feature_funcs.items()})
+            featurestr = ":".join(f"{name}={val}" for name, val in nameval_dict.items())
+            return name_func(self) + (f"[&&NHX:{featurestr}]" if featurestr else "")
 
 
-class HistoryDag(object):
+class HistoryDag:
     r"""A wrapper object to contain exposed HistoryDag methods and point to a HistoryDagNode root"""
 
-    def __init__(self, dagroot: HistoryDagNode) -> 'HistoryDag':
+    def __init__(self, dagroot: HistoryDagNode):
         self.dagroot = dagroot
 
-    def __eq__(self, other: 'HistoryDag') -> bool:
+    def __eq__(self, other: object) -> bool:
         # Eventually this can be done by comparing bytestrings, but we need
         # some sorting to be done first, to ensure two dags that represent
         # identical trees return True. TODO
@@ -300,7 +305,7 @@ class HistoryDag(object):
             The number of edges added to the history DAG
         """
         n_added = 0
-        clade_dict = {node.under_clade(): [] for node in self.postorder()}
+        clade_dict: Dict[frozenset[NTLabel], List[HistoryDagNode]] = {node.under_clade(): [] for node in self.postorder()}
         if preserve_parent_labels is True:
             self.recompute_parents()
             uplabels = {
@@ -408,9 +413,7 @@ class HistoryDag(object):
                 return str(hash(label))
 
         if labelfunc is None:
-
-            def labelfunc(node):
-                return labeller(node.label)
+            labelfunc = lambda n: labeller(node.label)
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in self.postorder():
@@ -536,8 +539,8 @@ class HistoryDag(object):
         self,
         leaf_func: Callable[["HistoryDagNode"], Weight],
         edge_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight],
-        accum_within_clade: Callable[[List[Counter]], Counter],
-        accum_between_clade: Callable[[List[Counter]], Counter],
+        accum_within_clade: Callable[[List[Weight]], Weight],
+        accum_between_clade: Callable[[List[Weight]], Weight],
         accum_above_edge: Optional[Callable[[Weight, Weight], Weight]] = None,
     ) -> Weight:
         """A template method for leaf-to-root dynamic programming.
@@ -563,8 +566,10 @@ class HistoryDag(object):
             The resulting weight computed for the History DAG UA (root) node."""
         if accum_above_edge is None:
 
-            def accum_above_edge(subtree_weight, edge_weight):
+            def default_accum_above_edge(subtree_weight, edge_weight):
                 return accum_between_clade([subtree_weight, edge_weight])
+
+            accum_above_edge = default_accum_above_edge
 
         for node in self.postorder():
             if node.is_leaf():
@@ -836,11 +841,10 @@ class HistoryDag(object):
                 edge_list: a tuple for each edge:
                     (origin node index, target node index, edge weight, edge probability)"""
         label_fields = list(self.dagroot.children())[0].label._fields
-        label_list = []
-        node_list = []
-        attr_list = []
-        edge_list = []
-        label_indices = {}
+        label_list: List[Tuple] = []
+        node_list: List[Tuple] = []
+        edge_list: List[Tuple] = []
+        label_indices: Dict[Label, int] = {}
         node_indices = {id(node): idx for idx, node in enumerate(self.postorder())}
 
         def cladesets(node):
@@ -1006,7 +1010,7 @@ class EdgeSet:
     Goal: associate targets (edges) with arbitrary parameters, but support
     set-like operations like lookup and enforce that elements are unique."""
 
-    def __init__(self, *args, weights: list = None, probs: list = None):
+    def __init__(self, *args, weights: Optional[List[float]] = None, probs: Optional[list[float]] = None):
         r"""Takes no arguments, or an ordered iterable containing target nodes"""
         if len(args) > 1:
             raise TypeError(f"Expected at most one argument, got {len(args)}")
@@ -1056,7 +1060,7 @@ class EdgeSet:
             self.weights.pop(idx_to_remove)
             self._targetset = set(self.targets)
 
-    def sample(self) -> Tuple[HistoryDagNode, Number]:
+    def sample(self) -> Tuple[HistoryDagNode, float]:
         """
         Returns a randomly sampled child edge, and its corresponding weight.
         """
@@ -1138,9 +1142,7 @@ def from_tree(
     """
     feature_maps = {name: (lambda n: getattr(n, name)) for name in label_features}
     feature_maps.update(label_functions)
-    Label = namedtuple(
-        "Label", list(feature_maps.keys()), defaults=[None] * len(feature_maps)
-    )
+    Label = NamedTuple("Label", [(label, any) for label in feature_maps.keys()]) #type: ignore
 
     def node_label(n: ete3.TreeNode):
         # This should not fail silently! Only DAG UA node is allowed to have
@@ -1279,11 +1281,11 @@ def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
 def deserialize(bstring: bytes) -> HistoryDag:
     """reloads a HistoryDag serialized object, as ouput by HistoryDagNode.serialize"""
     serial_dict = pickle.loads(bstring)
-    label_list = serial_dict["label_list"]
-    node_list = serial_dict["node_list"]
-    edge_list = serial_dict["edge_list"]
-    label_fields = serial_dict["label_fields"]
-    Label = namedtuple("Label", label_fields, defaults=[None] * len(label_fields))
+    label_list: List[Tuple] = serial_dict["label_list"]
+    node_list: List[Tuple] = serial_dict["node_list"]
+    edge_list: List[Tuple[int, int, float, float]] = serial_dict["edge_list"]
+    label_fields: Tuple[str] = serial_dict["label_fields"]
+    Label = NamedTuple("Label", [(label, any) for label in label_fields]) #type: ignore
 
     def unpack_labels(labelset):
         res = frozenset({Label(*label_list[idx]) for idx in labelset})

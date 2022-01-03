@@ -4,18 +4,20 @@ from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 import random
 from functools import wraps
-from typing import List, Any, TypeVar, Callable, Union, Iterable, Generator, Tuple
+from typing import List, Any, TypeVar, Callable, Union, Iterable, Generator, Tuple, NamedTuple
 
-Weight = TypeVar("Weight")
-Label = TypeVar("Label")
+Weight = Any
+NTLabel = NamedTuple
+Label = Union['UALabel', NTLabel]
 F = TypeVar("F", bound=Callable[..., Any])
 
 bases = "AGCT-"
-ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
+ambiguous_dna_values.update({"?": bases, "-": "-"})
 
 
-class UALabel(object):
+class UALabel:
     """A history DAG universal ancestor (UA) node label"""
+    _fields: Any = tuple()
 
     def __init__(self):
         pass
@@ -31,6 +33,13 @@ class UALabel(object):
             return True
         else:
             return False
+
+    ### For typing:
+    def __iter__(self):
+        yield from ()
+    
+    def _asdict(self):
+        return {}
 
 
 # ######## Decorators ########
@@ -76,7 +85,6 @@ def access_field(fieldname: str) -> Callable[[F], F]:
         return wrapper
 
     return decorator
-
 
 def ignore_ualabel(default: Any) -> Callable[[F], F]:
     """A decorator to return a default value if any argument is a UALabel.
@@ -138,7 +146,7 @@ def hamming_distance(s1: str, s2: str) -> int:
 
 @ignore_ualabel(0)
 @access_field("sequence")
-def wrapped_hamming_distance(s1:str, s2: str) -> int:
+def wrapped_hamming_distance(s1, s2) -> int:
     """The sitewise sum of base differences between sequence field contents of two labels.
 
     Takes two Labels as arguments.
@@ -164,7 +172,7 @@ def cartesian_product(optionlist: List[Callable[[], Iterable]], accum=tuple()) -
 
 
 @explode_label("sequence")
-def sequence_resolutions(sequence: str) -> List[str]:
+def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
     """Iterates through possible disambiguations of sequence, recursively.
     Recursion-depth-limited by number of ambiguity codes in
     sequence, not sequence length.
@@ -253,7 +261,6 @@ class AddFuncDict(UserDict):
     def __add__(self, other) -> "AddFuncDict":
         fdict1 = self._convert_to_tupleargs()
         fdict2 = other._convert_to_tupleargs()
-        newdict = {}
         n = len(fdict1.names)
 
         def newaccumfunc(weightlist):
