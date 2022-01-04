@@ -1,8 +1,8 @@
-from collections import UserDict
 import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 from functools import wraps
+from collections import UserDict
 from typing import (
     List,
     Any,
@@ -215,16 +215,6 @@ def hist(c: Counter, samples: int = 1):
     print("Weight\t| Frequency\n------------------")
     for weight, freq in ls:
         print(f"{weight}  \t| {freq if samples==1 else freq/samples}")
-
-
-def deterministic_newick(tree: ete3.TreeNode) -> str:
-    """For use in comparing ete3 TreeNodes with newick strings"""
-    newtree = tree.copy()
-    for node in newtree.traverse():
-        node.name = 1
-        node.children.sort(key=lambda node: node.sequence)
-        node.dist = 1
-    return newtree.write(format=1, features=["sequence"], format_root_node=True)
 
 
 def is_collapsed(tree: ete3.TreeNode) -> bool:

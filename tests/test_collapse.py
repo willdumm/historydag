@@ -2,6 +2,7 @@ import ete3
 import historydag.dag as hdag
 from historydag import utils
 import pickle
+from test_factory import deterministic_newick
 
 newickstring3 = (
     "((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=J],"
@@ -55,16 +56,16 @@ def test_fulltree():
     dag = hdag.history_dag_from_etes([etetree], ["sequence"])
     dag.convert_to_collapsed()
     assert set(
-        utils.deterministic_newick(tree.to_ete()) for tree in dag.get_trees()
-    ) == set({utils.deterministic_newick(etetree2)})
+        deterministic_newick(tree.to_ete()) for tree in dag.get_trees()
+    ) == set({deterministic_newick(etetree2)})
 
 
 def test_twotrees():
     dag = hdag.history_dag_from_etes([etetree, etetree2], ["sequence"])
     dag.convert_to_collapsed()
     assert dag.count_trees() == 1
-    assert {utils.deterministic_newick(tree.to_ete()) for tree in dag.get_trees()} == {
-        utils.deterministic_newick(etetree2)
+    assert {deterministic_newick(tree.to_ete()) for tree in dag.get_trees()} == {
+        deterministic_newick(etetree2)
     }
 
 

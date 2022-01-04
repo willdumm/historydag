@@ -2,6 +2,7 @@ from historydag import utils
 from historydag import dag as hdag
 import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
+from test_factory import deterministic_newick
 
 bases = "AGCT-"
 ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
@@ -199,13 +200,13 @@ def test_expand_ambiguities():
         print(cdag.count_trees())
         print(cdag.weight_count())
         checkset = {
-            utils.deterministic_newick(tree)
+            deterministic_newick(tree)
             for cladetree in dag.get_trees()
             for tree in disambiguate(cladetree.to_ete(features=["sequence"]))
         }
         print(len(checkset))
         assert checkset == {
-            utils.deterministic_newick(cladetree.to_ete(features=["sequence"]))
+            deterministic_newick(cladetree.to_ete(features=["sequence"]))
             for cladetree in cdag.get_trees()
         }
 

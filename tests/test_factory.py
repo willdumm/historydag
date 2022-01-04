@@ -1,7 +1,27 @@
+import ete3
 import pickle
 import historydag.dag as hdag
 import historydag.utils as dagutils
 from collections import Counter
+
+def deterministic_newick(tree: ete3.TreeNode) -> str:
+    """For use in comparing ete3 TreeNodes with newick strings"""
+    newtree = tree.copy()
+    for node in newtree.traverse():
+        node.name = 1
+        node.children.sort(key=lambda node: node.sequence)
+        node.dist = 1
+    return newtree.write(format=1, features=["sequence"], format_root_node=True)
+
+def deterministic_newick_topology(tree: ete3.TreeNode) -> str:
+    """For use in comparing ete3 TreeNodes with newick strings, distinguishing only
+    by topologies above leaves."""
+    newtree = tree.copy()
+    for node in newtree.traverse():
+        node.name = node.sequence
+        node.children.sort(key=lambda node: str(sorted(lf.name for lf in node.get_leaves())))
+        node.dist = 1
+    return newtree.write(format=9)
 
 newicklistlist = [
     ["((AA, CT)CG, (TA, CC)CG)CC;", "((AA, CT)CA, (TA, CC)CC)CC;"],
@@ -80,6 +100,12 @@ def test_valid_dags():
         leaf_labels = [node.label for node in dag.postorder() if len(node.clades) == 0]
         assert len(set(leaf_labels)) == len(leaf_labels)
 
+
+def test_count_topologies():
+    for dag in dags:
+        checkset = {deterministic_newick_topology(tree.to_ete()) for tree in dag.get_trees()}
+        print(checkset)
+        assert dag.count_topologies() == len(checkset)
 
 def test_parsimony():
     # test parsimony counts without ete

@@ -1,7 +1,5 @@
 import pickle
 import graphviz as gv
-from historydag import utils
-from historydag.utils import UALabel, Weight, Label, NTLabel
 import ete3
 import random
 from typing import (
@@ -19,6 +17,8 @@ from typing import (
 )
 from collections import Counter
 
+from historydag import utils
+from historydag.utils import UALabel, Weight, Label, NTLabel
 from historydag.counterops import counter_sum, counter_prod, prod
 
 
