@@ -32,7 +32,50 @@ dag.weight_count()  # Counter({75: 45983})
 dag.convert_to_collapsed()
 dag.weight_count()  # Counter({75: 1208})
 dag.count_topologies()  # 1054 unique topologies, ignoring internal labels
+
+# To count parsimony score and the number of unique nodes in each tree jointly:
+node_count_funcs = hdag.utils.AddFuncDict(
+    {
+        "start_func": lambda n: 0,
+        "edge_weight_func": lambda n1, n2: n1.label != n2.label,
+        "accum_func": sum,
+    },
+    names="NodeCount",
+)
+dag.weight_count(**(node_count_funcs + hdag.utils.hamming_distance_countfuncs))
+# Counter({(50, 75): 444, (51, 75): 328, (49, 75): 270, (52, 75): 94, (48, 75): 68, (53, 75): 4})
+
+# To trim to only the trees with 48 unique node labels:
+dag.trim_optimal_weight(**node_count_funcs, optimal_func=min)
+
+# Sample a tree from the dag and make it an ete tree
+t = dag.sample().to_ete()
 ```
+
+### Highlights
+* History DAGs can be created with top-level functions like
+    * `from_newick`
+    * `from_ete`
+    * `history_dag_from_newicks`
+    * `history_dag_from_etes`
+* Trees can be extracted from the history DAG with methods like
+    * `HistoryDag.get_trees`
+    * `HistoryDag.sample`
+    * `HistoryDag.to_ete`
+    * `HistoryDag.to_newick` and `HistoryDag.to_newicks`
+* Simple history DAGs can be inspected with `HistoryDag.to_graphviz`
+* Pickling must be done using `HistoryDag.serialize` and the top-level function
+    `deserialize`.
+* The DAG can be trimmed according to arbitrary tree weight functions. Use
+    `HistoryDag.trim_optimal_weight`.
+* Disambiguation of sparse ambiguous labels can be done efficiently, but
+    doesn't scale well. Use `HistoryDag.explode_nodes` followed by
+    `HistoryDag.trim_optimal_weight`.
+* Weights of trees in the DAG can be counted, using arbitrary weight functions
+    using `HistoryDag.weight_count`. The class `utils.AddFuncDict` is provided
+    to manage these function arguments, and implements addition so that
+    different weights can be counted jointly. These same functions can be used
+    in trimming.
 
 ## Important Details
 
