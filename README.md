@@ -18,7 +18,7 @@ import pickle
 with open('sample_data/toy_trees.p', 'rb') as fh:
 	ete_trees = pickle.load(fh)
 
-dag = hdag.dag.history_dag_from_etes(ete_trees, ['sequence'])
+dag = hdag.history_dag_from_etes(ete_trees, ['sequence'])
 dag.count_trees()  # 1041
 
 dag.add_all_allowed_edges()
@@ -26,11 +26,12 @@ dag.count_trees()  # 3431531
 
 dag.hamming_parsimony_count()  # Shows counts of trees of different parsimony scores
 dag.trim_optimal_weight()
+# With default args, same as hamming_parsimony_count
 dag.weight_count()  # Counter({75: 45983})
 
 dag.convert_to_collapsed()
 dag.weight_count()  # Counter({75: 1208})
-dag.count_topologies()
+dag.count_topologies()  # 1054 unique topologies, ignoring internal labels
 ```
 
 ## Important Details

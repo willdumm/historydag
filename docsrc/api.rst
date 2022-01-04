@@ -18,6 +18,5 @@ Modules
 .. autosummary::
     :toctree: stubs
 
-    dag
     utils
     counterops
