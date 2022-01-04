@@ -1,4 +1,10 @@
-from historydag.dag import HistoryDagNode, EdgeSet, from_tree, history_dag_from_newicks, from_newick
+from historydag.dag import (
+    HistoryDagNode,
+    EdgeSet,
+    from_tree,
+    history_dag_from_newicks,
+    from_newick,
+)
 import ete3
 from collections import Counter
 import random
@@ -44,23 +50,27 @@ namedict = {
 
 def test_init():
     r = HistoryDagNode(("a",))
-    assert r.is_leaf() == True
+    assert r.is_leaf()
     r = HistoryDagNode(
-        ("a", ), clades={frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet()}
+        ("a",),
+        clades={frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet()},
     )
-    assert r.is_leaf() == False
+    assert not r.is_leaf()
     s = HistoryDagNode(
-        ("b", ),
+        ("b",),
         clades={frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet([r])},
     )
-    assert s.is_leaf() == False
+    assert not s.is_leaf()
 
 
 def test_edge():
     r = HistoryDagNode(("a",))
-    r2 = HistoryDagNode(("b",), {frozenset({("z", ), ("y", )}): EdgeSet(), frozenset({("a",)}): EdgeSet()})
+    r2 = HistoryDagNode(
+        ("b",), {frozenset({("z",), ("y",)}): EdgeSet(), frozenset({("a",)}): EdgeSet()}
+    )
     s = HistoryDagNode(
-        ("b",), clades={frozenset([("a",)]): EdgeSet(), frozenset([("c",), ("d",)]): EdgeSet()}
+        ("b",),
+        clades={frozenset([("a",)]): EdgeSet(), frozenset([("c",), ("d",)]): EdgeSet()},
     )
     s.add_edge(r)
     try:
@@ -73,15 +83,20 @@ def test_edge():
 def test_from_tree():
     tree = ete3.Tree(newickstring2, format=1)
     print(tree.sequence)
-    dag = from_tree(tree, ['sequence'])
+    dag = from_tree(tree, ["sequence"])
     G = dag.to_graphviz(namedict=namedict)
     return G
 
 
 def test_postorder():
     tree = ete3.Tree(newickstring2, format=1)
-    dag = from_tree(tree, ['sequence'])
-    assert [namedict[node.label.sequence] if isinstance(node.label, tuple) else str(node.label) for node in dag.postorder()] == [
+    dag = from_tree(tree, ["sequence"])
+    assert [
+        namedict[node.label.sequence]
+        if isinstance(node.label, tuple)
+        else str(node.label)
+        for node in dag.postorder()
+    ] == [
         4,
         6,
         7,
@@ -99,7 +114,7 @@ def test_postorder():
 
 def test_children():
     tree = ete3.Tree(newickstring2, format=1)
-    dag = from_tree(tree, ['sequence'])
+    dag = from_tree(tree, ["sequence"])
     print([child.label for child in dag.dagroot.children()])
     for child in dag.dagroot.children():
         print([cc.label for cc in child.children()])
@@ -109,18 +124,18 @@ def test_children():
 
 def test_merge():
     tree1 = ete3.Tree(newickstring2, format=1)
-    dag1 = from_tree(tree1, ['sequence'])
+    dag1 = from_tree(tree1, ["sequence"])
     tree2 = ete3.Tree(newickstring3, format=1)
-    dag2 = from_tree(tree2, ['sequence'])
+    dag2 = from_tree(tree2, ["sequence"])
     dag1.merge(dag2)
     return dag1.to_graphviz(namedict=namedict)
 
 
 def test_weight():
     tree1 = ete3.Tree(newickstring2, format=1)
-    dag1 = from_tree(tree1, ['sequence'])
+    dag1 = from_tree(tree1, ["sequence"])
     tree2 = ete3.Tree(newickstring3, format=1)
-    dag2 = from_tree(tree2, ['sequence'])
+    dag2 = from_tree(tree2, ["sequence"])
     dag1.merge(dag2)
     return dag1.to_graphviz(namedict=namedict)
     assert dag1.weight() == 16
@@ -128,9 +143,9 @@ def test_weight():
 
 def test_internal_avg_parents():
     tree1 = ete3.Tree(newickstring2, format=1)
-    dag1 = from_tree(tree1, ['sequence'])
+    dag1 = from_tree(tree1, ["sequence"])
     tree2 = ete3.Tree(newickstring3, format=1)
-    dag2 = from_tree(tree2, ['sequence'])
+    dag2 = from_tree(tree2, ["sequence"])
     dag1.merge(dag2)
     dag1.to_graphviz(namedict=namedict)
     assert dag1.internal_avg_parents() == 1.2
@@ -139,98 +154,129 @@ def test_internal_avg_parents():
 def test_sample():
     newicks = ["((a, b)b, c)c;", "((a, b)c, c)c;", "((a, b)a, c)c;", "((a, b)r, c)r;"]
     newicks = ["((1, 2)2, 3)3;", "((1, 2)3, 3)3;", "((1, 2)1, 3)3;", "((1, 2)4, 3)4;"]
-    namedict = {(str(x), ): x for x in range(5)}
-    dag = history_dag_from_newicks(newicks, ['name'])
+    namedict = {(str(x),): x for x in range(5)}
+    dag = history_dag_from_newicks(newicks, ["name"])
     sample = dag.sample()
     return sample.to_graphviz(namedict=namedict)
+
 
 def test_unifurcation():
     # Make sure that unifurcations are handled correctly
     # First make sure the call works when the problem is fixed:
-    from_newick("((a, b)b, c)c;", ['name'])
+    from_newick("((a, b)b, c)c;", ["name"])
     try:
-        from_newick("(((a, b)b, c)d)c;", ['name'])
-        from_newick("(((a, b)d)b, c)c;", ['name'])
-        raise RuntimeError("history DAG was allowed to be constructed from a tree with a unifurcation.")
+        from_newick("(((a, b)b, c)d)c;", ["name"])
+        from_newick("(((a, b)d)b, c)c;", ["name"])
+        raise RuntimeError(
+            "history DAG was allowed to be constructed from a tree with a unifurcation."
+        )
     except ValueError:
         return
 
+
 def test_unique_leaves():
     # Make sure non-unique leaf labels won't be allowed
-    from_newick("((a, b)b, c)c;", ['name'])
+    from_newick("((a, b)b, c)c;", ["name"])
     try:
-        from_newick("(((a, b)b, a)d)c;", ['name'])
-        raise RuntimeError("history DAG creation was allowed with non-unique leaf labels")
+        from_newick("(((a, b)b, a)d)c;", ["name"])
+        raise RuntimeError(
+            "history DAG creation was allowed with non-unique leaf labels"
+        )
     except ValueError:
         return
+
 
 def test_explode_rejects_leaf_ambiguities():
     # Make sure explode won't expand a leaf
     # First make sure it works if we fix the problem:
-    dag = from_newick("((A, C)W, T)C;", [], label_functions = {'sequence': lambda n: n.name})
+    dag = from_newick(
+        "((A, C)W, T)C;", [], label_functions={"sequence": lambda n: n.name}
+    )
     dag.explode_nodes(expandable_func=None)
 
-    dag = from_newick("((A, N)W, T)C;", [], label_functions = {'sequence': lambda n: n.name})
+    dag = from_newick(
+        "((A, N)W, T)C;", [], label_functions={"sequence": lambda n: n.name}
+    )
     try:
         dag.explode_nodes(expandable_func=None)
-        raise RuntimeError("history DAG explode accepted expand_func that would explode a leaf")
+        raise RuntimeError(
+            "history DAG explode accepted expand_func that would explode a leaf"
+        )
     except ValueError:
         return
+
 
 def test_differentleaves():
     # Make sure that a DAG will not be created from trees with different leaf
     # labels
     # First make sure the call works when the problem is fixed
-    history_dag_from_newicks(["((a, b)b, c)c;","((a, b)b, c)c;"], ['name'])
+    history_dag_from_newicks(["((a, b)b, c)c;", "((a, b)b, c)c;"], ["name"])
     try:
-        history_dag_from_newicks(["((z, b)b, c)c;","((a, b)b, c)c;"], ['name'])
-        raise RuntimeError("history DAG was allowed to be constructed from trees with different leaf labels.")
+        history_dag_from_newicks(["((z, b)b, c)c;", "((a, b)b, c)c;"], ["name"])
+        raise RuntimeError(
+            "history DAG was allowed to be constructed from trees with different leaf labels."
+        )
     except ValueError:
         return
 
+
 def test_print():
     tree1 = ete3.Tree(newickstring2, format=1)
-    dag1 = from_tree(tree1, ['sequence'])
+    dag1 = from_tree(tree1, ["sequence"])
     dag1.__repr__()
+
 
 def test_eq():
     tree1 = ete3.Tree(newickstring2, format=1)
-    dag1 = from_tree(tree1, ['sequence'])
+    dag1 = from_tree(tree1, ["sequence"])
     tree2 = ete3.Tree("((z, b)b, c)c;", format=1)
-    dag2 = from_tree(tree2, ['name'])
+    dag2 = from_tree(tree2, ["name"])
     assert dag1.dagroot == dag1.copy().dagroot
     assert dag1.dagroot != dag2.dagroot
 
+
 def test_to_graphviz():
-    dag = from_newick("((aaaaaaaaa, bbbbbbbbb)bbbbbbbbb, ccccccccc)ccccccccc;", ['name'])
+    dag = from_newick(
+        "((aaaaaaaaa, bbbbbbbbb)bbbbbbbbb, ccccccccc)ccccccccc;", ["name"]
+    )
     dag.to_graphviz()
+
 
 def test_make_uniform():
     random.seed(1)
+
     def normalize_counts(counter):
         n = len(list(counter.elements()))
-        return ([num / n for _, num in counter.items()], (n / len(counter)) / n )
+        return ([num / n for _, num in counter.items()], (n / len(counter)) / n)
 
     def is_close(f1, f2):
-        return abs(f1 - f2) < .03
+        return abs(f1 - f2) < 0.03
 
-    dag = history_dag_from_newicks([newickstring1, newickstring2, newickstring3], ['sequence'])
+    dag = history_dag_from_newicks(
+        [newickstring1, newickstring2, newickstring3], ["sequence"]
+    )
     take1 = Counter([dag.sample().to_newick() for _ in range(1000)])
     dag.make_uniform()
     take2 = Counter([dag.sample().to_newick() for _ in range(1000)])
-    
+
     take1norms, avg1 = normalize_counts(take1)
     assert any(not is_close(norm, avg1) for norm in take1norms)
 
     take2norms, avg2 = normalize_counts(take2)
     assert all(is_close(norm, avg2) for norm in take2norms)
 
+
 def test_summary():
-    dag = history_dag_from_newicks([newickstring1, newickstring2, newickstring3], ['sequence'])
+    dag = history_dag_from_newicks(
+        [newickstring1, newickstring2, newickstring3], ["sequence"]
+    )
     dag.summary()
 
+
 def test_to_newick():
-    dag = history_dag_from_newicks([newickstring1, newickstring2, newickstring3], ['sequence'])
+    dag = history_dag_from_newicks(
+        [newickstring1, newickstring2, newickstring3], ["sequence"]
+    )
     try:
         dag.to_newick()
         raise RuntimeError("to_newick shouldn't accept a DAG that's not a tree")

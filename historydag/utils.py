@@ -2,13 +2,22 @@ from collections import UserDict
 import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
-import random
 from functools import wraps
-from typing import List, Any, TypeVar, Callable, Union, Iterable, Generator, Tuple, NamedTuple
+from typing import (
+    List,
+    Any,
+    TypeVar,
+    Callable,
+    Union,
+    Iterable,
+    Generator,
+    Tuple,
+    NamedTuple,
+)
 
 Weight = Any
 NTLabel = NamedTuple
-Label = Union['UALabel', NTLabel]
+Label = Union["UALabel", NTLabel]
 F = TypeVar("F", bound=Callable[..., Any])
 
 bases = "AGCT-"
@@ -17,6 +26,7 @@ ambiguous_dna_values.update({"?": bases, "-": "-"})
 
 class UALabel:
     """A history DAG universal ancestor (UA) node label"""
+
     _fields: Any = tuple()
 
     def __init__(self):
@@ -34,10 +44,10 @@ class UALabel:
         else:
             return False
 
-    ### For typing:
+    # For typing:
     def __iter__(self):
         yield from ()
-    
+
     def _asdict(self):
         return {}
 
@@ -85,6 +95,7 @@ def access_field(fieldname: str) -> Callable[[F], F]:
         return wrapper
 
     return decorator
+
 
 def ignore_ualabel(default: Any) -> Callable[[F], F]:
     """A decorator to return a default value if any argument is a UALabel.
@@ -160,7 +171,9 @@ def is_ambiguous(sequence: str) -> bool:
     return any(code not in bases for code in sequence)
 
 
-def cartesian_product(optionlist: List[Callable[[], Iterable]], accum=tuple()) -> Generator[Tuple, None, None]:
+def cartesian_product(
+    optionlist: List[Callable[[], Iterable]], accum=tuple()
+) -> Generator[Tuple, None, None]:
     """Takes a list of functions which each return a fresh generator
     on options at that site, and returns a generator yielding tuples, which are
     elements of the cartesian product of the passed generators' contents."""
@@ -186,7 +199,7 @@ def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
                 else:
                     for newbase in ambiguous_dna_values[base]:
                         yield from _sequence_resolutions(
-                            sequence[index + 1 :], _accum=(_accum + newbase)
+                            sequence[index + 1:], _accum=(_accum + newbase)
                         )
                     return
         yield _accum
@@ -194,13 +207,13 @@ def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
     return _sequence_resolutions(sequence)
 
 
-def hist(c: Counter, samples: int=1):
+def hist(c: Counter, samples: int = 1):
     """Pretty prints a counter, normalizing counts using the number of samples,
     passed as the argument `samples`."""
-    l = list(c.items())
-    l.sort()
+    ls = list(c.items())
+    ls.sort()
     print("Weight\t| Frequency\n------------------")
-    for weight, freq in l:
+    for weight, freq in ls:
         print(f"{weight}  \t| {freq if samples==1 else freq/samples}")
 
 
@@ -331,12 +344,13 @@ using :meth:`dag.HistoryDag.weight_count`."""
 
 
 def make_newickcountfuncs(
-    name_func=lambda n: "unnamed", features=None, feature_funcs={}
+    name_func=lambda n: "unnamed", features=None, feature_funcs={}, internal_labels=True
 ):
     """Provides functions necessary to count newick strings of trees in a history DAG,
     using :meth:`dag.HistoryDag.weight_count`.
 
     Arguments are the same as for :meth:`dag.HistoryDag.to_newick`."""
+
     def _newicksum(newicks):
         snewicks = sorted(newicks)
         if len(snewicks) == 2:
@@ -358,9 +372,13 @@ def make_newickcountfuncs(
             return "(" + ",".join(snewicks) + ")"
 
     def _newickedgeweight(n1, n2):
-        return n2._newick_label(
-            name_func=name_func, features=features, feature_funcs=feature_funcs
-        )
+        if internal_labels or n2.is_leaf():
+            return n2._newick_label(
+                name_func=name_func, features=features, feature_funcs=feature_funcs
+            )
+        else:
+            # Right now required to have resulting string well-formed.
+            return "1"
 
     return AddFuncDict(
         {

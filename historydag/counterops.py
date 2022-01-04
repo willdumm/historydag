@@ -3,18 +3,19 @@ import historydag.utils as utils
 import operator
 
 
-def prod(l: list):
+def prod(ls: list):
     """Return product of elements of the input list.
     if passed list is empty, returns 1."""
-    n = len(l)
+    n = len(ls)
     if n > 0:
-        accum = l[0]
+        accum = ls[0]
         if n > 1:
-            for item in l[1:]:
+            for item in ls[1:]:
                 accum *= item
     else:
         accum = 1
     return accum
+
 
 def counter_prod(counterlist, accumfunc):
     """Really a sort of cartesian product, which does accumfunc to keys and counts all the ways each result
@@ -27,12 +28,14 @@ def counter_prod(counterlist, accumfunc):
         newc.update({accumfunc(weights): prod(counts)})
     return newc
 
+
 def counter_sum(counterlist, counter_type=Counter):
     """Sum a list of counters, like concatenating their representative lists"""
     newc = counter_type()
     for c in counterlist:
         newc += c
     return newc
+
 
 # TODO: Remove this!
 def addweight(c, w, addfunc=operator.add):
