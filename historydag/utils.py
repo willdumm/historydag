@@ -46,10 +46,10 @@ class UALabel:
 
     # For typing:
     def __iter__(self):
-        yield from ()
+        raise RuntimeError("Attempted to iterate from dag root UALabel")
 
     def _asdict(self):
-        return {}
+        raise RuntimeError("Attempted to iterate from dag root UALabel")
 
 
 # ######## Decorators ########
@@ -199,7 +199,7 @@ def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
                 else:
                     for newbase in ambiguous_dna_values[base]:
                         yield from _sequence_resolutions(
-                            sequence[index + 1:], _accum=(_accum + newbase)
+                            sequence[index + 1 :], _accum=(_accum + newbase)
                         )
                     return
         yield _accum
@@ -343,32 +343,26 @@ def make_newickcountfuncs(
 
     def _newicksum(newicks):
         snewicks = sorted(newicks)
-        if len(snewicks) == 2:
-            # Then we may be adding an edge above a complete tree
-            if "" in snewicks:
-                # Then we're adding a leaf newick label to an edge label
-                return "".join(snewicks)
-            elif snewicks[0][-1] == ")":
-                # Then we're adding an edge above a complete tree (the first item)
-                return "".join(snewicks)
-            elif snewicks[1][-1] == ")":
-                # Then we're adding an edge above a complete tree (the second item)
-                return "".join(reversed(snewicks))
-            else:
-                # Then we're just accumulating options between clades
-                return "(" + ",".join(snewicks) + ")"
+        if len(snewicks) == 2 and ";" in [newick[-1] for newick in snewicks if newick]:
+            # Then we are adding an edge above a complete tree
+            return "".join(
+                sorted(snewicks, key=lambda n: ";" == n[-1] if n else False)
+            )[:-1]
         else:
             # Then we're just accumulating options between clades
             return "(" + ",".join(snewicks) + ")"
 
     def _newickedgeweight(n1, n2):
         if internal_labels or n2.is_leaf():
-            return n2._newick_label(
-                name_func=name_func, features=features, feature_funcs=feature_funcs
+            return (
+                n2._newick_label(
+                    name_func=name_func, features=features, feature_funcs=feature_funcs
+                )
+                + ";"
             )
         else:
             # Right now required to have resulting string well-formed.
-            return "1"
+            return ";"
 
     return AddFuncDict(
         {

@@ -55,9 +55,9 @@ for tree in trees:
 def test_fulltree():
     dag = hdag.history_dag_from_etes([etetree], ["sequence"])
     dag.convert_to_collapsed()
-    assert set(
-        deterministic_newick(tree.to_ete()) for tree in dag.get_trees()
-    ) == set({deterministic_newick(etetree2)})
+    assert set(deterministic_newick(tree.to_ete()) for tree in dag.get_trees()) == set(
+        {deterministic_newick(etetree2)}
+    )
 
 
 def test_twotrees():

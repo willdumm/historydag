@@ -3,7 +3,7 @@ from historydag.utils import (
     UALabel,
     hist,
     AddFuncDict,
-    hamming_distance_countfuncs
+    hamming_distance_countfuncs,
 )
 from historydag.counterops import prod
 from collections import Counter

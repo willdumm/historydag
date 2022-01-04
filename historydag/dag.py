@@ -681,11 +681,8 @@ class HistoryDag:
 
         :meth:`count_trees` gives the total number of unique trees in the DAG, taking
         into account internal node labels."""
-        kwargs = utils.make_newickcountfuncs(
-            internal_labels=False
-        )
+        kwargs = utils.make_newickcountfuncs(internal_labels=False)
         return len(self.weight_count(**kwargs))
-
 
     def count_trees(
         self, expand_func: Callable[[Label], List[Label]] = lambda ls: [ls]
@@ -983,7 +980,9 @@ class HistoryDag:
 
     # ######## DAG Traversal Methods ########
 
-    def postorder(self, include_root: bool=True) -> Generator[HistoryDagNode, None, None]:
+    def postorder(
+        self, include_root: bool = True
+    ) -> Generator[HistoryDagNode, None, None]:
         """
         Recursive postorder traversal of the history DAG
 
