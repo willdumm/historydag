@@ -87,6 +87,11 @@ def test_from_tree():
     G = dag.to_graphviz(namedict=namedict)
     return G
 
+def test_from_tree_label():
+    tree = ete3.Tree(newickstring2, format=1)
+    for node in tree.traverse():
+        node.add_feature('abundance', 1)
+    dag = from_tree(tree, ["sequence", "abundance"], label_functions={"abundance2x": lambda n: 2 * n.abundance})
 
 def test_postorder():
     tree = ete3.Tree(newickstring2, format=1)

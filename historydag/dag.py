@@ -1170,7 +1170,10 @@ def from_tree(
         HistoryDag object, which has the same topology as the input tree, with the required
             UA node added as a new root.
     """
-    feature_maps = {name: (lambda n: getattr(n, name)) for name in label_features}
+    # see https://stackoverflow.com/questions/50298582/why-does-python-asyncio-loop-call-soon-overwrite-data
+    # or https://stackoverflow.com/questions/25670516/strange-overwriting-occurring-when-using-lambda-functions-as-dict-values
+    # for why we need these stupid hacky lambda functions with default values
+    feature_maps = {name: (lambda n, name=name: getattr(n, name)) for name in label_features}
     feature_maps.update(label_functions)
     Label = NamedTuple("Label", [(label, Any) for label in feature_maps.keys()])  # type: ignore
 
