@@ -372,3 +372,18 @@ def make_newickcountfuncs(
         },
         names="NewickString",
     )
+
+def _cladetree_method(method):
+    """HistoryDagNode method decorator to ensure that the method is only run on
+    history DAGs which are clade trees."""
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if not self.is_clade_tree():
+            raise ValueError(
+                "to_newick requires the history DAG to be a clade tree. "
+                "To extract newicks from a general DAG, see to_newicks"
+            )
+        else:
+            return method(self, *args, **kwargs)
+    return wrapper
+

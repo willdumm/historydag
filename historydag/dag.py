@@ -29,7 +29,7 @@ class HistoryDagNode:
     - a label, which is a namedtuple.
     """
 
-    def __init__(self, label: Label, clades: dict = {}, attr: Any = None):
+    def __init__(self, label: Label, clades: dict, attr: Any):
         assert isinstance(label, tuple) or isinstance(label, UALabel)
         self.clades = clades
         # If passed a nonempty dictionary, need to add self to children's parents
@@ -67,7 +67,7 @@ class HistoryDagNode:
         but no descendant edges."""
         return HistoryDagNode(self.label,
                               {clade: EdgeSet() for clade in self.clades},
-                              attr = deepcopy(self.attr))
+                              deepcopy(self.attr))
 
     def under_clade(self) -> frozenset[NTLabel]:
         r"""Returns the union of this node's child clades"""
@@ -340,6 +340,7 @@ class HistoryDag:
                             n_added += node.add_edge(target)
         return n_added
 
+    @utils._cladetree_method
     def to_newick(
         self,
         name_func: Callable[[HistoryDagNode], str] = lambda n: "unnamed",
@@ -365,12 +366,6 @@ class HistoryDag:
                 then this will be a standard newick string. Otherwise, it will have ete3's
                 extended newick format.
         """
-        if not self.is_clade_tree():
-            raise ValueError(
-                "to_newick requires the history DAG to be a clade tree. "
-                "To extract newicks from a general DAG, see to_newicks"
-            )
-
         def newick(node):
             if node.is_leaf():
                 return node._newick_label(
@@ -387,10 +382,46 @@ class HistoryDag:
 
         return newick(next(self.dagroot.children())) + ";"
 
-    def to_ete(self, **kwargs) -> ete3.TreeNode:
+    @utils._cladetree_method
+    def to_ete(
+        self,
+        name_func: Callable[[HistoryDagNode], str] = lambda n: "unnamed",
+        features: Optional[List[str]] = None,
+        feature_funcs: Mapping[str, Callable[[HistoryDagNode], str]] = {},
+    ) -> ete3.TreeNode:
         """Convert a history DAG which is a clade tree to an ete tree.
-        For arguments, see :meth:`HistoryDag.to_newick`."""
-        return ete3.TreeNode(newick=self.to_newick(**kwargs), format=1)
+
+        Args:
+            name_func: A map from nodes to newick node names
+            features: A list of label field names to be included in extended newick data.
+                If `None`, all label fields will be included. To include none of them,
+                pass an empty list.
+            feature_funcs: A dictionary keyed by extended newick field names, containing
+                functions specifying how to populate that field for each node.
+
+        Returns:
+            An ete3 Tree with the same topology as self, and node names and attributes
+                as specified.
+        """
+        # First build a dictionary of ete3 nodes keyed by HDagNodes.
+
+        def etenode(node: HistoryDagNode) -> ete3.TreeNode:
+            newnode = ete3.TreeNode()
+            newnode.name = name_func(node)
+            for feature in features:
+                newnode.add_feature(feature, getattr(node.label, feature))
+            for feature, func in feature_funcs.items():
+                newnode.add_feature(feature, func(node))
+            return newnode
+
+        nodedict = {node: etenode(node) for node in self.preorder(skip_root=True)}
+
+        for node in nodedict:
+            for target in node.children():
+                nodedict[node].add_child(child=nodedict[target])
+
+        # Since self is cladetree, dagroot can have only one child
+        return nodedict[list(self.dagroot.children())[0]]
 
     def to_graphviz(
         self,
@@ -936,7 +967,7 @@ class HistoryDag:
                 new_parent_clades = (
                     frozenset(parent.clades.keys()) - {clade}
                 ) | frozenset(child.clades.keys())
-                newparenttemp = empty_node(parent.label, new_parent_clades, attr=deepcopy(parent.attr))
+                newparenttemp = empty_node(parent.label, new_parent_clades, deepcopy(parent.attr))
                 if newparenttemp in nodedict:
                     newparent = nodedict[newparenttemp]
                 else:
@@ -1144,7 +1175,7 @@ class EdgeSet:
 
 def empty_node(label: Label, clades: Iterable[frozenset[Label]], attr: Any = None) -> HistoryDagNode:
     """Return a HistoryDagNode with the given label and clades, with no children."""
-    return HistoryDagNode(label, {clade: EdgeSet() for clade in clades}, attr=attr)
+    return HistoryDagNode(label, {clade: EdgeSet() for clade in clades}, attr)
 
 
 def from_tree(
@@ -1194,6 +1225,7 @@ def from_tree(
                 )
                 for child in tree.children
             },
+            attr_func(tree)
         )
         return dag
 
@@ -1215,6 +1247,7 @@ def from_tree(
                 [dag], weights=[tree.dist]
             )
         },
+        None
     )
     dagroot.add_edge(dag, weight=0)
     return HistoryDag(dagroot)
@@ -1334,7 +1367,7 @@ def deserialize(bstring: bytes) -> HistoryDag:
                 else Label(*label_list[labelidx])
             ),
             {unpack_labels(clade): EdgeSet() for clade in clades},
-            attr=attr,
+            attr,
         )
         for labelidx, clades, attr in node_list
     ]

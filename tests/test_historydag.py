@@ -5,9 +5,11 @@ from historydag.dag import (
     history_dag_from_newicks,
     from_newick,
 )
+from historydag import utils
 import ete3
 from collections import Counter
 import random
+from test_factory import deterministic_newick
 
 """ HistoryDag tests:"""
 
@@ -49,28 +51,32 @@ namedict = {
 
 
 def test_init():
-    r = HistoryDagNode(("a",))
+    r = HistoryDagNode(("a",), {}, None)
     assert r.is_leaf()
     r = HistoryDagNode(
         ("a",),
-        clades={frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet()},
+        {frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet()},
+        None
     )
     assert not r.is_leaf()
     s = HistoryDagNode(
         ("b",),
-        clades={frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet([r])},
+        {frozenset(["a", "b"]): EdgeSet(), frozenset(["c", "d"]): EdgeSet([r])},
+        None
     )
     assert not s.is_leaf()
 
 
 def test_edge():
-    r = HistoryDagNode(("a",))
+    r = HistoryDagNode(("a",), {}, None)
     r2 = HistoryDagNode(
-        ("b",), {frozenset({("z",), ("y",)}): EdgeSet(), frozenset({("a",)}): EdgeSet()}
+        ("b",), {frozenset({("z",), ("y",)}): EdgeSet(), frozenset({("a",)}): EdgeSet()},
+        None
     )
     s = HistoryDagNode(
         ("b",),
-        clades={frozenset([("a",)]): EdgeSet(), frozenset([("c",), ("d",)]): EdgeSet()},
+        {frozenset([("a",)]): EdgeSet(), frozenset([("c",), ("d",)]): EdgeSet()},
+        None
     )
     s.add_edge(r)
     try:
@@ -92,6 +98,46 @@ def test_from_tree_label():
     for node in tree.traverse():
         node.add_feature('abundance', 1)
     dag = from_tree(tree, ["sequence", "abundance"], label_functions={"abundance2x": lambda n: 2 * n.abundance})
+
+def test_preserve_attr():
+    # attr is populated, and preserved by dag operations which add nodes.
+    dag = history_dag_from_newicks(
+        [newickstring1, newickstring2, newickstring3], ["sequence"], attr_func=lambda n: n.name
+    )
+    assert all(n.attr for n in dag.preorder(skip_root=True))
+
+    @utils.explode_label("sequence")
+    def expand_func(seq):
+        if seq == 'C':
+            yield from ['D', 'A']
+        elif seq == 'H':
+            yield from ['T', 'W']
+        else:
+            yield seq
+    dag.explode_nodes(expand_func=expand_func)
+    assert all(n.attr for n in dag.preorder(skip_root=True))
+    dag.convert_to_collapsed()
+    assert all(n.attr for n in dag.preorder(skip_root=True))
+
+def test_ete_newick_agree():
+    dag = history_dag_from_newicks(
+        [newickstring1, newickstring2, newickstring3], ["sequence"], attr_func=lambda n: n.name
+    )
+    outkwargs = {
+        "name_func": lambda n: n.attr,
+        "features": ["sequence"],
+        "feature_funcs": {}
+    }
+
+    inkwargs = {
+        "label_features": ["sequence"],
+        "label_functions": {},
+        "attr_func": lambda n: n.name
+    }
+    viaetes = {from_tree(tree.to_ete(**outkwargs), **inkwargs).to_newick(**outkwargs) for tree in dag.get_trees()}
+    vianewicks = {tree.to_newick(**outkwargs) for tree in dag.get_trees()}
+    assert viaetes == vianewicks
+
 
 def test_postorder():
     tree = ete3.Tree(newickstring2, format=1)
