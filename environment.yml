@@ -13,5 +13,4 @@ dependencies:
   - six
   - graphviz
   - pip:
-    - . # installs gctree package from current directory "."
-    - gctree
+    - . # installs historydag package from current directory "."

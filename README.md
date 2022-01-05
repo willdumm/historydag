@@ -7,7 +7,7 @@ a common set of leaf labels.
 ## Getting Started
 
 Once you've cloned the repo, `pip install -e historydag` should be enough to
-get setup.
+get set up.
 
 There is sample data in `sample_data/`. For example:
 

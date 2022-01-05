@@ -16,6 +16,7 @@ from typing import (
     Dict,
 )
 from collections import Counter
+from copy import deepcopy
 
 from historydag import utils
 from historydag.utils import UALabel, Weight, Label, NTLabel
@@ -64,7 +65,9 @@ class HistoryDagNode:
     def node_self(self) -> "HistoryDagNode":
         """Returns a HistoryDagNode object with the same clades and label,
         but no descendant edges."""
-        return HistoryDagNode(self.label, {clade: EdgeSet() for clade in self.clades})
+        return HistoryDagNode(self.label,
+                              {clade: EdgeSet() for clade in self.clades},
+                              attr = deepcopy(self.attr))
 
     def under_clade(self) -> frozenset[NTLabel]:
         r"""Returns the union of this node's child clades"""
@@ -933,7 +936,7 @@ class HistoryDag:
                 new_parent_clades = (
                     frozenset(parent.clades.keys()) - {clade}
                 ) | frozenset(child.clades.keys())
-                newparenttemp = empty_node(parent.label, new_parent_clades)
+                newparenttemp = empty_node(parent.label, new_parent_clades, attr=deepcopy(parent.attr))
                 if newparenttemp in nodedict:
                     newparent = nodedict[newparenttemp]
                 else:
@@ -1001,7 +1004,7 @@ class HistoryDag:
 
         yield from traverse(self.dagroot)
 
-    def preorder(self) -> Generator[HistoryDagNode, None, None]:
+    def preorder(self, skip_root=False) -> Generator[HistoryDagNode, None, None]:
         """
         Recursive postorder traversal of the history DAG
 
@@ -1020,7 +1023,10 @@ class HistoryDag:
                     if not id(child) in visited:
                         yield from traverse(child)
 
-        yield from traverse(self.dagroot)
+        gen = traverse(self.dagroot)
+        if skip_root:
+            next(gen)
+        yield from gen
 
 
 class EdgeSet:
@@ -1136,9 +1142,9 @@ class EdgeSet:
 # ######## DAG Creation Functions ########
 
 
-def empty_node(label: Label, clades: Iterable[frozenset[Label]]) -> HistoryDagNode:
+def empty_node(label: Label, clades: Iterable[frozenset[Label]], attr: Any = None) -> HistoryDagNode:
     """Return a HistoryDagNode with the given label and clades, with no children."""
-    return HistoryDagNode(label, {clade: EdgeSet() for clade in clades})
+    return HistoryDagNode(label, {clade: EdgeSet() for clade in clades}, attr=attr)
 
 
 def from_tree(
@@ -1166,7 +1172,7 @@ def from_tree(
     """
     feature_maps = {name: (lambda n: getattr(n, name)) for name in label_features}
     feature_maps.update(label_functions)
-    Label = NamedTuple("Label", [(label, any) for label in feature_maps.keys()])  # type: ignore
+    Label = NamedTuple("Label", [(label, Any) for label in feature_maps.keys()])  # type: ignore
 
     def node_label(n: ete3.TreeNode):
         # This should not fail silently! Only DAG UA node is allowed to have
