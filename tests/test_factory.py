@@ -107,9 +107,15 @@ def test_valid_dags():
 
 
 def test_count_topologies():
+    kwargs = dagutils.make_newickcountfuncs(internal_labels=False)
     for dag in dags:
         checkset = {
-            deterministic_newick_topology(tree.to_ete()) for tree in dag.get_trees()
+            tree.to_newick(
+                name_func= lambda n: n.label.sequence if n.is_leaf() else '',
+                features =  [],
+                feature_funcs = {},
+                )
+            for tree in dag.get_trees()
         }
         print(checkset)
         assert dag.count_topologies() == len(checkset)
@@ -181,10 +187,12 @@ def test_newicks():
 def test_verify_newicks():
     # See that the newick string output is the same as given by ete3
     kwargs = {"name_func": lambda n: n.label.sequence, "features": ["sequence"]}
+    invkwargs = {"label_features": ["sequence"], "label_functions": {}}
 
     def verify(tree):
         etetree = tree.to_ete(**kwargs)
-        return etetree.write(format=8, features=["sequence"], format_root_node=True)
+        cladetree = hdag.from_tree(etetree, **invkwargs)
+        return cladetree.to_newick(**kwargs)
 
     _testfactory(lambda dag: Counter(dag.to_newicks(**kwargs)), verify)
 

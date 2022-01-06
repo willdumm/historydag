@@ -191,6 +191,7 @@ def treeprint(tree: ete3.TreeNode):
 
 
 def test_expand_ambiguities():
+
     for dag in dags:
         cdag = dag.copy()
         print(cdag.count_trees())
@@ -200,13 +201,13 @@ def test_expand_ambiguities():
         print(cdag.count_trees())
         print(cdag.weight_count())
         checkset = {
-            deterministic_newick(tree)
+            hdag.from_tree(tree, ['sequence']).to_newick()
             for cladetree in dag.get_trees()
             for tree in disambiguate(cladetree.to_ete(features=["sequence"]))
         }
         print(len(checkset))
         assert checkset == {
-            deterministic_newick(cladetree.to_ete(features=["sequence"]))
+            cladetree.to_newick()
             for cladetree in cdag.get_trees()
         }
 

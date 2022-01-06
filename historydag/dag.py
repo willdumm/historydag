@@ -14,6 +14,7 @@ from typing import (
     Tuple,
     NamedTuple,
     Dict,
+    FrozenSet,
 )
 from collections import Counter
 from copy import deepcopy
@@ -69,7 +70,7 @@ class HistoryDagNode:
                               {clade: EdgeSet() for clade in self.clades},
                               deepcopy(self.attr))
 
-    def under_clade(self) -> frozenset[NTLabel]:
+    def under_clade(self) -> FrozenSet[NTLabel]:
         r"""Returns the union of this node's child clades"""
         if self.is_leaf():
             assert not isinstance(self.label, UALabel)
@@ -307,7 +308,7 @@ class HistoryDag:
             The number of edges added to the history DAG
         """
         n_added = 0
-        clade_dict: Dict[frozenset[NTLabel], List[HistoryDagNode]] = {
+        clade_dict: Dict[FrozenSet[NTLabel], List[HistoryDagNode]] = {
             node.under_clade(): [] for node in self.postorder()
         }
         if preserve_parent_labels is True:
@@ -369,7 +370,7 @@ class HistoryDag:
         def newick(node):
             if node.is_leaf():
                 return node._newick_label(
-                    name_func, features=features, feature_funcs={}
+                    name_func, features=features, feature_funcs=feature_funcs
                 )
             else:
                 childnewicks = sorted([newick(node2) for node2 in node.children()])
@@ -377,7 +378,7 @@ class HistoryDag:
                     "("
                     + ",".join(childnewicks)
                     + ")"
-                    + node._newick_label(name_func, features=features, feature_funcs={})
+                    + node._newick_label(name_func, features=features, feature_funcs=feature_funcs)
                 )
 
         return newick(next(self.dagroot.children())) + ";"
@@ -404,11 +405,15 @@ class HistoryDag:
                 as specified.
         """
         # First build a dictionary of ete3 nodes keyed by HDagNodes.
-
+        if features is None:
+            labelfeatures = list(list(self.dagroot.children())[0].label._asdict().keys())
+        else:
+            labelfeatures = features
+            
         def etenode(node: HistoryDagNode) -> ete3.TreeNode:
             newnode = ete3.TreeNode()
             newnode.name = name_func(node)
-            for feature in features:
+            for feature in labelfeatures:
                 newnode.add_feature(feature, getattr(node.label, feature))
             for feature, func in feature_funcs.items():
                 newnode.add_feature(feature, func(node))
@@ -1173,7 +1178,7 @@ class EdgeSet:
 # ######## DAG Creation Functions ########
 
 
-def empty_node(label: Label, clades: Iterable[frozenset[Label]], attr: Any = None) -> HistoryDagNode:
+def empty_node(label: Label, clades: Iterable[FrozenSet[Label]], attr: Any = None) -> HistoryDagNode:
     """Return a HistoryDagNode with the given label and clades, with no children."""
     return HistoryDagNode(label, {clade: EdgeSet() for clade in clades}, attr)
 
@@ -1203,8 +1208,13 @@ def from_tree(
     """
     # see https://stackoverflow.com/questions/50298582/why-does-python-asyncio-loop-call-soon-overwrite-data
     # or https://stackoverflow.com/questions/25670516/strange-overwriting-occurring-when-using-lambda-functions-as-dict-values
-    # for why we need these stupid hacky lambda functions with default values
-    feature_maps = {name: (lambda n, name=name: getattr(n, name)) for name in label_features}
+    # for why we can't just use lambda funcs defined in dict comprehension.
+    def getnamefunc(name):
+        def getter(node):
+            return(getattr(node, name))
+        return getter
+
+    feature_maps = {name: getnamefunc(name) for name in label_features}
     feature_maps.update(label_functions)
     Label = NamedTuple("Label", [(label, Any) for label in feature_maps.keys()])  # type: ignore
 
