@@ -1075,7 +1075,7 @@ class EdgeSet:
         self,
         *args,
         weights: Optional[List[float]] = None,
-        probs: Optional[list[float]] = None,
+        probs: Optional[List[float]] = None,
     ):
         r"""Takes no arguments, or an ordered iterable containing target nodes"""
         if len(args) > 1:
