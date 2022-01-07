@@ -293,6 +293,19 @@ def test_to_graphviz():
     dag.to_graphviz()
 
 
+def test_reproducible():
+
+    dag = history_dag_from_newicks(
+        [newickstring1, newickstring2, newickstring3], ["sequence"]
+    )
+    dag.make_uniform()
+    random.seed(1)
+    take1 = [dag.sample().to_newick() for _ in range(1000)]
+    random.seed(1)
+    take2 = [dag.sample().to_newick() for _ in range(1000)]
+    assert len(set(take2)) == 3
+    assert take1 == take2
+
 def test_make_uniform():
     random.seed(1)
 
