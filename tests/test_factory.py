@@ -268,7 +268,7 @@ def test_cm_counter():
 def test_topology_decompose():
     # make sure that trimming to a topology results in a DAG expressing exactly
     # the trees which have that topology.
-    for dag in dags:
+    for dag in [dag.copy() for dag in dags]:
         nl = dag.weight_count(**dagutils.make_newickcountfuncs(internal_labels=False))
         for idx, (topology, count) in enumerate(nl.items()):
             print(topology, count, idx)
