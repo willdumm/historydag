@@ -891,7 +891,6 @@ class HistoryDag:
             for newick in newicks:
                 if newick in topology:
                     return newick
-            # print(f"nothing in {newicks} in {topology}")
             if newicks:
                 return '(;)'
             else:
