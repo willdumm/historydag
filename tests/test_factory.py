@@ -257,30 +257,17 @@ def test_cm_counter():
 def test_topology_decompose():
     # make sure that trimming to a topology results in a DAG expressing exactly
     # the trees which have that topology.
-    kwargs = dagutils.make_newickcountfuncs(internal_labels=False, collapse_leaves=False)
-    for dag in [dag.copy() for dag in dags]:
-        nl = dag.weight_count(**kwargs)
-        for idx, (topology, count) in enumerate(nl.items()):
-            # print(topology, count, idx)
-            trimdag = dag.copy()
-            print(trimdag.weight_count(**kwargs))
-            print(topology)
-            trimdag.trim_topology(topology)
-            assert trimdag.weight_count(**kwargs) == {topology: count}
-
-def test_topology_decompose_collapsed():
-    # make sure that trimming to a topology results in a DAG expressing exactly
-    # the trees which have that topology.
-    kwargs = dagutils.make_newickcountfuncs(internal_labels=False, collapse_leaves=True)
-    for dag in [dag.copy() for dag in dags]:
-        nl = dag.weight_count(**kwargs)
-        for idx, (topology, count) in enumerate(nl.items()):
-            # print(topology, count, idx)
-            trimdag = dag.copy()
-            print(trimdag.weight_count(**kwargs))
-            print(topology)
-            trimdag.trim_topology(topology)
-            assert trimdag.weight_count(**kwargs) == {topology: count}
+    for collapse_leaves in [False, True]:
+        kwargs = dagutils.make_newickcountfuncs(internal_labels=False, collapse_leaves=collapse_leaves)
+        for dag in [dag.copy() for dag in dags]:
+            nl = dag.weight_count(**kwargs)
+            for idx, (topology, count) in enumerate(nl.items()):
+                # print(topology, count, idx)
+                trimdag = dag.copy()
+                print(trimdag.weight_count(**kwargs))
+                print(topology)
+                trimdag.trim_topology(topology, collapse_leaves=collapse_leaves)
+                assert trimdag.weight_count(**kwargs) == {topology: count}
 
 def test_topology_count_collapse():
     dag = dags[0].copy()
