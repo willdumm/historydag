@@ -714,13 +714,20 @@ class HistoryDag:
         newicks = self.weight_count(**utils.make_newickcountfuncs(**kwargs)).elements()
         return [newick[1:-1] + ";" for newick in newicks]
 
-    def count_topologies(self):
+    def count_topologies(self, collapse_leaves: bool=False) -> int:
         """Counts the number of unique topologies in the history DAG by counting the
         number of unique newick strings with only leaves labeled.
 
         :meth:`count_trees` gives the total number of unique trees in the DAG, taking
-        into account internal node labels."""
-        kwargs = utils.make_newickcountfuncs(internal_labels=False)
+        into account internal node labels.
+
+        Args:
+            collapse_leaves: By default, topologies are counted as-is in the DAG. However,
+            even if the DAG is collapsed by label, edges above leaf nodes will not be collapsed.
+            if `collapse_leaves` is True, then the number of unique topologies with all
+            leaf-adjacent edges collapsed will be counted. Assumes that the DAG is collapsed
+            with :meth:`HistoryDag.convert_to_collapsed`."""
+        kwargs = utils.make_newickcountfuncs(internal_labels=False, collapse_leaves=collapse_leaves)
         return len(self.weight_count(**kwargs))
 
     def count_trees(
@@ -882,7 +889,7 @@ class HistoryDag:
                 n = len(eset.targets)
                 eset.probs = [1.0 / n] * n
 
-    def trim_topology(self, topology: str):
+    def trim_topology(self, topology: str, collapse_leaves: bool = False):
         
         def min_func(newicks: List[str]) -> str:
             # Each newick in presented to min_func will be well-formed, since
@@ -896,7 +903,7 @@ class HistoryDag:
             else:
                 raise ValueError("min_func() arg is an empty sequence")
 
-        self.trim_optimal_weight(**utils.make_newickcountfuncs(internal_labels=False), optimal_func=min_func)
+        self.trim_optimal_weight(**utils.make_newickcountfuncs(internal_labels=False, collapse_leaves=collapse_leaves), optimal_func=min_func)
 
     def serialize(self) -> bytes:
         r"""Serializes a HistoryDag object as a bytestring.

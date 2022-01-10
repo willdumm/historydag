@@ -36,14 +36,6 @@ newicklistlist = [
         "((CA, GG)CG, AA, (TT, (CC, GA)GC)GC)AG;",
     ],
     ["((AA, CT)CG, (TA, CC)CG)CC;", "((AA, CT)CA, (TA, CC)CC)CC;"],
-    [
-        "((CA, GG)??, AA, (TT, (CC, GA)??)??)??;",
-        "((CA, GG)??, AA, (TT, (CC, GA)??)??)??;",
-        "((CA, GG)??, AA, (TT, (CC, GA)??)??)??;",
-        "((TT, GG)??, CA, (AA, (CC, GA)??)??)??;",
-        "((TT, CC)??, CA, (AA, (GG, GA)??)??)??;",
-        "((TT, CC)??, GA, (AA, (GG, CA)??)??)??;",
-    ],
 ]
 
 dags = [
@@ -52,9 +44,6 @@ dags = [
     )
     for newicklist in newicklistlist
 ]
-dags[-1].explode_nodes()
-# dags[-1].add_all_allowed_edges()
-# dags[-1].convert_to_collapsed()
 
 with open("sample_data/toy_trees_100_uncollapsed.p", "rb") as fh:
     uncollapsed = pickle.load(fh)
@@ -268,10 +257,32 @@ def test_cm_counter():
 def test_topology_decompose():
     # make sure that trimming to a topology results in a DAG expressing exactly
     # the trees which have that topology.
+    kwargs = dagutils.make_newickcountfuncs(internal_labels=False, collapse_leaves=False)
     for dag in [dag.copy() for dag in dags]:
-        nl = dag.weight_count(**dagutils.make_newickcountfuncs(internal_labels=False))
+        nl = dag.weight_count(**kwargs)
         for idx, (topology, count) in enumerate(nl.items()):
-            print(topology, count, idx)
+            # print(topology, count, idx)
             trimdag = dag.copy()
+            print(trimdag.weight_count(**kwargs))
+            print(topology)
             trimdag.trim_topology(topology)
-            assert trimdag.weight_count(**dagutils.make_newickcountfuncs(internal_labels=False)) == {topology: count}
+            assert trimdag.weight_count(**kwargs) == {topology: count}
+
+def test_topology_decompose_collapsed():
+    # make sure that trimming to a topology results in a DAG expressing exactly
+    # the trees which have that topology.
+    kwargs = dagutils.make_newickcountfuncs(internal_labels=False, collapse_leaves=True)
+    for dag in [dag.copy() for dag in dags]:
+        nl = dag.weight_count(**kwargs)
+        for idx, (topology, count) in enumerate(nl.items()):
+            # print(topology, count, idx)
+            trimdag = dag.copy()
+            print(trimdag.weight_count(**kwargs))
+            print(topology)
+            trimdag.trim_topology(topology)
+            assert trimdag.weight_count(**kwargs) == {topology: count}
+
+def test_topology_count_collapse():
+    dag = dags[0].copy()
+    print(dag.weight_count(**dagutils.make_newickcountfuncs(internal_labels=False, collapse_leaves=True)))
+    assert dag.count_topologies(collapse_leaves=True) == 2

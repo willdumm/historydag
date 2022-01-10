@@ -334,7 +334,7 @@ using :meth:`dag.HistoryDag.weight_count`."""
 
 
 def make_newickcountfuncs(
-    name_func=lambda n: "unnamed", features=None, feature_funcs={}, internal_labels=True
+    name_func=lambda n: "unnamed", features=None, feature_funcs={}, internal_labels=True, collapse_leaves=False
 ):
     """Provides functions necessary to count newick strings of trees in a history DAG,
     using :meth:`dag.HistoryDag.weight_count`.
@@ -342,6 +342,7 @@ def make_newickcountfuncs(
     Arguments are the same as for :meth:`dag.HistoryDag.to_newick`."""
 
     def _newicksum(newicks):
+        # Filter out collapsed/deleted edges
         snewicks = sorted(newicks)
         if len(snewicks) == 2 and ";" in [newick[-1] for newick in snewicks if newick]:
             # Then we are adding an edge above a complete tree
@@ -353,7 +354,12 @@ def make_newickcountfuncs(
             return "(" + ",".join(snewicks) + ")"
 
     def _newickedgeweight(n1, n2):
-        if internal_labels or n2.is_leaf():
+        if n2.is_leaf() and n1.label == n2.label:
+            return 'COLLAPSED_LEAF;'
+        elif (internal_labels
+              or n2.is_leaf()
+              or (collapse_leaves and frozenset({n2.label}) in n2.clades)
+              ):
             return (
                 n2._newick_label(
                     name_func=name_func, features=features, feature_funcs=feature_funcs
@@ -361,7 +367,6 @@ def make_newickcountfuncs(
                 + ";"
             )
         else:
-            # Right now required to have resulting string well-formed.
             return ";"
 
     return AddFuncDict(
