@@ -354,7 +354,7 @@ def make_newickcountfuncs(
             return "(" + ",".join(snewicks) + ")"
 
     def _newickedgeweight(n1, n2):
-        if n2.is_leaf() and n1.label == n2.label:
+        if collapse_leaves and n2.is_leaf() and n1.label == n2.label:
             return 'COLLAPSED_LEAF;'
         elif (internal_labels
               or n2.is_leaf()
