@@ -36,6 +36,14 @@ newicklistlist = [
         "((CA, GG)CG, AA, (TT, (CC, GA)GC)GC)AG;",
     ],
     ["((AA, CT)CG, (TA, CC)CG)CC;", "((AA, CT)CA, (TA, CC)CC)CC;"],
+    [
+        "((CA, GG)??, AA, (TT, (CC, GA)??)??)??;",
+        "((CA, GG)??, AA, (TT, (CC, GA)??)??)??;",
+        "((CA, GG)??, AA, (TT, (CC, GA)??)??)??;",
+        "((TT, GG)??, CA, (AA, (CC, GA)??)??)??;",
+        "((TT, CC)??, CA, (AA, (GG, GA)??)??)??;",
+        "((TT, CC)??, GA, (AA, (GG, CA)??)??)??;",
+    ],
 ]
 
 dags = [
@@ -44,6 +52,9 @@ dags = [
     )
     for newicklist in newicklistlist
 ]
+dags[-1].explode_nodes()
+# dags[-1].add_all_allowed_edges()
+# dags[-1].convert_to_collapsed()
 
 with open("sample_data/toy_trees_100_uncollapsed.p", "rb") as fh:
     uncollapsed = pickle.load(fh)
@@ -253,3 +264,15 @@ def test_count_weights_expanded():
 
 def test_cm_counter():
     pass
+
+def test_topology_decompose():
+    # make sure that trimming to a topology results in a DAG expressing exactly
+    # the trees which have that topology.
+
+    # for dag in [dag.copy() for dag in dags]:
+    dag = dags[3].copy()
+    nl = dag.weight_count(**dagutils.make_newickcountfuncs(internal_labels=False))
+    for idx, (topology, count) in enumerate(nl.items()):
+        print(topology, count, idx)
+        dag.trim_topology(topology)
+        assert dag.weight_count(**dagutils.make_newickcountfuncs(internal_labels=False)) == {topology: count}

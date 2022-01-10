@@ -882,6 +882,23 @@ class HistoryDag:
                 n = len(eset.targets)
                 eset.probs = [1.0 / n] * n
 
+    def trim_topology(self, topology: str):
+        
+        def min_func(newicks: List[str]) -> str:
+            # Each newick in presented to min_func will be well-formed, since
+            # it will consist of a subtree newick added to a parent edge's
+            # newick.
+            for newick in newicks:
+                if newick in topology:
+                    return newick
+            # print(f"nothing in {newicks} in {topology}")
+            if newicks:
+                return '(;)'
+            else:
+                raise ValueError("min_func() arg is an empty sequence")
+
+        self.trim_optimal_weight(**utils.make_newickcountfuncs(internal_labels=False), optimal_func=min_func)
+
     def serialize(self) -> bytes:
         r"""Serializes a HistoryDag object as a bytestring.
         Since a HistoryDag is a recursive data structure, and contains label
