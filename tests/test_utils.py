@@ -4,8 +4,8 @@ from historydag.utils import (
     hist,
     AddFuncDict,
     hamming_distance_countfuncs,
+    prod,
 )
-from historydag.counterops import prod
 from collections import Counter
 
 

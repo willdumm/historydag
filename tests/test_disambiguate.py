@@ -2,7 +2,6 @@ from historydag import utils
 from historydag import dag as hdag
 import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
-from test_factory import deterministic_newick
 
 bases = "AGCT-"
 ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
@@ -22,7 +21,7 @@ def sequence_resolutions(sequence):
                 else:
                     for newbase in ambiguous_dna_values[base]:
                         yield from _sequence_resolutions(
-                            sequence[index + 1 :], _accum=(_accum + newbase)
+                            sequence[index + 1:], _accum=(_accum + newbase)
                         )
                     return
         yield _accum
@@ -201,15 +200,12 @@ def test_expand_ambiguities():
         print(cdag.count_trees())
         print(cdag.weight_count())
         checkset = {
-            hdag.from_tree(tree, ['sequence']).to_newick()
+            hdag.from_tree(tree, ["sequence"]).to_newick()
             for cladetree in dag.get_trees()
             for tree in disambiguate(cladetree.to_ete(features=["sequence"]))
         }
         print(len(checkset))
-        assert checkset == {
-            cladetree.to_newick()
-            for cladetree in cdag.get_trees()
-        }
+        assert checkset == {cladetree.to_newick() for cladetree in cdag.get_trees()}
 
 
 #     newickset = {treeprint(tree) for tree in utils.disambiguate(tree2)}

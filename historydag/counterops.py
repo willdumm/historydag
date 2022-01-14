@@ -1,20 +1,5 @@
 from collections import Counter
 import historydag.utils as utils
-import operator
-
-
-def prod(ls: list):
-    """Return product of elements of the input list.
-    if passed list is empty, returns 1."""
-    n = len(ls)
-    if n > 0:
-        accum = ls[0]
-        if n > 1:
-            for item in ls[1:]:
-                accum *= item
-    else:
-        accum = 1
-    return accum
 
 
 def counter_prod(counterlist, accumfunc):
@@ -25,7 +10,7 @@ def counter_prod(counterlist, accumfunc):
     newc = Counter()
     for combi in utils.cartesian_product([c.items for c in counterlist]):
         weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
-        newc.update({accumfunc(weights): prod(counts)})
+        newc.update({accumfunc(weights): utils.prod(counts)})
     return newc
 
 

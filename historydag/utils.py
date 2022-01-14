@@ -199,12 +199,24 @@ def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
                 else:
                     for newbase in ambiguous_dna_values[base]:
                         yield from _sequence_resolutions(
-                            sequence[index + 1 :], _accum=(_accum + newbase)
+                            sequence[index + 1:], _accum=(_accum + newbase)
                         )
                     return
         yield _accum
 
     return _sequence_resolutions(sequence)
+
+
+@access_field("sequence")
+def sequence_resolutions_count(sequence: str) -> int:
+    """Count the number of sequence resolutions there would be in the returned
+    list from :meth:`sequence_resolutions`."""
+    base_options = [
+        len(ambiguous_dna_values[base])
+        for base in sequence
+        if base in ambiguous_dna_values
+    ]
+    return prod(base_options)
 
 
 def hist(c: Counter, samples: int = 1):
@@ -334,7 +346,11 @@ using :meth:`dag.HistoryDag.weight_count`."""
 
 
 def make_newickcountfuncs(
-    name_func=lambda n: "unnamed", features=None, feature_funcs={}, internal_labels=True, collapse_leaves=False
+    name_func=lambda n: "unnamed",
+    features=None,
+    feature_funcs={},
+    internal_labels=True,
+    collapse_leaves=False,
 ):
     """Provides functions necessary to count newick strings of trees in a history DAG,
     using :meth:`dag.HistoryDag.weight_count`.
@@ -355,11 +371,12 @@ def make_newickcountfuncs(
 
     def _newickedgeweight(n1, n2):
         if collapse_leaves and n2.is_leaf() and n1.label == n2.label:
-            return 'COLLAPSED_LEAF;'
-        elif (internal_labels
-              or n2.is_leaf()
-              or (collapse_leaves and frozenset({n2.label}) in n2.clades)
-              ):
+            return "COLLAPSED_LEAF;"
+        elif (
+            internal_labels
+            or n2.is_leaf()
+            or (collapse_leaves and frozenset({n2.label}) in n2.clades)
+        ):
             return (
                 n2._newick_label(
                     name_func=name_func, features=features, feature_funcs=feature_funcs
@@ -378,9 +395,11 @@ def make_newickcountfuncs(
         names="NewickString",
     )
 
+
 def _cladetree_method(method):
     """HistoryDagNode method decorator to ensure that the method is only run on
     history DAGs which are clade trees."""
+
     @wraps(method)
     def wrapper(self, *args, **kwargs):
         if not self.is_clade_tree():
@@ -390,5 +409,19 @@ def _cladetree_method(method):
             )
         else:
             return method(self, *args, **kwargs)
+
     return wrapper
 
+
+def prod(ls: list):
+    """Return product of elements of the input list.
+    if passed list is empty, returns 1."""
+    n = len(ls)
+    if n > 0:
+        accum = ls[0]
+        if n > 1:
+            for item in ls[1:]:
+                accum *= item
+    else:
+        accum = 1
+    return accum

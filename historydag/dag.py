@@ -20,8 +20,8 @@ from collections import Counter
 from copy import deepcopy
 
 from historydag import utils
-from historydag.utils import UALabel, Weight, Label, NTLabel
-from historydag.counterops import counter_sum, counter_prod, prod
+from historydag.utils import UALabel, Weight, Label, NTLabel, prod
+from historydag.counterops import counter_sum, counter_prod
 
 
 class HistoryDagNode:
@@ -66,9 +66,9 @@ class HistoryDagNode:
     def node_self(self) -> "HistoryDagNode":
         """Returns a HistoryDagNode object with the same clades and label,
         but no descendant edges."""
-        return HistoryDagNode(self.label,
-                              {clade: EdgeSet() for clade in self.clades},
-                              deepcopy(self.attr))
+        return HistoryDagNode(
+            self.label, {clade: EdgeSet() for clade in self.clades}, deepcopy(self.attr)
+        )
 
     def under_clade(self) -> FrozenSet[NTLabel]:
         r"""Returns the union of this node's child clades"""
@@ -222,9 +222,16 @@ class HistoryDagNode:
 
 
 class HistoryDag:
-    r"""A wrapper object to contain exposed HistoryDag methods and point to a HistoryDagNode root"""
+    r"""
+    A wrapper object to contain exposed HistoryDag methods and point to a HistoryDagNode root
 
-    def __init__(self, dagroot: HistoryDagNode):
+    Args:
+        dagroot: The root node of the history DAG
+        attr: An attribute to contain data which will be preserved by copying (default and empty dict)
+    """
+
+    def __init__(self, dagroot: HistoryDagNode, attr: Any = {}):
+        self.attr = attr
         self.dagroot = dagroot
 
     def __eq__(self, other: object) -> bool:
@@ -367,6 +374,7 @@ class HistoryDag:
                 then this will be a standard newick string. Otherwise, it will have ete3's
                 extended newick format.
         """
+
         def newick(node):
             if node.is_leaf():
                 return node._newick_label(
@@ -378,7 +386,9 @@ class HistoryDag:
                     "("
                     + ",".join(childnewicks)
                     + ")"
-                    + node._newick_label(name_func, features=features, feature_funcs=feature_funcs)
+                    + node._newick_label(
+                        name_func, features=features, feature_funcs=feature_funcs
+                    )
                 )
 
         return newick(next(self.dagroot.children())) + ";"
@@ -406,10 +416,12 @@ class HistoryDag:
         """
         # First build a dictionary of ete3 nodes keyed by HDagNodes.
         if features is None:
-            labelfeatures = list(list(self.dagroot.children())[0].label._asdict().keys())
+            labelfeatures = list(
+                list(self.dagroot.children())[0].label._asdict().keys()
+            )
         else:
             labelfeatures = features
-            
+
         def etenode(node: HistoryDagNode) -> ete3.TreeNode:
             newnode = ete3.TreeNode()
             newnode.name = name_func(node)
@@ -714,7 +726,7 @@ class HistoryDag:
         newicks = self.weight_count(**utils.make_newickcountfuncs(**kwargs)).elements()
         return [newick[1:-1] + ";" for newick in newicks]
 
-    def count_topologies(self, collapse_leaves: bool=False) -> int:
+    def count_topologies(self, collapse_leaves: bool = False) -> int:
         """Counts the number of unique topologies in the history DAG by counting the
         number of unique newick strings with only leaves labeled.
 
@@ -727,11 +739,15 @@ class HistoryDag:
             if `collapse_leaves` is True, then the number of unique topologies with all
             leaf-adjacent edges collapsed will be counted. Assumes that the DAG is collapsed
             with :meth:`HistoryDag.convert_to_collapsed`."""
-        kwargs = utils.make_newickcountfuncs(internal_labels=False, collapse_leaves=collapse_leaves)
+        kwargs = utils.make_newickcountfuncs(
+            internal_labels=False, collapse_leaves=collapse_leaves
+        )
         return len(self.weight_count(**kwargs))
 
     def count_trees(
-        self, expand_func: Callable[[Label], List[Label]] = lambda ls: [ls]
+        self,
+        expand_func: Optional[Callable[[Label], List[Label]]] = None,
+        expand_count_func: Callable[[Label], int] = lambda ls: 1,
     ):
         r"""Annotates each node in the DAG with the number of clade sub-trees underneath
         (extending to leaves, and containing exactly one edge for each node-clade pair).
@@ -741,14 +757,23 @@ class HistoryDag:
                 example disambiguations of an ambiguous sequence. If provided, this method
                 will count at least the number of clade trees that would be in the DAG,
                 if :meth:`explode_nodes` were called with the same `expand_func`.
+            expand_count_func: A function which takes a label and returns an integer value
+                corresponding to the number of 'disambiguations' of that label. If provided,
+                `expand_func` will be used to find this value.
 
         Returns:
             The total number of unique complete trees below the root node. If `expand_func`
-            is provided, the complete trees being counted are not guaranteed to be unique.
+            or `expand_count_func` is provided, the complete trees being counted are not
+            guaranteed to be unique.
         """
+        if expand_func is not None:
+
+            def expand_count_func(label):
+                return len(list(expand_func(label)))
+
         return self.postorder_cladetree_accum(
             lambda n: 1,
-            lambda parent, child: len(list(expand_func(child.label))),
+            lambda parent, child: expand_count_func(child.label),
             sum,
             prod,
         )
@@ -837,6 +862,7 @@ class HistoryDag:
         ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
+        eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
     ):
         """Trims the DAG to only express trees with optimal weight.
         This is guaranteed to be possible when edge_weight_func depends only on
@@ -857,6 +883,7 @@ class HistoryDag:
                 and returns a weight, like sum.
             optimal_func: A function which takes a list of weights and returns the optimal
                 one, like min.
+            eq_func: A function which tests equality, taking a pair of weights and returning a bool.
 
         """
         self.optimal_weight_annotate(
@@ -881,7 +908,7 @@ class HistoryDag:
                 newtargets = []
                 newweights = []
                 for weight, target, index in weightlist:
-                    if weight == optimalweight:
+                    if eq_func(weight, optimalweight):
                         newtargets.append(target)
                         newweights.append(eset.weights[index])
                 eset.targets = newtargets
@@ -890,7 +917,6 @@ class HistoryDag:
                 eset.probs = [1.0 / n] * n
 
     def trim_topology(self, topology: str, collapse_leaves: bool = False):
-        
         def min_func(newicks: List[str]) -> str:
             # Each newick in presented to min_func will be well-formed, since
             # it will consist of a subtree newick added to a parent edge's
@@ -899,11 +925,16 @@ class HistoryDag:
                 if newick in topology:
                     return newick
             if newicks:
-                return '(;)'
+                return "(;)"
             else:
                 raise ValueError("min_func() arg is an empty sequence")
 
-        self.trim_optimal_weight(**utils.make_newickcountfuncs(internal_labels=False, collapse_leaves=collapse_leaves), optimal_func=min_func)
+        self.trim_optimal_weight(
+            **utils.make_newickcountfuncs(
+                internal_labels=False, collapse_leaves=collapse_leaves
+            ),
+            optimal_func=min_func,
+        )
 
     def serialize(self) -> bytes:
         r"""Serializes a HistoryDag object as a bytestring.
@@ -957,6 +988,7 @@ class HistoryDag:
             "label_list": label_list,
             "node_list": node_list,
             "edge_list": edge_list,
+            "attr": self.attr,
         }
         return pickle.dumps(serial_dict)
 
@@ -995,7 +1027,9 @@ class HistoryDag:
                 new_parent_clades = (
                     frozenset(parent.clades.keys()) - {clade}
                 ) | frozenset(child.clades.keys())
-                newparenttemp = empty_node(parent.label, new_parent_clades, deepcopy(parent.attr))
+                newparenttemp = empty_node(
+                    parent.label, new_parent_clades, deepcopy(parent.attr)
+                )
                 if newparenttemp in nodedict:
                     newparent = nodedict[newparenttemp]
                 else:
@@ -1201,7 +1235,9 @@ class EdgeSet:
 # ######## DAG Creation Functions ########
 
 
-def empty_node(label: Label, clades: Iterable[FrozenSet[Label]], attr: Any = None) -> HistoryDagNode:
+def empty_node(
+    label: Label, clades: Iterable[FrozenSet[Label]], attr: Any = None
+) -> HistoryDagNode:
     """Return a HistoryDagNode with the given label and clades, with no children."""
     return HistoryDagNode(label, {clade: EdgeSet() for clade in clades}, attr)
 
@@ -1234,7 +1270,8 @@ def from_tree(
     # for why we can't just use lambda funcs defined in dict comprehension.
     def getnamefunc(name):
         def getter(node):
-            return(getattr(node, name))
+            return getattr(node, name)
+
         return getter
 
     feature_maps = {name: getnamefunc(name) for name in label_features}
@@ -1258,7 +1295,7 @@ def from_tree(
                 )
                 for child in tree.children
             },
-            attr_func(tree)
+            attr_func(tree),
         )
         return dag
 
@@ -1280,7 +1317,7 @@ def from_tree(
                 [dag], weights=[tree.dist]
             )
         },
-        None
+        None,
     )
     dagroot.add_edge(dag, weight=0)
     return HistoryDag(dagroot)
@@ -1409,4 +1446,4 @@ def deserialize(bstring: bytes) -> HistoryDag:
         node_postorder[origin_idx].add_edge(
             node_postorder[target_idx], weight=weight, prob=prob, prob_norm=False
         )
-    return HistoryDag(node_postorder[-1])
+    return HistoryDag(node_postorder[-1], attr=serial_dict["attr"])

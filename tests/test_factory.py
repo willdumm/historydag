@@ -107,14 +107,14 @@ def test_valid_dags():
 
 
 def test_count_topologies():
-    kwargs = dagutils.make_newickcountfuncs(internal_labels=False)
+    dagutils.make_newickcountfuncs(internal_labels=False)
     for dag in dags:
         checkset = {
             tree.to_newick(
-                name_func= lambda n: n.label.sequence if n.is_leaf() else '',
-                features =  [],
-                feature_funcs = {},
-                )
+                name_func=lambda n: n.label.sequence if n.is_leaf() else "",
+                features=[],
+                feature_funcs={},
+            )
             for tree in dag.get_trees()
         }
         print(checkset)
@@ -254,11 +254,14 @@ def test_count_weights_expanded():
 def test_cm_counter():
     pass
 
+
 def test_topology_decompose():
     # make sure that trimming to a topology results in a DAG expressing exactly
     # the trees which have that topology.
     for collapse_leaves in [False, True]:
-        kwargs = dagutils.make_newickcountfuncs(internal_labels=False, collapse_leaves=collapse_leaves)
+        kwargs = dagutils.make_newickcountfuncs(
+            internal_labels=False, collapse_leaves=collapse_leaves
+        )
         for dag in [dag.copy() for dag in dags]:
             nl = dag.weight_count(**kwargs)
             for idx, (topology, count) in enumerate(nl.items()):
@@ -269,7 +272,14 @@ def test_topology_decompose():
                 trimdag.trim_topology(topology, collapse_leaves=collapse_leaves)
                 assert trimdag.weight_count(**kwargs) == {topology: count}
 
+
 def test_topology_count_collapse():
     dag = dags[0].copy()
-    print(dag.weight_count(**dagutils.make_newickcountfuncs(internal_labels=False, collapse_leaves=True)))
+    print(
+        dag.weight_count(
+            **dagutils.make_newickcountfuncs(
+                internal_labels=False, collapse_leaves=True
+            )
+        )
+    )
     assert dag.count_topologies(collapse_leaves=True) == 2
