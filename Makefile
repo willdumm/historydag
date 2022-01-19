@@ -7,7 +7,6 @@ install:
 
 test:
 	pytest
-	historydag test
 
 format:
 	black historydag
