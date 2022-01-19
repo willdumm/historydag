@@ -16,6 +16,7 @@ setuptools.setup(
     ],
     python_requires=">=3.7",
     install_requires=[
+        "six",
         "PyQt5",
         "ete3",
         "biopython",
