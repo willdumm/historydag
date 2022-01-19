@@ -64,8 +64,8 @@ class HistoryDagNode:
             raise NotImplementedError
 
     def node_self(self) -> "HistoryDagNode":
-        """Returns a HistoryDagNode object with the same clades and label,
-        but no descendant edges."""
+        """Returns a HistoryDagNode object with the same clades and label, but
+        no descendant edges."""
         return HistoryDagNode(
             self.label, {clade: EdgeSet() for clade in self.clades}, deepcopy(self.attr)
         )
@@ -83,11 +83,12 @@ class HistoryDagNode:
         return not bool(self.clades)
 
     def is_root(self) -> bool:
-        """Returns whether this is a DAG root node, or UA (universal ancestor) node."""
+        """Returns whether this is a DAG root node, or UA (universal ancestor)
+        node."""
         return isinstance(self.label, UALabel)
 
     def partitions(self) -> frozenset:
-        """Returns the node's child clades"""
+        """Returns the node's child clades."""
         return frozenset(self.clades.keys())
 
     def children(
@@ -204,7 +205,8 @@ class HistoryDagNode:
 
         Returns:
             A string which can be used as a node name in a newick string.
-                For example, `namefuncresult[&&NHX:feature1=val1:feature2=val2]`"""
+                For example, `namefuncresult[&&NHX:feature1=val1:feature2=val2]`
+        """
         if self.is_root():
             return "UA_node"
         else:
@@ -241,7 +243,7 @@ class HistoryDag:
         raise NotImplementedError
 
     def get_trees(self) -> Generator["HistoryDag", None, None]:
-        """Return a generator containing all trees in the history DAG"""
+        """Return a generator containing all trees in the history DAG."""
         for cladetree in self.dagroot._get_trees():
             yield HistoryDag(cladetree)
 
@@ -252,7 +254,9 @@ class HistoryDag:
 
     def is_clade_tree(self) -> bool:
         """Returns whether history DAG is a clade tree.
-        That is, each node-clade pair has exactly one descendant edge."""
+
+        That is, each node-clade pair has exactly one descendant edge.
+        """
         for node in self.postorder():
             for clade, eset in node.clades.items():
                 if len(eset.targets) != 1:
@@ -515,12 +519,12 @@ class HistoryDag:
         return cumsum / float(n - 1)
 
     def make_uniform(self):
-        """
-        Adjust edge probabilities so that the DAG expresses a uniform distribution on
-        expressed trees.
+        """Adjust edge probabilities so that the DAG expresses a uniform
+        distribution on expressed trees.
 
-        The probability assigned to each edge below a clade is proportional to the
-        number of subtrees possible below that edge."""
+        The probability assigned to each edge below a clade is
+        proportional to the number of subtrees possible below that edge.
+        """
         self.count_trees()
         for node in self.postorder():
             for clade, eset in node.clades.items():
@@ -589,7 +593,7 @@ class HistoryDag:
         return len(new_nodes)
 
     def summary(self):
-        """Print nicely formatted summary input about the history DAG"""
+        """Print nicely formatted summary input about the history DAG."""
         print(f"Nodes:\t{sum(1 for _ in self.postorder())}")
         print(f"Trees:\t{self.count_trees()}")
         utils.hist(self.weight_counts_with_ambiguities())
@@ -624,7 +628,8 @@ class HistoryDag:
                 `accum_between_clade`. The edge weight is the second argument.
 
         Returns:
-            The resulting weight computed for the History DAG UA (root) node."""
+            The resulting weight computed for the History DAG UA (root) node.
+        """
         if accum_above_edge is None:
 
             def default_accum_above_edge(subtree_weight, edge_weight):
@@ -715,20 +720,23 @@ class HistoryDag:
 
     def hamming_parsimony_count(self):
         """Count the hamming parsimony scores of all trees in the history DAG.
-        Returns a Counter with integer keys."""
+
+        Returns a Counter with integer keys.
+        """
         return self.weight_count(**utils.hamming_distance_countfuncs)
 
     def to_newicks(self, **kwargs):
         """Returns a list of extended newick strings formed with label fields.
 
-        For arguments, see :meth:`utils.make_newickcountfuncs`."""
+        For arguments, see :meth:`utils.make_newickcountfuncs`.
+        """
 
         newicks = self.weight_count(**utils.make_newickcountfuncs(**kwargs)).elements()
         return [newick[1:-1] + ";" for newick in newicks]
 
     def count_topologies(self, collapse_leaves: bool = False) -> int:
-        """Counts the number of unique topologies in the history DAG by counting the
-        number of unique newick strings with only leaves labeled.
+        """Counts the number of unique topologies in the history DAG by
+        counting the number of unique newick strings with only leaves labeled.
 
         :meth:`count_trees` gives the total number of unique trees in the DAG, taking
         into account internal node labels.
@@ -738,7 +746,8 @@ class HistoryDag:
             even if the DAG is collapsed by label, edges above leaf nodes will not be collapsed.
             if `collapse_leaves` is True, then the number of unique topologies with all
             leaf-adjacent edges collapsed will be counted. Assumes that the DAG is collapsed
-            with :meth:`HistoryDag.convert_to_collapsed`."""
+            with :meth:`HistoryDag.convert_to_collapsed`.
+        """
         kwargs = utils.make_newickcountfuncs(
             internal_labels=False, collapse_leaves=collapse_leaves
         )
@@ -864,9 +873,9 @@ class HistoryDag:
         optimal_func: Callable[[List[Weight]], Weight] = min,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
     ):
-        """Trims the DAG to only express trees with optimal weight.
-        This is guaranteed to be possible when edge_weight_func depends only on
-        the labels of an edge's parent and child node.
+        """Trims the DAG to only express trees with optimal weight. This is
+        guaranteed to be possible when edge_weight_func depends only on the
+        labels of an edge's parent and child node.
 
         Requires that weights are of a type that supports reliable equality
         testing. In particular, floats are not recommended. Instead, consider
@@ -884,7 +893,6 @@ class HistoryDag:
             optimal_func: A function which takes a list of weights and returns the optimal
                 one, like min.
             eq_func: A function which tests equality, taking a pair of weights and returning a bool.
-
         """
         self.optimal_weight_annotate(
             start_func=start_func,
@@ -1079,8 +1087,7 @@ class HistoryDag:
     def postorder(
         self, include_root: bool = True
     ) -> Generator[HistoryDagNode, None, None]:
-        """
-        Recursive postorder traversal of the history DAG
+        """Recursive postorder traversal of the history DAG.
 
         Returns:
             Generator on nodes
@@ -1098,14 +1105,14 @@ class HistoryDag:
         yield from traverse(self.dagroot)
 
     def preorder(self, skip_root=False) -> Generator[HistoryDagNode, None, None]:
-        """
-        Recursive postorder traversal of the history DAG
+        """Recursive postorder traversal of the history DAG.
 
         Careful! This is not guaranteed to visit a parent node before any of its children.
 
         Returns:
             Generator on nodes
-        for that, need reverse postorder traversal."""
+        for that, need reverse postorder traversal.
+        """
         visited = set()
 
         def traverse(node: HistoryDagNode):
@@ -1167,7 +1174,8 @@ class EdgeSet:
         )
 
     def shallowcopy(self) -> "EdgeSet":
-        """Return an identical EdgeSet object, which points to the same target nodes."""
+        """Return an identical EdgeSet object, which points to the same target
+        nodes."""
         return EdgeSet(
             [node for node in self.targets],
             weights=self.weights.copy(),
@@ -1184,17 +1192,15 @@ class EdgeSet:
             self._targetset = set(self.targets)
 
     def sample(self) -> Tuple[HistoryDagNode, float]:
-        """
-        Returns a randomly sampled child edge, and its corresponding weight.
-        """
+        """Returns a randomly sampled child edge, and its corresponding
+        weight."""
         index = random.choices(list(range(len(self.targets))), weights=self.probs, k=1)[
             0
         ]
         return (self.targets[index], self.weights[index])
 
     def add_to_edgeset(self, target, weight=0, prob=None, prob_norm=True) -> bool:
-        """
-        Add a target node to the EdgeSet.
+        """Add a target node to the EdgeSet.
 
         currently does nothing if edge is already present. Also does nothing
         if the target node has one child clade, and parent node is not the DAG root.
@@ -1238,7 +1244,8 @@ class EdgeSet:
 def empty_node(
     label: Label, clades: Iterable[FrozenSet[Label]], attr: Any = None
 ) -> HistoryDagNode:
-    """Return a HistoryDagNode with the given label and clades, with no children."""
+    """Return a HistoryDagNode with the given label and clades, with no
+    children."""
     return HistoryDagNode(label, {clade: EdgeSet() for clade in clades}, attr)
 
 
@@ -1248,8 +1255,7 @@ def from_tree(
     label_functions: Mapping[str, Callable[[ete3.TreeNode], Any]] = {},
     attr_func: Callable[[ete3.TreeNode], Any] = lambda n: None,
 ) -> HistoryDag:
-    """
-    Build a full tree from an ete3 TreeNode.
+    """Build a full tree from an ete3 TreeNode.
 
     Args:
         tree: ete3 tree to be converted to HistoryDag clade tree
@@ -1330,10 +1336,9 @@ def from_newick(
     newick_format=8,
     attr_func: Callable[[ete3.TreeNode], Any] = lambda n: None,
 ) -> HistoryDag:
-    """
-    Make a history DAG using a newick string.
-    Internally, utilizes newick parsing features provided by ete3, then calls :meth:`from_tree`
-    on the resulting ete3.Tree object.
+    """Make a history DAG using a newick string. Internally, utilizes newick
+    parsing features provided by ete3, then calls :meth:`from_tree` on the
+    resulting ete3.Tree object.
 
     Args:
         tree: newick string representation of a tree. May contain extended node data
@@ -1366,7 +1371,8 @@ def history_dag_from_newicks(
 ) -> HistoryDag:
     """Build a history DAG from a list of newick strings.
 
-    See :meth:`from_newick` for argument details."""
+    See :meth:`from_newick` for argument details.
+    """
     return history_dag_from_clade_trees(
         [
             from_newick(
@@ -1389,7 +1395,8 @@ def history_dag_from_etes(
 ) -> HistoryDag:
     """Build a history DAG from a list of ete3 Trees.
 
-    See :meth:`from_tree` for argument details."""
+    See :meth:`from_tree` for argument details.
+    """
     return history_dag_from_clade_trees(
         [
             from_tree(
@@ -1404,7 +1411,8 @@ def history_dag_from_etes(
 
 
 def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
-    """Build a history DAG from a list of history DAGs which are clade trees."""
+    """Build a history DAG from a list of history DAGs which are clade
+    trees."""
     # merge checks that all clade trees have the same leaf label set.
     # Is copying the first enough to avoid mutating treelist?
     dag = treelist[0].copy()
@@ -1417,7 +1425,8 @@ def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
 
 
 def deserialize(bstring: bytes) -> HistoryDag:
-    """reloads a HistoryDag serialized object, as ouput by HistoryDagNode.serialize"""
+    """reloads a HistoryDag serialized object, as ouput by
+    HistoryDagNode.serialize."""
     serial_dict = pickle.loads(bstring)
     label_list: List[Tuple] = serial_dict["label_list"]
     node_list: List[Tuple] = serial_dict["node_list"]

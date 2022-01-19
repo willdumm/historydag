@@ -3,10 +3,13 @@ import historydag.utils as utils
 
 
 def counter_prod(counterlist, accumfunc):
-    """Really a sort of cartesian product, which does accumfunc to keys and counts all the ways each result
-    can be achieved using contents of counters in counterlist.
-    accumfunc must be a function like sum which acts on a list of arbitrary length. Probably should return an
-    object of the same type."""
+    """Really a sort of cartesian product, which does accumfunc to keys and
+    counts all the ways each result can be achieved using contents of counters
+    in counterlist.
+
+    accumfunc must be a function like sum which acts on a list of
+    arbitrary length. Probably should return an object of the same type.
+    """
     newc = Counter()
     for combi in utils.cartesian_product([c.items for c in counterlist]):
         weights, counts = [[t[i] for t in combi] for i in range(len(combi[0]))]
@@ -15,7 +18,8 @@ def counter_prod(counterlist, accumfunc):
 
 
 def counter_sum(counterlist, counter_type=Counter):
-    """Sum a list of counters, like concatenating their representative lists"""
+    """Sum a list of counters, like concatenating their representative
+    lists."""
     newc = counter_type()
     for c in counterlist:
         newc += c

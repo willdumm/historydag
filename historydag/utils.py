@@ -25,7 +25,7 @@ ambiguous_dna_values.update({"?": bases, "-": "-"})
 
 
 class UALabel:
-    """A history DAG universal ancestor (UA) node label"""
+    """A history DAG universal ancestor (UA) node label."""
 
     _fields: Any = tuple()
 
@@ -54,8 +54,9 @@ class UALabel:
 
 # ######## Decorators ########
 def access_nodefield_default(fieldname: str, default: Any) -> Any:
-    """A wrapper to convert a function taking some label field's values as positional
-    arguments, to a function taking HistoryDagNodes as positional arguments.
+    """A wrapper to convert a function taking some label field's values as
+    positional arguments, to a function taking HistoryDagNodes as positional
+    arguments.
 
     Args:
         fieldname: The name of the label field whose value the function takes as arguments
@@ -82,9 +83,12 @@ def access_nodefield_default(fieldname: str, default: Any) -> Any:
 def access_field(fieldname: str) -> Callable[[F], F]:
     """A decorator for conveniently accessing a field in a label.
 
-    To be used instead of something like `lambda l1, l2: func(l1.fieldname, l2.fieldname)`.
-    Instead just write `access_field(fieldname)(func)`. Supports arbitrarily many positional
-    arguments, which are all expected to be labels (namedtuples) with field `fieldname`."""
+    To be used instead of something like `lambda l1, l2:
+    func(l1.fieldname, l2.fieldname)`. Instead just write
+    `access_field(fieldname)(func)`. Supports arbitrarily many
+    positional arguments, which are all expected to be labels
+    (namedtuples) with field `fieldname`.
+    """
 
     def decorator(func: F):
         @wraps(func)
@@ -99,7 +103,10 @@ def access_field(fieldname: str) -> Callable[[F], F]:
 
 def ignore_ualabel(default: Any) -> Callable[[F], F]:
     """A decorator to return a default value if any argument is a UALabel.
-    For instance, to allow distance between two labels to be zero if one is UALabel"""
+
+    For instance, to allow distance between two labels to be zero if one
+    is UALabel
+    """
 
     def decorator(func):
         @wraps(func)
@@ -124,7 +131,8 @@ def explode_label(labelfield: str):
 
     Returns:
         A decorator which converts a function which explodes a field value, into a function
-            which explodes the whole label at that field."""
+            which explodes the whole label at that field.
+    """
 
     def decorator(
         func: Callable[[Any], Iterable[Any]]
@@ -149,7 +157,7 @@ def explode_label(labelfield: str):
 
 
 def hamming_distance(s1: str, s2: str) -> int:
-    """The sitewise sum of base differences between s1 and s2"""
+    """The sitewise sum of base differences between s1 and s2."""
     if len(s1) != len(s2):
         raise ValueError("Sequences must have the same length!")
     return sum(x != y for x, y in zip(s1, s2))
@@ -158,25 +166,28 @@ def hamming_distance(s1: str, s2: str) -> int:
 @ignore_ualabel(0)
 @access_field("sequence")
 def wrapped_hamming_distance(s1, s2) -> int:
-    """The sitewise sum of base differences between sequence field contents of two labels.
+    """The sitewise sum of base differences between sequence field contents of
+    two labels.
 
     Takes two Labels as arguments.
 
-    If l1 or l2 is a UALabel, returns 0."""
+    If l1 or l2 is a UALabel, returns 0.
+    """
     return hamming_distance(s1, s2)
 
 
 def is_ambiguous(sequence: str) -> bool:
-    """Returns whether the provided sequence contains IUPAC nucleotide ambiguity codes"""
+    """Returns whether the provided sequence contains IUPAC nucleotide
+    ambiguity codes."""
     return any(code not in bases for code in sequence)
 
 
 def cartesian_product(
     optionlist: List[Callable[[], Iterable]], accum=tuple()
 ) -> Generator[Tuple, None, None]:
-    """Takes a list of functions which each return a fresh generator
-    on options at that site, and returns a generator yielding tuples, which are
-    elements of the cartesian product of the passed generators' contents."""
+    """Takes a list of functions which each return a fresh generator on options
+    at that site, and returns a generator yielding tuples, which are elements
+    of the cartesian product of the passed generators' contents."""
     if optionlist:
         for term in optionlist[0]():
             yield from cartesian_product(optionlist[1:], accum=(accum + (term,)))
@@ -187,8 +198,9 @@ def cartesian_product(
 @explode_label("sequence")
 def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
     """Iterates through possible disambiguations of sequence, recursively.
-    Recursion-depth-limited by number of ambiguity codes in
-    sequence, not sequence length.
+
+    Recursion-depth-limited by number of ambiguity codes in sequence,
+    not sequence length.
     """
 
     def _sequence_resolutions(sequence, _accum=""):
@@ -199,7 +211,7 @@ def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
                 else:
                     for newbase in ambiguous_dna_values[base]:
                         yield from _sequence_resolutions(
-                            sequence[index + 1:], _accum=(_accum + newbase)
+                            sequence[index + 1 :], _accum=(_accum + newbase)
                         )
                     return
         yield _accum
@@ -230,8 +242,8 @@ def hist(c: Counter, samples: int = 1):
 
 
 def is_collapsed(tree: ete3.TreeNode) -> bool:
-    """Return whether the provided tree is collapsed, meaning that any edge whose target
-    is not a leaf node connects nodes with different sequences."""
+    """Return whether the provided tree is collapsed, meaning that any edge
+    whose target is not a leaf node connects nodes with different sequences."""
     return not any(
         node.sequence == node.up.sequence and not node.is_leaf()
         for node in tree.iter_descendants()
@@ -239,7 +251,7 @@ def is_collapsed(tree: ete3.TreeNode) -> bool:
 
 
 def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
-    """Collapse nonleaf nodes that have the same sequence"""
+    """Collapse nonleaf nodes that have the same sequence."""
     # Need to keep doing this until the tree fully collapsed. See gctree for this!
     tree = tree.copy()
     to_delete = []
@@ -256,12 +268,14 @@ def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
 
 
 class AddFuncDict(UserDict):
-    """Provides a container for function keyword arguments to :meth:`dag.HistoryDag.weight_count`.
-    This is primarily useful because it allows instances to be added. Passing the result to `weight_count`
-    as keyword arguments counts the weights jointly.
+    """Provides a container for function keyword arguments to
+    :meth:`dag.HistoryDag.weight_count`. This is primarily useful because it
+    allows instances to be added. Passing the result to `weight_count` as
+    keyword arguments counts the weights jointly.
 
     For example, `dag.weight_count(**(utils.hamming_distance_countfuncs + make_newickcountfuncs()))`
-    would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings."""
+    would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings.
+    """
 
     requiredkeys = {"start_func", "edge_weight_func", "accum_func"}
 
@@ -352,10 +366,11 @@ def make_newickcountfuncs(
     internal_labels=True,
     collapse_leaves=False,
 ):
-    """Provides functions necessary to count newick strings of trees in a history DAG,
-    using :meth:`dag.HistoryDag.weight_count`.
+    """Provides functions necessary to count newick strings of trees in a
+    history DAG, using :meth:`dag.HistoryDag.weight_count`.
 
-    Arguments are the same as for :meth:`dag.HistoryDag.to_newick`."""
+    Arguments are the same as for :meth:`dag.HistoryDag.to_newick`.
+    """
 
     def _newicksum(newicks):
         # Filter out collapsed/deleted edges
@@ -415,7 +430,9 @@ def _cladetree_method(method):
 
 def prod(ls: list):
     """Return product of elements of the input list.
-    if passed list is empty, returns 1."""
+
+    if passed list is empty, returns 1.
+    """
     n = len(ls)
     if n > 0:
         accum = ls[0]

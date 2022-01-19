@@ -98,7 +98,7 @@ def test_from_tree_label():
     tree = ete3.Tree(newickstring2, format=1)
     for node in tree.traverse():
         node.add_feature("abundance", 1)
-    dag = from_tree( # noqa
+    dag = from_tree(  # noqa
         tree,
         ["sequence", "abundance"],
         label_functions={"abundance2x": lambda n: 2 * n.abundance},

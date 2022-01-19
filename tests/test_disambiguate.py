@@ -21,7 +21,7 @@ def sequence_resolutions(sequence):
                 else:
                     for newbase in ambiguous_dna_values[base]:
                         yield from _sequence_resolutions(
-                            sequence[index + 1:], _accum=(_accum + newbase)
+                            sequence[index + 1 :], _accum=(_accum + newbase)
                         )
                     return
         yield _accum
