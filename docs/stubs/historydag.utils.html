@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>historydag.utils &mdash; historydag  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="historydag.counterops" href="historydag.counterops.html" />
+    <link rel="prev" title="historydag.HistoryDag" href="historydag.HistoryDag.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> historydag
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">Classes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html#modules">Modules</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">historydag.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.counterops.html">historydag.counterops</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">historydag</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../api.html">Classes</a> &raquo;</li>
+      <li>historydag.utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-historydag.utils">
+<span id="historydag-utils"></span><h1>historydag.utils<a class="headerlink" href="#module-historydag.utils" title="Permalink to this headline"></a></h1>
+<p class="rubric">Module Attributes</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.hamming_distance_countfuncs" title="historydag.utils.hamming_distance_countfuncs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hamming_distance_countfuncs</span></code></a></p></td>
+<td><p>Provides functions necessary to count hamming distance parsimony of trees in a history DAG, using <code class="xref py py-meth docutils literal notranslate"><span class="pre">dag.HistoryDag.weight_count()</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Functions</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.access_field" title="historydag.utils.access_field"><code class="xref py py-obj docutils literal notranslate"><span class="pre">access_field</span></code></a>(fieldname)</p></td>
+<td><p>A decorator for conveniently accessing a field in a label.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.access_nodefield_default" title="historydag.utils.access_nodefield_default"><code class="xref py py-obj docutils literal notranslate"><span class="pre">access_nodefield_default</span></code></a>(fieldname, default)</p></td>
+<td><p>A wrapper to convert a function taking some label field's values as positional arguments, to a function taking HistoryDagNodes as positional arguments.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.cartesian_product" title="historydag.utils.cartesian_product"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cartesian_product</span></code></a>(optionlist[, accum])</p></td>
+<td><p>Takes a list of functions which each return a fresh generator on options at that site, and returns a generator yielding tuples, which are elements of the cartesian product of the passed generators' contents.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.collapse_adjacent_sequences" title="historydag.utils.collapse_adjacent_sequences"><code class="xref py py-obj docutils literal notranslate"><span class="pre">collapse_adjacent_sequences</span></code></a>(tree)</p></td>
+<td><p>Collapse nonleaf nodes that have the same sequence.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.explode_label" title="historydag.utils.explode_label"><code class="xref py py-obj docutils literal notranslate"><span class="pre">explode_label</span></code></a>(labelfield)</p></td>
+<td><p>A decorator to make it easier to expand a Label by a certain field.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.hamming_distance" title="historydag.utils.hamming_distance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hamming_distance</span></code></a>(s1, s2)</p></td>
+<td><p>The sitewise sum of base differences between s1 and s2.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.hist" title="historydag.utils.hist"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hist</span></code></a>(c[, samples])</p></td>
+<td><p>Pretty prints a counter, normalizing counts using the number of samples, passed as the argument <cite>samples</cite>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.ignore_ualabel" title="historydag.utils.ignore_ualabel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ignore_ualabel</span></code></a>(default)</p></td>
+<td><p>A decorator to return a default value if any argument is a UALabel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.is_ambiguous" title="historydag.utils.is_ambiguous"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_ambiguous</span></code></a>(sequence)</p></td>
+<td><p>Returns whether the provided sequence contains IUPAC nucleotide ambiguity codes.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.is_collapsed" title="historydag.utils.is_collapsed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_collapsed</span></code></a>(tree)</p></td>
+<td><p>Return whether the provided tree is collapsed, meaning that any edge whose target is not a leaf node connects nodes with different sequences.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.make_newickcountfuncs" title="historydag.utils.make_newickcountfuncs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_newickcountfuncs</span></code></a>([name_func, features, ...])</p></td>
+<td><p>Provides functions necessary to count newick strings of trees in a history DAG, using <code class="xref py py-meth docutils literal notranslate"><span class="pre">dag.HistoryDag.weight_count()</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.prod" title="historydag.utils.prod"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prod</span></code></a>(ls)</p></td>
+<td><p>Return product of elements of the input list.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.sequence_resolutions" title="historydag.utils.sequence_resolutions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sequence_resolutions</span></code></a>(sequence)</p></td>
+<td><p>Iterates through possible disambiguations of sequence, recursively.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.sequence_resolutions_count" title="historydag.utils.sequence_resolutions_count"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sequence_resolutions_count</span></code></a>(sequence)</p></td>
+<td><p>Count the number of sequence resolutions there would be in the returned list from <a class="reference internal" href="#historydag.utils.sequence_resolutions" title="historydag.utils.sequence_resolutions"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sequence_resolutions()</span></code></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.wrapped_hamming_distance" title="historydag.utils.wrapped_hamming_distance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">wrapped_hamming_distance</span></code></a>(s1, s2)</p></td>
+<td><p>The sitewise sum of base differences between sequence field contents of two labels.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Classes</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.AddFuncDict" title="historydag.utils.AddFuncDict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AddFuncDict</span></code></a>(initialdata[, names])</p></td>
+<td><p>Provides a container for function keyword arguments to <code class="xref py py-meth docutils literal notranslate"><span class="pre">dag.HistoryDag.weight_count()</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.UALabel" title="historydag.utils.UALabel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UALabel</span></code></a>()</p></td>
+<td><p>A history DAG universal ancestor (UA) node label.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.utils.UALabel">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">UALabel</span></span><a class="reference internal" href="../_modules/historydag/utils.html#UALabel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.UALabel" title="Permalink to this definition"></a></dt>
+<dd><p>A history DAG universal ancestor (UA) node label.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.utils.UALabel.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#UALabel.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.UALabel.__init__" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.access_nodefield_default">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">access_nodefield_default</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fieldname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#access_nodefield_default"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.access_nodefield_default" title="Permalink to this definition"></a></dt>
+<dd><p>A wrapper to convert a function taking some label field’s values as
+positional arguments, to a function taking HistoryDagNodes as positional
+arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fieldname</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The name of the label field whose value the function takes as arguments</p></li>
+<li><p><strong>default</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>) – A value that should be returned if one of the arguments is the DAG UA node.</p></li>
+</ul>
+</dd>
+</dl>
+<p>For example, instead of
+<cite>lambda n1, n2: default if n1.is_root() or n2.is_root() else func(n1.label.fieldname, n2.label.fieldname)</cite>,
+this wrapper allows one to write <cite>access_nodefield_default(fieldname, default)(func)</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.access_field">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">access_field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fieldname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#access_field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.access_field" title="Permalink to this definition"></a></dt>
+<dd><p>A decorator for conveniently accessing a field in a label.</p>
+<p>To be used instead of something like <cite>lambda l1, l2:
+func(l1.fieldname, l2.fieldname)</cite>. Instead just write
+<cite>access_field(fieldname)(func)</cite>. Supports arbitrarily many
+positional arguments, which are all expected to be labels
+(namedtuples) with field <cite>fieldname</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[~F], ~F]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.ignore_ualabel">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">ignore_ualabel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">default</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#ignore_ualabel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.ignore_ualabel" title="Permalink to this definition"></a></dt>
+<dd><p>A decorator to return a default value if any argument is a UALabel.</p>
+<p>For instance, to allow distance between two labels to be zero if one
+is UALabel</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[~F], ~F]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.explode_label">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">explode_label</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">labelfield</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#explode_label"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.explode_label" title="Permalink to this definition"></a></dt>
+<dd><p>A decorator to make it easier to expand a Label by a certain field.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>labelfield</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – the name of the field whose contents the wrapped function is expected to
+explode</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>A decorator which converts a function which explodes a field value, into a function</dt><dd><p>which explodes the whole label at that field.</p>
+</dd>
+</dl>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.hamming_distance">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">hamming_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#hamming_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.hamming_distance" title="Permalink to this definition"></a></dt>
+<dd><p>The sitewise sum of base differences between s1 and s2.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.wrapped_hamming_distance">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">wrapped_hamming_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#wrapped_hamming_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.wrapped_hamming_distance" title="Permalink to this definition"></a></dt>
+<dd><p>The sitewise sum of base differences between sequence field contents of
+two labels.</p>
+<p>Takes two Labels as arguments.</p>
+<p>If l1 or l2 is a UALabel, returns 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.is_ambiguous">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">is_ambiguous</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#is_ambiguous"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.is_ambiguous" title="Permalink to this definition"></a></dt>
+<dd><p>Returns whether the provided sequence contains IUPAC nucleotide
+ambiguity codes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.cartesian_product">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">cartesian_product</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optionlist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#cartesian_product"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.cartesian_product" title="Permalink to this definition"></a></dt>
+<dd><p>Takes a list of functions which each return a fresh generator on options
+at that site, and returns a generator yielding tuples, which are elements
+of the cartesian product of the passed generators’ contents.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generator</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.sequence_resolutions">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">sequence_resolutions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#sequence_resolutions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.sequence_resolutions" title="Permalink to this definition"></a></dt>
+<dd><p>Iterates through possible disambiguations of sequence, recursively.</p>
+<p>Recursion-depth-limited by number of ambiguity codes in sequence,
+not sequence length.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generator</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.sequence_resolutions_count">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">sequence_resolutions_count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#sequence_resolutions_count"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.sequence_resolutions_count" title="Permalink to this definition"></a></dt>
+<dd><p>Count the number of sequence resolutions there would be in the returned
+list from <a class="reference internal" href="#historydag.utils.sequence_resolutions" title="historydag.utils.sequence_resolutions"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sequence_resolutions()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.hist">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">hist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#hist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.hist" title="Permalink to this definition"></a></dt>
+<dd><p>Pretty prints a counter, normalizing counts using the number of samples,
+passed as the argument <cite>samples</cite>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.is_collapsed">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">is_collapsed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#is_collapsed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.is_collapsed" title="Permalink to this definition"></a></dt>
+<dd><p>Return whether the provided tree is collapsed, meaning that any edge
+whose target is not a leaf node connects nodes with different sequences.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.collapse_adjacent_sequences">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">collapse_adjacent_sequences</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#collapse_adjacent_sequences"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.collapse_adjacent_sequences" title="Permalink to this definition"></a></dt>
+<dd><p>Collapse nonleaf nodes that have the same sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">TreeNode</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.utils.AddFuncDict">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">AddFuncDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initialdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'unnamed_weight'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#AddFuncDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.AddFuncDict" title="Permalink to this definition"></a></dt>
+<dd><p>Provides a container for function keyword arguments to
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">dag.HistoryDag.weight_count()</span></code>. This is primarily useful because it
+allows instances to be added. Passing the result to <cite>weight_count</cite> as
+keyword arguments counts the weights jointly.</p>
+<p>For example, <cite>dag.weight_count(**(utils.hamming_distance_countfuncs + make_newickcountfuncs()))</cite>
+would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.utils.AddFuncDict.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initialdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'unnamed_weight'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#AddFuncDict.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.AddFuncDict.__init__" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="historydag.utils.hamming_distance_countfuncs">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">hamming_distance_countfuncs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'start_func':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'edge_weight_func':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'accum_func':</span> <span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">sum&gt;}</span></em><a class="headerlink" href="#historydag.utils.hamming_distance_countfuncs" title="Permalink to this definition"></a></dt>
+<dd><p>Provides functions necessary to count hamming distance parsimony of trees in a history DAG,
+using <code class="xref py py-meth docutils literal notranslate"><span class="pre">dag.HistoryDag.weight_count()</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.make_newickcountfuncs">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">make_newickcountfuncs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name_func=&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_funcs={}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">internal_labels=True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collapse_leaves=False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#make_newickcountfuncs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.make_newickcountfuncs" title="Permalink to this definition"></a></dt>
+<dd><p>Provides functions necessary to count newick strings of trees in a
+history DAG, using <code class="xref py py-meth docutils literal notranslate"><span class="pre">dag.HistoryDag.weight_count()</span></code>.</p>
+<p>Arguments are the same as for <code class="xref py py-meth docutils literal notranslate"><span class="pre">dag.HistoryDag.to_newick()</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.utils.prod">
+<span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">prod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ls</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#prod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.prod" title="Permalink to this definition"></a></dt>
+<dd><p>Return product of elements of the input list.</p>
+<p>if passed list is empty, returns 1.</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="historydag.HistoryDag.html" class="btn btn-neutral float-left" title="historydag.HistoryDag" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="historydag.counterops.html" class="btn btn-neutral float-right" title="historydag.counterops" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Will Dumm.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

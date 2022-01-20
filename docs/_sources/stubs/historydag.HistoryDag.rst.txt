@@ -1,0 +1,50 @@
+﻿historydag.HistoryDag
+=====================
+
+.. currentmodule:: historydag
+
+.. autoclass:: HistoryDag
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~HistoryDag.__init__
+      ~HistoryDag.add_all_allowed_edges
+      ~HistoryDag.convert_to_collapsed
+      ~HistoryDag.copy
+      ~HistoryDag.count_topologies
+      ~HistoryDag.count_trees
+      ~HistoryDag.explode_nodes
+      ~HistoryDag.get_trees
+      ~HistoryDag.hamming_parsimony_count
+      ~HistoryDag.internal_avg_parents
+      ~HistoryDag.is_clade_tree
+      ~HistoryDag.make_uniform
+      ~HistoryDag.merge
+      ~HistoryDag.optimal_weight_annotate
+      ~HistoryDag.postorder
+      ~HistoryDag.postorder_cladetree_accum
+      ~HistoryDag.preorder
+      ~HistoryDag.recompute_parents
+      ~HistoryDag.sample
+      ~HistoryDag.serialize
+      ~HistoryDag.summary
+      ~HistoryDag.to_ete
+      ~HistoryDag.to_graphviz
+      ~HistoryDag.to_newick
+      ~HistoryDag.to_newicks
+      ~HistoryDag.trim_optimal_weight
+      ~HistoryDag.trim_topology
+      ~HistoryDag.weight_count
+      ~HistoryDag.weight_counts_with_ambiguities
+   
+   
+
+   
+   
+   

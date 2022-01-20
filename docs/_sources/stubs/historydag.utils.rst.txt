@@ -1,0 +1,56 @@
+﻿historydag.utils
+================
+
+.. automodule:: historydag.utils
+
+   
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      hamming_distance_countfuncs
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      access_field
+      access_nodefield_default
+      cartesian_product
+      collapse_adjacent_sequences
+      explode_label
+      hamming_distance
+      hist
+      ignore_ualabel
+      is_ambiguous
+      is_collapsed
+      make_newickcountfuncs
+      prod
+      sequence_resolutions
+      sequence_resolutions_count
+      wrapped_hamming_distance
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      AddFuncDict
+      UALabel
+   
+   
+
+   
+   
+   
+
+
+
