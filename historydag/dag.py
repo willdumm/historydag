@@ -242,6 +242,98 @@ class HistoryDag:
         # identical trees return True. TODO
         raise NotImplementedError
 
+    def __getstate__(self) -> Dict:
+        r"""Converts HistoryDag to a bytestring-serializable dictionary.
+
+        Since a HistoryDag is a recursive data structure, and contains label
+        types defined in function scope, modifications must be made for pickling.
+
+        Returns:
+            A dictionary containing:
+            * label_fields: The names of label fields.
+            * label_list: labels used in nodes, without duplicates. Indices are
+                mapped to nodes in node_list
+            * node_list: node tuples containing
+                (node label index in label_list, frozenset of frozensets of leaf label indices, node.attr).
+            * edge_list: a tuple for each edge:
+                    (origin node index, target node index, edge weight, edge probability)"""
+        label_fields = list(self.dagroot.children())[0].label._fields
+        label_list: List[Tuple] = []
+        node_list: List[Tuple] = []
+        edge_list: List[Tuple] = []
+        label_indices: Dict[Label, int] = {}
+        node_indices = {id(node): idx for idx, node in enumerate(self.postorder())}
+
+        def cladesets(node):
+            clades = {
+                frozenset({label_indices[label] for label in clade})
+                for clade in node.clades
+            }
+            return frozenset(clades)
+
+        for node in self.postorder():
+            if node.label not in label_indices:
+                label_indices[node.label] = len(label_list)
+                label_list.append(utils.ignore_ualabel(None)(tuple)(node.label))
+                assert label_list[
+                    label_indices[node.label]
+                ] == node.label or isinstance(node.label, UALabel)
+            node_list.append((label_indices[node.label], cladesets(node), node.attr))
+            node_idx = len(node_list) - 1
+            for eset in node.clades.values():
+                for idx, target in enumerate(eset.targets):
+                    edge_list.append(
+                        (
+                            node_idx,
+                            node_indices[id(target)],
+                            eset.weights[idx],
+                            eset.probs[idx],
+                        )
+                    )
+        serial_dict = {
+            "label_fields": label_fields,
+            "label_list": label_list,
+            "node_list": node_list,
+            "edge_list": edge_list,
+            "attr": self.attr,
+        }
+        return serial_dict
+
+    def __setstate__(self, serial_dict):
+        """Rebuilds a HistoryDagNode using a serial_dict output by __getstate__"""
+        label_list: List[Tuple] = serial_dict["label_list"]
+        node_list: List[Tuple] = serial_dict["node_list"]
+        edge_list: List[Tuple[int, int, float, float]] = serial_dict["edge_list"]
+        label_fields: Tuple[str] = serial_dict["label_fields"]
+        Label = NamedTuple("Label", [(label, any) for label in label_fields])  # type: ignore
+
+        def unpack_labels(labelset):
+            res = frozenset({Label(*label_list[idx]) for idx in labelset})
+            return res
+
+        node_postorder = [
+            HistoryDagNode(
+                (
+                    utils.UALabel()
+                    if label_list[labelidx] is None
+                    else Label(*label_list[labelidx])
+                ),
+                {unpack_labels(clade): EdgeSet() for clade in clades},
+                attr,
+            )
+            for labelidx, clades, attr in node_list
+        ]
+        # Last node in list is root
+        for origin_idx, target_idx, weight, prob in edge_list:
+            node_postorder[origin_idx].add_edge(
+                node_postorder[target_idx], weight=weight, prob=prob, prob_norm=False
+            )
+        self.dagroot = node_postorder[-1]
+        self.attr = serial_dict["attr"]
+
+    def serialize(self) -> bytes:
+        return pickle.dumps(self.__getstate__())
+
     def get_trees(self) -> Generator["HistoryDag", None, None]:
         """Return a generator containing all trees in the history DAG."""
         for cladetree in self.dagroot._get_trees():
@@ -944,62 +1036,6 @@ class HistoryDag:
             optimal_func=min_func,
         )
 
-    def serialize(self) -> bytes:
-        r"""Serializes a HistoryDag object as a bytestring.
-        Since a HistoryDag is a recursive data structure, and contains label
-        types defined in function scope, modifications must be made for pickling.
-
-        Returns:
-            A bytestring expressing a dictionary containing:
-            * label_fields: The names of label fields.
-            * label_list: labels used in nodes, without duplicates. Indices are
-                mapped to nodes in node_list
-            * node_list: node tuples containing
-                (node label index in label_list, frozenset of frozensets of leaf label indices, node.attr).
-            * edge_list: a tuple for each edge:
-                    (origin node index, target node index, edge weight, edge probability)"""
-        label_fields = list(self.dagroot.children())[0].label._fields
-        label_list: List[Tuple] = []
-        node_list: List[Tuple] = []
-        edge_list: List[Tuple] = []
-        label_indices: Dict[Label, int] = {}
-        node_indices = {id(node): idx for idx, node in enumerate(self.postorder())}
-
-        def cladesets(node):
-            clades = {
-                frozenset({label_indices[label] for label in clade})
-                for clade in node.clades
-            }
-            return frozenset(clades)
-
-        for node in self.postorder():
-            if node.label not in label_indices:
-                label_indices[node.label] = len(label_list)
-                label_list.append(utils.ignore_ualabel(None)(tuple)(node.label))
-                assert label_list[
-                    label_indices[node.label]
-                ] == node.label or isinstance(node.label, UALabel)
-            node_list.append((label_indices[node.label], cladesets(node), node.attr))
-            node_idx = len(node_list) - 1
-            for eset in node.clades.values():
-                for idx, target in enumerate(eset.targets):
-                    edge_list.append(
-                        (
-                            node_idx,
-                            node_indices[id(target)],
-                            eset.weights[idx],
-                            eset.probs[idx],
-                        )
-                    )
-        serial_dict = {
-            "label_fields": label_fields,
-            "label_list": label_list,
-            "node_list": node_list,
-            "edge_list": edge_list,
-            "attr": self.attr,
-        }
-        return pickle.dumps(serial_dict)
-
     def recompute_parents(self):
         for node in self.postorder():
             node.parents = set()
@@ -1428,31 +1464,6 @@ def deserialize(bstring: bytes) -> HistoryDag:
     """reloads a HistoryDag serialized object, as ouput by
     HistoryDagNode.serialize."""
     serial_dict = pickle.loads(bstring)
-    label_list: List[Tuple] = serial_dict["label_list"]
-    node_list: List[Tuple] = serial_dict["node_list"]
-    edge_list: List[Tuple[int, int, float, float]] = serial_dict["edge_list"]
-    label_fields: Tuple[str] = serial_dict["label_fields"]
-    Label = NamedTuple("Label", [(label, any) for label in label_fields])  # type: ignore
-
-    def unpack_labels(labelset):
-        res = frozenset({Label(*label_list[idx]) for idx in labelset})
-        return res
-
-    node_postorder = [
-        HistoryDagNode(
-            (
-                utils.UALabel()
-                if label_list[labelidx] is None
-                else Label(*label_list[labelidx])
-            ),
-            {unpack_labels(clade): EdgeSet() for clade in clades},
-            attr,
-        )
-        for labelidx, clades, attr in node_list
-    ]
-    # Last node in list is root
-    for origin_idx, target_idx, weight, prob in edge_list:
-        node_postorder[origin_idx].add_edge(
-            node_postorder[target_idx], weight=weight, prob=prob, prob_norm=False
-        )
-    return HistoryDag(node_postorder[-1], attr=serial_dict["attr"])
+    dag = HistoryDag(None)  # type: ignore
+    dag.__setstate__(serial_dict)
+    return dag
