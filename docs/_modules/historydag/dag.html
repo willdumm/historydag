@@ -34,7 +34,11 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api.html">Classes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api.html#modules">Modules</a></li>
@@ -65,7 +69,9 @@
            <div itemprop="articleBody">
              
   <h1>Source code for historydag.dag</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pickle</span>
+<span></span><span class="sd">&quot;&quot;&quot;A module providing the class HistoryDag, and supporting functions.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">pickle</span>
 <span class="kn">import</span> <span class="nn">graphviz</span> <span class="k">as</span> <span class="nn">gv</span>
 <span class="kn">import</span> <span class="nn">ete3</span>
 <span class="kn">import</span> <span class="nn">random</span>
@@ -272,7 +278,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A string which can be used as a node name in a newick string.</span>
-<span class="sd">                For example, `namefuncresult[&amp;&amp;NHX:feature1=val1:feature2=val2]`</span>
+<span class="sd">            For example, `namefuncresult[&amp;&amp;NHX:feature1=val1:feature2=val2]`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_root</span><span class="p">():</span>
             <span class="k">return</span> <span class="s2">&quot;UA_node&quot;</span>
@@ -291,7 +297,7 @@
 
 
 <div class="viewcode-block" id="HistoryDag"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag">[docs]</a><span class="k">class</span> <span class="nc">HistoryDag</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;An object to represent a collection of internally labeled trees.</span>
 <span class="sd">    A wrapper object to contain exposed HistoryDag methods and point to a HistoryDagNode root</span>
 
 <span class="sd">    Args:</span>
@@ -309,13 +315,107 @@
         <span class="c1"># identical trees return True. TODO</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Converts HistoryDag to a bytestring-serializable dictionary.</span>
+
+<span class="sd">        Since a HistoryDag is a recursive data structure, and contains label</span>
+<span class="sd">        types defined in function scope, modifications must be made for pickling.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A dictionary containing:</span>
+<span class="sd">            * label_fields: The names of label fields.</span>
+<span class="sd">            * label_list: labels used in nodes, without duplicates. Indices are</span>
+<span class="sd">                mapped to nodes in node_list</span>
+<span class="sd">            * node_list: node tuples containing</span>
+<span class="sd">                (node label index in label_list, frozenset of frozensets of leaf label indices, node.attr).</span>
+<span class="sd">            * edge_list: a tuple for each edge:</span>
+<span class="sd">                    (origin node index, target node index, edge weight, edge probability)&quot;&quot;&quot;</span>
+        <span class="n">label_fields</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dagroot</span><span class="o">.</span><span class="n">children</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">_fields</span>
+        <span class="n">label_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">node_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">edge_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">label_indices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Label</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">node_indices</span> <span class="o">=</span> <span class="p">{</span><span class="nb">id</span><span class="p">(</span><span class="n">node</span><span class="p">):</span> <span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">postorder</span><span class="p">())}</span>
+
+        <span class="k">def</span> <span class="nf">cladesets</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+            <span class="n">clades</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="nb">frozenset</span><span class="p">({</span><span class="n">label_indices</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">clade</span><span class="p">})</span>
+                <span class="k">for</span> <span class="n">clade</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">clades</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">clades</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">postorder</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">label_indices</span><span class="p">:</span>
+                <span class="n">label_indices</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">label_list</span><span class="p">)</span>
+                <span class="n">label_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">utils</span><span class="o">.</span><span class="n">ignore_ualabel</span><span class="p">(</span><span class="kc">None</span><span class="p">)(</span><span class="nb">tuple</span><span class="p">)(</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">))</span>
+                <span class="k">assert</span> <span class="n">label_list</span><span class="p">[</span>
+                    <span class="n">label_indices</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">]</span>
+                <span class="p">]</span> <span class="o">==</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">UALabel</span><span class="p">)</span>
+            <span class="n">node_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">label_indices</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">],</span> <span class="n">cladesets</span><span class="p">(</span><span class="n">node</span><span class="p">),</span> <span class="n">node</span><span class="o">.</span><span class="n">attr</span><span class="p">))</span>
+            <span class="n">node_idx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">node_list</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+            <span class="k">for</span> <span class="n">eset</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">clades</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">eset</span><span class="o">.</span><span class="n">targets</span><span class="p">):</span>
+                    <span class="n">edge_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">(</span>
+                            <span class="n">node_idx</span><span class="p">,</span>
+                            <span class="n">node_indices</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">target</span><span class="p">)],</span>
+                            <span class="n">eset</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span>
+                            <span class="n">eset</span><span class="o">.</span><span class="n">probs</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+        <span class="n">serial_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;label_fields&quot;</span><span class="p">:</span> <span class="n">label_fields</span><span class="p">,</span>
+            <span class="s2">&quot;label_list&quot;</span><span class="p">:</span> <span class="n">label_list</span><span class="p">,</span>
+            <span class="s2">&quot;node_list&quot;</span><span class="p">:</span> <span class="n">node_list</span><span class="p">,</span>
+            <span class="s2">&quot;edge_list&quot;</span><span class="p">:</span> <span class="n">edge_list</span><span class="p">,</span>
+            <span class="s2">&quot;attr&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">attr</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">serial_dict</span>
+
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">serial_dict</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Rebuilds a HistoryDagNode using a serial_dict output by</span>
+<span class="sd">        __getstate__&quot;&quot;&quot;</span>
+        <span class="n">label_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;label_list&quot;</span><span class="p">]</span>
+        <span class="n">node_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;node_list&quot;</span><span class="p">]</span>
+        <span class="n">edge_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;edge_list&quot;</span><span class="p">]</span>
+        <span class="n">label_fields</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;label_fields&quot;</span><span class="p">]</span>
+        <span class="n">Label</span> <span class="o">=</span> <span class="n">NamedTuple</span><span class="p">(</span><span class="s2">&quot;Label&quot;</span><span class="p">,</span> <span class="p">[(</span><span class="n">label</span><span class="p">,</span> <span class="nb">any</span><span class="p">)</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">label_fields</span><span class="p">])</span>  <span class="c1"># type: ignore</span>
+
+        <span class="k">def</span> <span class="nf">unpack_labels</span><span class="p">(</span><span class="n">labelset</span><span class="p">):</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">Label</span><span class="p">(</span><span class="o">*</span><span class="n">label_list</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">labelset</span><span class="p">})</span>
+            <span class="k">return</span> <span class="n">res</span>
+
+        <span class="n">node_postorder</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">HistoryDagNode</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="n">utils</span><span class="o">.</span><span class="n">UALabel</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">label_list</span><span class="p">[</span><span class="n">labelidx</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="n">Label</span><span class="p">(</span><span class="o">*</span><span class="n">label_list</span><span class="p">[</span><span class="n">labelidx</span><span class="p">])</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="n">unpack_labels</span><span class="p">(</span><span class="n">clade</span><span class="p">):</span> <span class="n">EdgeSet</span><span class="p">()</span> <span class="k">for</span> <span class="n">clade</span> <span class="ow">in</span> <span class="n">clades</span><span class="p">},</span>
+                <span class="n">attr</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">labelidx</span><span class="p">,</span> <span class="n">clades</span><span class="p">,</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">node_list</span>
+        <span class="p">]</span>
+        <span class="c1"># Last node in list is root</span>
+        <span class="k">for</span> <span class="n">origin_idx</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">prob</span> <span class="ow">in</span> <span class="n">edge_list</span><span class="p">:</span>
+            <span class="n">node_postorder</span><span class="p">[</span><span class="n">origin_idx</span><span class="p">]</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span>
+                <span class="n">node_postorder</span><span class="p">[</span><span class="n">target_idx</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span> <span class="n">prob</span><span class="o">=</span><span class="n">prob</span><span class="p">,</span> <span class="n">prob_norm</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dagroot</span> <span class="o">=</span> <span class="n">node_postorder</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attr</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;attr&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">serialize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__getstate__</span><span class="p">())</span>
+
 <div class="viewcode-block" id="HistoryDag.get_trees"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.get_trees">[docs]</a>    <span class="k">def</span> <span class="nf">get_trees</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="s2">&quot;HistoryDag&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Return a generator containing all trees in the history DAG.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">cladetree</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dagroot</span><span class="o">.</span><span class="n">_get_trees</span><span class="p">():</span>
             <span class="k">yield</span> <span class="n">HistoryDag</span><span class="p">(</span><span class="n">cladetree</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="HistoryDag.sample"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.sample">[docs]</a>    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;HistoryDag&quot;</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Samples a clade tree (a sub-history DAG containing the root and all</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Samples a clade tree from the history DAG.</span>
+<span class="sd">        (A clade tree is a sub-history DAG containing the root and all</span>
 <span class="sd">        leaf nodes). Returns a new HistoryDagNode object.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">HistoryDag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dagroot</span><span class="o">.</span><span class="n">_sample</span><span class="p">())</span></div>
 
@@ -370,7 +470,7 @@
         <span class="n">adjacent_labels</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">preserve_parent_labels</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Add all allowed edges to the DAG, returning the number that were added.</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Add all allowed edges to the DAG.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            new_from_root: If False, no edges will be added that start at the DAG root.</span>
@@ -426,7 +526,8 @@
         <span class="n">features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">feature_funcs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">HistoryDagNode</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{},</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Converts to extended newick format with arbitrary node names and a</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Converts clade tree to extended newick format.</span>
+<span class="sd">        Supports arbitrary node names and a</span>
 <span class="sd">        sequence feature. For use on a history DAG which is a clade tree.</span>
 
 <span class="sd">        For extracting newick representations of trees in a general history DAG, see</span>
@@ -483,7 +584,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            An ete3 Tree with the same topology as self, and node names and attributes</span>
-<span class="sd">                as specified.</span>
+<span class="sd">            as specified.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># First build a dictionary of ete3 nodes keyed by HDagNodes.</span>
         <span class="k">if</span> <span class="n">features</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -572,7 +673,7 @@
         <span class="k">return</span> <span class="n">G</span></div>
 
 <div class="viewcode-block" id="HistoryDag.internal_avg_parents"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.internal_avg_parents">[docs]</a>    <span class="k">def</span> <span class="nf">internal_avg_parents</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Returns the average number of parents among internal nodes</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Returns the average number of parents among internal nodes.</span>
 <span class="sd">        A simple measure of similarity between the trees that the DAG expresses.</span>
 <span class="sd">        However, keep in mind that two trees with the same topology but different labels</span>
 <span class="sd">        would be considered entirely unalike by this measure.&quot;&quot;&quot;</span>
@@ -603,7 +704,8 @@
         <span class="n">expand_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Label</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Label</span><span class="p">]]</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">sequence_resolutions</span><span class="p">,</span>
         <span class="n">expandable_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Label</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Explode nodes according to a provided function, adding copies of each node</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Explode nodes according to a provided function.</span>
+<span class="sd">        Adds copies of each node</span>
 <span class="sd">        to the DAG with exploded labels, but with the same parents and children as the</span>
 <span class="sd">        original node.</span>
 
@@ -660,7 +762,7 @@
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_nodes</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="HistoryDag.summary"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.summary">[docs]</a>    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Print nicely formatted summary input about the history DAG.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Print nicely formatted summary about the history DAG.&quot;&quot;&quot;</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nodes:</span><span class="se">\t</span><span class="si">{</span><span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">postorder</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Trees:</span><span class="se">\t</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">count_trees</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">utils</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight_counts_with_ambiguities</span><span class="p">())</span></div>
@@ -733,7 +835,7 @@
         <span class="n">accum_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">List</span><span class="p">[</span><span class="n">Weight</span><span class="p">]],</span> <span class="n">Weight</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">,</span>
         <span class="n">optimal_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">List</span><span class="p">[</span><span class="n">Weight</span><span class="p">]],</span> <span class="n">Weight</span><span class="p">]</span> <span class="o">=</span> <span class="nb">min</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;A template method for finding the optimal tree weight in the DAG.</span>
 <span class="sd">        Dynamically annotates each node in the DAG with the optimal weight of a clade</span>
 <span class="sd">        sub-tree beneath it, so that the DAG root node is annotated with the optimal</span>
 <span class="sd">        weight of a clade tree in the DAG.</span>
@@ -765,9 +867,9 @@
         <span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">n1</span><span class="p">,</span> <span class="n">n2</span><span class="p">:</span> <span class="n">utils</span><span class="o">.</span><span class="n">wrapped_hamming_distance</span><span class="p">(</span><span class="n">n1</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">n2</span><span class="o">.</span><span class="n">label</span><span class="p">),</span>
         <span class="n">accum_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">List</span><span class="p">[</span><span class="n">Weight</span><span class="p">]],</span> <span class="n">Weight</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Counts the weights of all clade trees expressed in the history DAG.</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;A template method for counting weights of trees expressed in the history DAG.</span>
 
-<span class="sd">        Weights must be hashable.</span>
+<span class="sd">        Weights must be hashable, but may otherwise be of arbitrary type.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            start_func: A function which assigns a weight to each leaf node</span>
@@ -802,18 +904,22 @@
         <span class="k">return</span> <span class="p">[</span><span class="n">newick</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;;&quot;</span> <span class="k">for</span> <span class="n">newick</span> <span class="ow">in</span> <span class="n">newicks</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="HistoryDag.count_topologies"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.count_topologies">[docs]</a>    <span class="k">def</span> <span class="nf">count_topologies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collapse_leaves</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Counts the number of unique topologies in the history DAG by</span>
-<span class="sd">        counting the number of unique newick strings with only leaves labeled.</span>
+        <span class="sd">&quot;&quot;&quot;Counts the number of unique topologies in the history DAG. This is</span>
+<span class="sd">        achieved by counting the number of unique newick strings with only</span>
+<span class="sd">        leaves labeled.</span>
 
 <span class="sd">        :meth:`count_trees` gives the total number of unique trees in the DAG, taking</span>
 <span class="sd">        into account internal node labels.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            collapse_leaves: By default, topologies are counted as-is in the DAG. However,</span>
-<span class="sd">            even if the DAG is collapsed by label, edges above leaf nodes will not be collapsed.</span>
-<span class="sd">            if `collapse_leaves` is True, then the number of unique topologies with all</span>
-<span class="sd">            leaf-adjacent edges collapsed will be counted. Assumes that the DAG is collapsed</span>
-<span class="sd">            with :meth:`HistoryDag.convert_to_collapsed`.</span>
+<span class="sd">                even if the DAG is collapsed by label, edges above leaf nodes will not be collapsed.</span>
+<span class="sd">                if `collapse_leaves` is True, then the number of unique topologies with all</span>
+<span class="sd">                leaf-adjacent edges collapsed will be counted. Assumes that the DAG is collapsed</span>
+<span class="sd">                with :meth:`HistoryDag.convert_to_collapsed`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The number of topologies in the history DAG</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">kwargs</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">make_newickcountfuncs</span><span class="p">(</span>
             <span class="n">internal_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">collapse_leaves</span><span class="o">=</span><span class="n">collapse_leaves</span>
@@ -825,8 +931,7 @@
         <span class="n">expand_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Label</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Label</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">expand_count_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Label</span><span class="p">],</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">ls</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Annotates each node in the DAG with the number of clade sub-trees underneath</span>
-<span class="sd">        (extending to leaves, and containing exactly one edge for each node-clade pair).</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Annotates each node in the DAG with the number of clade sub-trees underneath.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            expand_func: A function which takes a label and returns a list of labels, for</span>
@@ -861,7 +966,8 @@
         <span class="n">accum_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">List</span><span class="p">[</span><span class="n">Weight</span><span class="p">]],</span> <span class="n">Weight</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">,</span>
         <span class="n">expand_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Label</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Label</span><span class="p">]]</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">sequence_resolutions</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Like :meth:`weight_counts`, but creates dictionaries of Counter objects at each</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Template method for counting tree weights in the DAG, with exploded labels.</span>
+<span class="sd">        Like :meth:`weight_counts`, but creates dictionaries of Counter objects at each</span>
 <span class="sd">        node, keyed by possible sequences at that node. Analogous to :meth:`count_trees`</span>
 <span class="sd">        with `expand_func` provided.</span>
 
@@ -991,7 +1097,37 @@
                 <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">eset</span><span class="o">.</span><span class="n">targets</span><span class="p">)</span>
                 <span class="n">eset</span><span class="o">.</span><span class="n">probs</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span></div>
 
-    <span class="k">def</span> <span class="nf">trim_topology</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topology</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collapse_leaves</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="HistoryDag.get_topologies"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.get_topologies">[docs]</a>    <span class="k">def</span> <span class="nf">get_topologies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collapse_leaves</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Return a list of pseudo-newick representations of topologies in the</span>
+<span class="sd">        history DAG.</span>
+
+<span class="sd">        The newicks returned are not well-formed, and are for use with</span>
+<span class="sd">        :meth:`HistoryDag.trim_topology`. Otherwise, this method would be equivalent to</span>
+<span class="sd">        :meth:`HistoryDag.to_newicks` with keyword arguments ``internal_labels=False`` and</span>
+<span class="sd">        ``collapsed_leaves`` as desired.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            collapse_leaves: Whether to collapse leaf-adjacent edges between nodes with</span>
+<span class="sd">                matching labels</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list of strings, each representing a topology present in the history DAG.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">make_newickcountfuncs</span><span class="p">(</span>
+            <span class="n">internal_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">collapse_leaves</span><span class="o">=</span><span class="n">collapse_leaves</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight_count</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="HistoryDag.trim_topology"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.trim_topology">[docs]</a>    <span class="k">def</span> <span class="nf">trim_topology</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topology</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collapse_leaves</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Trims the history DAG to express only trees matching the provided</span>
+<span class="sd">        topology.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            topology: A string like one output by :meth:`HistoryDag.get_topologies`</span>
+<span class="sd">            collapse_leaves: must match the same argument provided to :meth:`HistoryDag.get_topologies`</span>
+<span class="sd">                when creating the string passed as ``topology``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="k">def</span> <span class="nf">min_func</span><span class="p">(</span><span class="n">newicks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
             <span class="c1"># Each newick in presented to min_func will be well-formed, since</span>
             <span class="c1"># it will consist of a subtree newick added to a parent edge&#39;s</span>
@@ -1009,74 +1145,19 @@
                 <span class="n">internal_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">collapse_leaves</span><span class="o">=</span><span class="n">collapse_leaves</span>
             <span class="p">),</span>
             <span class="n">optimal_func</span><span class="o">=</span><span class="n">min_func</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="p">)</span></div>
 
-<div class="viewcode-block" id="HistoryDag.serialize"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.serialize">[docs]</a>    <span class="k">def</span> <span class="nf">serialize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Serializes a HistoryDag object as a bytestring.</span>
-<span class="sd">        Since a HistoryDag is a recursive data structure, and contains label</span>
-<span class="sd">        types defined in function scope, modifications must be made for pickling.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            A bytestring expressing a dictionary containing:</span>
-<span class="sd">            * label_fields: The names of label fields.</span>
-<span class="sd">            * label_list: labels used in nodes, without duplicates. Indices are</span>
-<span class="sd">                mapped to nodes in node_list</span>
-<span class="sd">            * node_list: node tuples containing</span>
-<span class="sd">                (node label index in label_list, frozenset of frozensets of leaf label indices, node.attr).</span>
-<span class="sd">            * edge_list: a tuple for each edge:</span>
-<span class="sd">                    (origin node index, target node index, edge weight, edge probability)&quot;&quot;&quot;</span>
-        <span class="n">label_fields</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dagroot</span><span class="o">.</span><span class="n">children</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">_fields</span>
-        <span class="n">label_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">node_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">edge_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">label_indices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Label</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">node_indices</span> <span class="o">=</span> <span class="p">{</span><span class="nb">id</span><span class="p">(</span><span class="n">node</span><span class="p">):</span> <span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">postorder</span><span class="p">())}</span>
-
-        <span class="k">def</span> <span class="nf">cladesets</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
-            <span class="n">clades</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="nb">frozenset</span><span class="p">({</span><span class="n">label_indices</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">clade</span><span class="p">})</span>
-                <span class="k">for</span> <span class="n">clade</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">clades</span>
-            <span class="p">}</span>
-            <span class="k">return</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">clades</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">postorder</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">label_indices</span><span class="p">:</span>
-                <span class="n">label_indices</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">label_list</span><span class="p">)</span>
-                <span class="n">label_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">utils</span><span class="o">.</span><span class="n">ignore_ualabel</span><span class="p">(</span><span class="kc">None</span><span class="p">)(</span><span class="nb">tuple</span><span class="p">)(</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">))</span>
-                <span class="k">assert</span> <span class="n">label_list</span><span class="p">[</span>
-                    <span class="n">label_indices</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">]</span>
-                <span class="p">]</span> <span class="o">==</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">UALabel</span><span class="p">)</span>
-            <span class="n">node_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">label_indices</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">],</span> <span class="n">cladesets</span><span class="p">(</span><span class="n">node</span><span class="p">),</span> <span class="n">node</span><span class="o">.</span><span class="n">attr</span><span class="p">))</span>
-            <span class="n">node_idx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">node_list</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-            <span class="k">for</span> <span class="n">eset</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">clades</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">eset</span><span class="o">.</span><span class="n">targets</span><span class="p">):</span>
-                    <span class="n">edge_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="p">(</span>
-                            <span class="n">node_idx</span><span class="p">,</span>
-                            <span class="n">node_indices</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">target</span><span class="p">)],</span>
-                            <span class="n">eset</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span>
-                            <span class="n">eset</span><span class="o">.</span><span class="n">probs</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span>
-                        <span class="p">)</span>
-                    <span class="p">)</span>
-        <span class="n">serial_dict</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;label_fields&quot;</span><span class="p">:</span> <span class="n">label_fields</span><span class="p">,</span>
-            <span class="s2">&quot;label_list&quot;</span><span class="p">:</span> <span class="n">label_list</span><span class="p">,</span>
-            <span class="s2">&quot;node_list&quot;</span><span class="p">:</span> <span class="n">node_list</span><span class="p">,</span>
-            <span class="s2">&quot;edge_list&quot;</span><span class="p">:</span> <span class="n">edge_list</span><span class="p">,</span>
-            <span class="s2">&quot;attr&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">attr</span><span class="p">,</span>
-        <span class="p">}</span>
-        <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">serial_dict</span><span class="p">)</span></div>
-
-    <span class="k">def</span> <span class="nf">recompute_parents</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="HistoryDag.recompute_parents"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.recompute_parents">[docs]</a>    <span class="k">def</span> <span class="nf">recompute_parents</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Repopulate ``HistoryDagNode.parent`` attributes.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">postorder</span><span class="p">():</span>
             <span class="n">node</span><span class="o">.</span><span class="n">parents</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">postorder</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">():</span>
-                <span class="n">child</span><span class="o">.</span><span class="n">parents</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+                <span class="n">child</span><span class="o">.</span><span class="n">parents</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">node</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="HistoryDag.convert_to_collapsed"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.convert_to_collapsed">[docs]</a>    <span class="k">def</span> <span class="nf">convert_to_collapsed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Rebuilds the DAG so that no edge connects two nodes with the same label,</span>
-<span class="sd">        unless one of them is a leaf node.</span>
+<span class="sd">        unless one is a leaf node.</span>
 
 <span class="sd">        The resulting DAG should express at least the collapsed clade trees present</span>
 <span class="sd">        in the original.</span>
@@ -1175,10 +1256,10 @@
         <span class="sd">&quot;&quot;&quot;Recursive postorder traversal of the history DAG.</span>
 
 <span class="sd">        Careful! This is not guaranteed to visit a parent node before any of its children.</span>
+<span class="sd">        for that, need reverse postorder traversal.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Generator on nodes</span>
-<span class="sd">        for that, need reverse postorder traversal.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">visited</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
@@ -1336,7 +1417,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        HistoryDag object, which has the same topology as the input tree, with the required</span>
-<span class="sd">            UA node added as a new root.</span>
+<span class="sd">        UA node added as a new root.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># see https://stackoverflow.com/questions/50298582/why-does-python-asyncio-loop-call-soon-overwrite-data</span>
     <span class="c1"># or https://stackoverflow.com/questions/25670516/strange-overwriting-occurring-when-using-lambda-functions-as-dict-values</span>
@@ -1495,34 +1576,9 @@
     <span class="sd">&quot;&quot;&quot;reloads a HistoryDag serialized object, as ouput by</span>
 <span class="sd">    HistoryDagNode.serialize.&quot;&quot;&quot;</span>
     <span class="n">serial_dict</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">bstring</span><span class="p">)</span>
-    <span class="n">label_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;label_list&quot;</span><span class="p">]</span>
-    <span class="n">node_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;node_list&quot;</span><span class="p">]</span>
-    <span class="n">edge_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;edge_list&quot;</span><span class="p">]</span>
-    <span class="n">label_fields</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;label_fields&quot;</span><span class="p">]</span>
-    <span class="n">Label</span> <span class="o">=</span> <span class="n">NamedTuple</span><span class="p">(</span><span class="s2">&quot;Label&quot;</span><span class="p">,</span> <span class="p">[(</span><span class="n">label</span><span class="p">,</span> <span class="nb">any</span><span class="p">)</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">label_fields</span><span class="p">])</span>  <span class="c1"># type: ignore</span>
-
-    <span class="k">def</span> <span class="nf">unpack_labels</span><span class="p">(</span><span class="n">labelset</span><span class="p">):</span>
-        <span class="n">res</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">Label</span><span class="p">(</span><span class="o">*</span><span class="n">label_list</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">labelset</span><span class="p">})</span>
-        <span class="k">return</span> <span class="n">res</span>
-
-    <span class="n">node_postorder</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">HistoryDagNode</span><span class="p">(</span>
-            <span class="p">(</span>
-                <span class="n">utils</span><span class="o">.</span><span class="n">UALabel</span><span class="p">()</span>
-                <span class="k">if</span> <span class="n">label_list</span><span class="p">[</span><span class="n">labelidx</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="n">Label</span><span class="p">(</span><span class="o">*</span><span class="n">label_list</span><span class="p">[</span><span class="n">labelidx</span><span class="p">])</span>
-            <span class="p">),</span>
-            <span class="p">{</span><span class="n">unpack_labels</span><span class="p">(</span><span class="n">clade</span><span class="p">):</span> <span class="n">EdgeSet</span><span class="p">()</span> <span class="k">for</span> <span class="n">clade</span> <span class="ow">in</span> <span class="n">clades</span><span class="p">},</span>
-            <span class="n">attr</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">labelidx</span><span class="p">,</span> <span class="n">clades</span><span class="p">,</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">node_list</span>
-    <span class="p">]</span>
-    <span class="c1"># Last node in list is root</span>
-    <span class="k">for</span> <span class="n">origin_idx</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">prob</span> <span class="ow">in</span> <span class="n">edge_list</span><span class="p">:</span>
-        <span class="n">node_postorder</span><span class="p">[</span><span class="n">origin_idx</span><span class="p">]</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span>
-            <span class="n">node_postorder</span><span class="p">[</span><span class="n">target_idx</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span> <span class="n">prob</span><span class="o">=</span><span class="n">prob</span><span class="p">,</span> <span class="n">prob_norm</span><span class="o">=</span><span class="kc">False</span>
-        <span class="p">)</span>
-    <span class="k">return</span> <span class="n">HistoryDag</span><span class="p">(</span><span class="n">node_postorder</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">attr</span><span class="o">=</span><span class="n">serial_dict</span><span class="p">[</span><span class="s2">&quot;attr&quot;</span><span class="p">])</span>
+    <span class="n">dag</span> <span class="o">=</span> <span class="n">HistoryDag</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="n">dag</span><span class="o">.</span><span class="n">__setstate__</span><span class="p">(</span><span class="n">serial_dict</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dag</span>
 </pre></div>
 
            </div>

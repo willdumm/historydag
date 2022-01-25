@@ -34,7 +34,11 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api.html">Classes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api.html#modules">Modules</a></li>
@@ -65,14 +69,16 @@
            <div itemprop="articleBody">
              
   <h1>Source code for historydag.counterops</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span></span><span class="sd">&quot;&quot;&quot;Functions for manipulating :class:`collections.Counter` objects.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 <span class="kn">import</span> <span class="nn">historydag.utils</span> <span class="k">as</span> <span class="nn">utils</span>
 
 
 <div class="viewcode-block" id="counter_prod"><a class="viewcode-back" href="../../stubs/historydag.counterops.html#historydag.counterops.counter_prod">[docs]</a><span class="k">def</span> <span class="nf">counter_prod</span><span class="p">(</span><span class="n">counterlist</span><span class="p">,</span> <span class="n">accumfunc</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Really a sort of cartesian product, which does accumfunc to keys and</span>
-<span class="sd">    counts all the ways each result can be achieved using contents of counters</span>
-<span class="sd">    in counterlist.</span>
+    <span class="sd">&quot;&quot;&quot;&#39;multiply&#39; two Counters. Really a sort of cartesian product, which does</span>
+<span class="sd">    accumfunc to keys and counts all the ways each result can be achieved using</span>
+<span class="sd">    contents of counters in counterlist.</span>
 
 <span class="sd">    accumfunc must be a function like sum which acts on a list of</span>
 <span class="sd">    arbitrary length. Probably should return an object of the same type.</span>
@@ -85,8 +91,10 @@
 
 
 <div class="viewcode-block" id="counter_sum"><a class="viewcode-back" href="../../stubs/historydag.counterops.html#historydag.counterops.counter_sum">[docs]</a><span class="k">def</span> <span class="nf">counter_sum</span><span class="p">(</span><span class="n">counterlist</span><span class="p">,</span> <span class="n">counter_type</span><span class="o">=</span><span class="n">Counter</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Sum a list of counters, like concatenating their representative</span>
-<span class="sd">    lists.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Sum a list of counters.</span>
+
+<span class="sd">    Equivalent to concatenating their representative lists.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">newc</span> <span class="o">=</span> <span class="n">counter_type</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">counterlist</span><span class="p">:</span>
         <span class="n">newc</span> <span class="o">+=</span> <span class="n">c</span>

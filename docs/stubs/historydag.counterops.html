@@ -36,7 +36,11 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../api.html">Classes</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../api.html#modules">Modules</a><ul class="current">
@@ -72,6 +76,7 @@
              
   <section id="module-historydag.counterops">
 <span id="historydag-counterops"></span><h1>historydag.counterops<a class="headerlink" href="#module-historydag.counterops" title="Permalink to this headline"></a></h1>
+<p>Functions for manipulating <a class="reference external" href="https://docs.python.org/3/library/collections.html#collections.Counter" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">collections.Counter</span></code></a> objects.</p>
 <p class="rubric">Functions</p>
 <table class="longtable docutils align-default">
 <colgroup>
@@ -80,19 +85,19 @@
 </colgroup>
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#historydag.counterops.counter_prod" title="historydag.counterops.counter_prod"><code class="xref py py-obj docutils literal notranslate"><span class="pre">counter_prod</span></code></a>(counterlist, accumfunc)</p></td>
-<td><p>Really a sort of cartesian product, which does accumfunc to keys and counts all the ways each result can be achieved using contents of counters in counterlist.</p></td>
+<td><p>'multiply' two Counters.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#historydag.counterops.counter_sum" title="historydag.counterops.counter_sum"><code class="xref py py-obj docutils literal notranslate"><span class="pre">counter_sum</span></code></a>(counterlist[, counter_type])</p></td>
-<td><p>Sum a list of counters, like concatenating their representative lists.</p></td>
+<td><p>Sum a list of counters.</p></td>
 </tr>
 </tbody>
 </table>
 <dl class="py function">
 <dt class="sig sig-object py" id="historydag.counterops.counter_prod">
 <span class="sig-prename descclassname"><span class="pre">historydag.counterops.</span></span><span class="sig-name descname"><span class="pre">counter_prod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">counterlist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accumfunc</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/counterops.html#counter_prod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.counterops.counter_prod" title="Permalink to this definition"></a></dt>
-<dd><p>Really a sort of cartesian product, which does accumfunc to keys and
-counts all the ways each result can be achieved using contents of counters
-in counterlist.</p>
+<dd><p>‘multiply’ two Counters. Really a sort of cartesian product, which does
+accumfunc to keys and counts all the ways each result can be achieved using
+contents of counters in counterlist.</p>
 <p>accumfunc must be a function like sum which acts on a list of
 arbitrary length. Probably should return an object of the same type.</p>
 </dd></dl>
@@ -100,8 +105,8 @@ arbitrary length. Probably should return an object of the same type.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="historydag.counterops.counter_sum">
 <span class="sig-prename descclassname"><span class="pre">historydag.counterops.</span></span><span class="sig-name descname"><span class="pre">counter_sum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">counterlist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">counter_type=&lt;class</span> <span class="pre">'collections.Counter'&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/counterops.html#counter_sum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.counterops.counter_sum" title="Permalink to this definition"></a></dt>
-<dd><p>Sum a list of counters, like concatenating their representative
-lists.</p>
+<dd><p>Sum a list of counters.</p>
+<p>Equivalent to concatenating their representative lists.</p>
 </dd></dl>
 
 </section>

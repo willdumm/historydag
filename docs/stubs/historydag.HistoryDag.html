@@ -37,7 +37,11 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../api.html">Classes</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">historydag.HistoryDag</a></li>
@@ -75,7 +79,8 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="historydag.HistoryDag">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.</span></span><span class="sig-name descname"><span class="pre">HistoryDag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dagroot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag" title="Permalink to this definition"></a></dt>
-<dd><p>A wrapper object to contain exposed HistoryDag methods and point to a HistoryDagNode root</p>
+<dd><p>An object to represent a collection of internally labeled trees.
+A wrapper object to contain exposed HistoryDag methods and point to a HistoryDagNode root</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -100,88 +105,96 @@
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.add_all_allowed_edges" title="historydag.HistoryDag.add_all_allowed_edges"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_all_allowed_edges</span></code></a>([new_from_root, ...])</p></td>
-<td><p>Add all allowed edges to the DAG, returning the number that were added.</p></td>
+<td><p>Add all allowed edges to the DAG.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.convert_to_collapsed" title="historydag.HistoryDag.convert_to_collapsed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">convert_to_collapsed</span></code></a>()</p></td>
-<td><p>Rebuilds the DAG so that no edge connects two nodes with the same label, unless one of them is a leaf node.</p></td>
+<td><p>Rebuilds the DAG so that no edge connects two nodes with the same label, unless one is a leaf node.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.copy" title="historydag.HistoryDag.copy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">copy</span></code></a>()</p></td>
 <td><p>Uses bytestring serialization, and is guaranteed to copy:</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.count_topologies" title="historydag.HistoryDag.count_topologies"><code class="xref py py-obj docutils literal notranslate"><span class="pre">count_topologies</span></code></a>([collapse_leaves])</p></td>
-<td><p>Counts the number of unique topologies in the history DAG by counting the number of unique newick strings with only leaves labeled.</p></td>
+<td><p>Counts the number of unique topologies in the history DAG.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.count_trees" title="historydag.HistoryDag.count_trees"><code class="xref py py-obj docutils literal notranslate"><span class="pre">count_trees</span></code></a>([expand_func, expand_count_func])</p></td>
-<td><p>Annotates each node in the DAG with the number of clade sub-trees underneath (extending to leaves, and containing exactly one edge for each node-clade pair).</p></td>
+<td><p>Annotates each node in the DAG with the number of clade sub-trees underneath.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.explode_nodes" title="historydag.HistoryDag.explode_nodes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">explode_nodes</span></code></a>([expand_func, expandable_func])</p></td>
-<td><p>Explode nodes according to a provided function, adding copies of each node to the DAG with exploded labels, but with the same parents and children as the original node.</p></td>
+<td><p>Explode nodes according to a provided function.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.get_trees" title="historydag.HistoryDag.get_trees"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_trees</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.get_topologies" title="historydag.HistoryDag.get_topologies"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_topologies</span></code></a>([collapse_leaves])</p></td>
+<td><p>Return a list of pseudo-newick representations of topologies in the history DAG.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.get_trees" title="historydag.HistoryDag.get_trees"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_trees</span></code></a>()</p></td>
 <td><p>Return a generator containing all trees in the history DAG.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.hamming_parsimony_count" title="historydag.HistoryDag.hamming_parsimony_count"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hamming_parsimony_count</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.hamming_parsimony_count" title="historydag.HistoryDag.hamming_parsimony_count"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hamming_parsimony_count</span></code></a>()</p></td>
 <td><p>Count the hamming parsimony scores of all trees in the history DAG.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.internal_avg_parents" title="historydag.HistoryDag.internal_avg_parents"><code class="xref py py-obj docutils literal notranslate"><span class="pre">internal_avg_parents</span></code></a>()</p></td>
-<td><p>Returns the average number of parents among internal nodes A simple measure of similarity between the trees that the DAG expresses.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.internal_avg_parents" title="historydag.HistoryDag.internal_avg_parents"><code class="xref py py-obj docutils literal notranslate"><span class="pre">internal_avg_parents</span></code></a>()</p></td>
+<td><p>Returns the average number of parents among internal nodes.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.is_clade_tree" title="historydag.HistoryDag.is_clade_tree"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_clade_tree</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.is_clade_tree" title="historydag.HistoryDag.is_clade_tree"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_clade_tree</span></code></a>()</p></td>
 <td><p>Returns whether history DAG is a clade tree.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.make_uniform" title="historydag.HistoryDag.make_uniform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_uniform</span></code></a>()</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.make_uniform" title="historydag.HistoryDag.make_uniform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_uniform</span></code></a>()</p></td>
 <td><p>Adjust edge probabilities so that the DAG expresses a uniform distribution on expressed trees.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.merge" title="historydag.HistoryDag.merge"><code class="xref py py-obj docutils literal notranslate"><span class="pre">merge</span></code></a>(other)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.merge" title="historydag.HistoryDag.merge"><code class="xref py py-obj docutils literal notranslate"><span class="pre">merge</span></code></a>(other)</p></td>
 <td><p>Graph union this history DAG with another.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.optimal_weight_annotate" title="historydag.HistoryDag.optimal_weight_annotate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optimal_weight_annotate</span></code></a>([start_func, ...])</p></td>
-<td><p>Dynamically annotates each node in the DAG with the optimal weight of a clade sub-tree beneath it, so that the DAG root node is annotated with the optimal weight of a clade tree in the DAG.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.optimal_weight_annotate" title="historydag.HistoryDag.optimal_weight_annotate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optimal_weight_annotate</span></code></a>([start_func, ...])</p></td>
+<td><p>A template method for finding the optimal tree weight in the DAG.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.postorder" title="historydag.HistoryDag.postorder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">postorder</span></code></a>([include_root])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.postorder" title="historydag.HistoryDag.postorder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">postorder</span></code></a>([include_root])</p></td>
 <td><p>Recursive postorder traversal of the history DAG.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.postorder_cladetree_accum" title="historydag.HistoryDag.postorder_cladetree_accum"><code class="xref py py-obj docutils literal notranslate"><span class="pre">postorder_cladetree_accum</span></code></a>(leaf_func, ...[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.postorder_cladetree_accum" title="historydag.HistoryDag.postorder_cladetree_accum"><code class="xref py py-obj docutils literal notranslate"><span class="pre">postorder_cladetree_accum</span></code></a>(leaf_func, ...[, ...])</p></td>
 <td><p>A template method for leaf-to-root dynamic programming.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.preorder" title="historydag.HistoryDag.preorder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">preorder</span></code></a>([skip_root])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.preorder" title="historydag.HistoryDag.preorder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">preorder</span></code></a>([skip_root])</p></td>
 <td><p>Recursive postorder traversal of the history DAG.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">recompute_parents</span></code>()</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.recompute_parents" title="historydag.HistoryDag.recompute_parents"><code class="xref py py-obj docutils literal notranslate"><span class="pre">recompute_parents</span></code></a>()</p></td>
+<td><p>Repopulate <code class="docutils literal notranslate"><span class="pre">HistoryDagNode.parent</span></code> attributes.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.sample" title="historydag.HistoryDag.sample"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sample</span></code></a>()</p></td>
-<td><p>Samples a clade tree (a sub-history DAG containing the root and all leaf nodes).</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.sample" title="historydag.HistoryDag.sample"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sample</span></code></a>()</p></td>
+<td><p>Samples a clade tree from the history DAG.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.serialize" title="historydag.HistoryDag.serialize"><code class="xref py py-obj docutils literal notranslate"><span class="pre">serialize</span></code></a>()</p></td>
-<td><p>Serializes a HistoryDag object as a bytestring.</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">serialize</span></code>()</p></td>
+<td><p><dl class="field-list simple">
+<dt class="field-odd">rtype</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bytes" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bytes</span></code></a></p>
+</dd>
+</dl>
+</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.summary" title="historydag.HistoryDag.summary"><code class="xref py py-obj docutils literal notranslate"><span class="pre">summary</span></code></a>()</p></td>
-<td><p>Print nicely formatted summary input about the history DAG.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.summary" title="historydag.HistoryDag.summary"><code class="xref py py-obj docutils literal notranslate"><span class="pre">summary</span></code></a>()</p></td>
+<td><p>Print nicely formatted summary about the history DAG.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.to_ete" title="historydag.HistoryDag.to_ete"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_ete</span></code></a>([name_func, features, feature_funcs])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.to_ete" title="historydag.HistoryDag.to_ete"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_ete</span></code></a>([name_func, features, feature_funcs])</p></td>
 <td><p>Convert a history DAG which is a clade tree to an ete tree.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.to_graphviz" title="historydag.HistoryDag.to_graphviz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_graphviz</span></code></a>([labelfunc, namedict, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.to_graphviz" title="historydag.HistoryDag.to_graphviz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_graphviz</span></code></a>([labelfunc, namedict, ...])</p></td>
 <td><p>Converts history DAG to graphviz (dot format) Digraph object.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.to_newick" title="historydag.HistoryDag.to_newick"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_newick</span></code></a>([name_func, features, feature_funcs])</p></td>
-<td><p>Converts to extended newick format with arbitrary node names and a sequence feature.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.to_newick" title="historydag.HistoryDag.to_newick"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_newick</span></code></a>([name_func, features, feature_funcs])</p></td>
+<td><p>Converts clade tree to extended newick format.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.to_newicks" title="historydag.HistoryDag.to_newicks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_newicks</span></code></a>(**kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.to_newicks" title="historydag.HistoryDag.to_newicks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_newicks</span></code></a>(**kwargs)</p></td>
 <td><p>Returns a list of extended newick strings formed with label fields.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.trim_optimal_weight" title="historydag.HistoryDag.trim_optimal_weight"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trim_optimal_weight</span></code></a>([start_func, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.trim_optimal_weight" title="historydag.HistoryDag.trim_optimal_weight"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trim_optimal_weight</span></code></a>([start_func, ...])</p></td>
 <td><p>Trims the DAG to only express trees with optimal weight.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">trim_topology</span></code>(topology[, collapse_leaves])</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.trim_topology" title="historydag.HistoryDag.trim_topology"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trim_topology</span></code></a>(topology[, collapse_leaves])</p></td>
+<td><p>Trims the history DAG to express only trees matching the provided topology.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.weight_count" title="historydag.HistoryDag.weight_count"><code class="xref py py-obj docutils literal notranslate"><span class="pre">weight_count</span></code></a>([start_func, edge_weight_func, ...])</p></td>
-<td><p>Counts the weights of all clade trees expressed in the history DAG.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.weight_count" title="historydag.HistoryDag.weight_count"><code class="xref py py-obj docutils literal notranslate"><span class="pre">weight_count</span></code></a>([start_func, edge_weight_func, ...])</p></td>
+<td><p>A template method for counting weights of trees expressed in the history DAG.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDag.weight_counts_with_ambiguities" title="historydag.HistoryDag.weight_counts_with_ambiguities"><code class="xref py py-obj docutils literal notranslate"><span class="pre">weight_counts_with_ambiguities</span></code></a>([start_func, ...])</p></td>
-<td><p>Like <code class="xref py py-meth docutils literal notranslate"><span class="pre">weight_counts()</span></code>, but creates dictionaries of Counter objects at each node, keyed by possible sequences at that node.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDag.weight_counts_with_ambiguities" title="historydag.HistoryDag.weight_counts_with_ambiguities"><code class="xref py py-obj docutils literal notranslate"><span class="pre">weight_counts_with_ambiguities</span></code></a>([start_func, ...])</p></td>
+<td><p>Template method for counting tree weights in the DAG, with exploded labels.</p></td>
 </tr>
 </tbody>
 </table>
@@ -204,7 +217,8 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.sample">
 <span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.sample" title="Permalink to this definition"></a></dt>
-<dd><p>Samples a clade tree (a sub-history DAG containing the root and all
+<dd><p>Samples a clade tree from the history DAG.
+(A clade tree is a sub-history DAG containing the root and all
 leaf nodes). Returns a new HistoryDagNode object.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
@@ -252,7 +266,7 @@ leaf nodes). Returns a new HistoryDagNode object.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.add_all_allowed_edges">
 <span class="sig-name descname"><span class="pre">add_all_allowed_edges</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_from_root</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adjacent_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_parent_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.add_all_allowed_edges"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.add_all_allowed_edges" title="Permalink to this definition"></a></dt>
-<dd><p>Add all allowed edges to the DAG, returning the number that were added.</p>
+<dd><p>Add all allowed edges to the DAG.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -278,7 +292,8 @@ parent labels of the child node. This ensures that parsimony score is preserved.
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.to_newick">
 <span class="sig-name descname"><span class="pre">to_newick</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name_func=&lt;function</span> <span class="pre">HistoryDag.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_funcs={}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.to_newick"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.to_newick" title="Permalink to this definition"></a></dt>
-<dd><p>Converts to extended newick format with arbitrary node names and a
+<dd><p>Converts clade tree to extended newick format.
+Supports arbitrary node names and a
 sequence feature. For use on a history DAG which is a clade tree.</p>
 <p>For extracting newick representations of trees in a general history DAG, see
 <a class="reference internal" href="#historydag.HistoryDag.to_newicks" title="historydag.HistoryDag.to_newicks"><code class="xref py py-meth docutils literal notranslate"><span class="pre">HistoryDag.to_newicks()</span></code></a>.</p>
@@ -326,11 +341,8 @@ functions specifying how to populate that field for each node.</p></li>
 <dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">TreeNode</span></code></p>
 </dd>
 <dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><dl class="simple">
-<dt>An ete3 Tree with the same topology as self, and node names and attributes</dt><dd><p>as specified.</p>
-</dd>
-</dl>
-</p>
+<dd class="field-odd"><p>An ete3 Tree with the same topology as self, and node names and attributes
+as specified.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -358,7 +370,7 @@ used instead, if both are provided.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.internal_avg_parents">
 <span class="sig-name descname"><span class="pre">internal_avg_parents</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.internal_avg_parents"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.internal_avg_parents" title="Permalink to this definition"></a></dt>
-<dd><p>Returns the average number of parents among internal nodes
+<dd><p>Returns the average number of parents among internal nodes.
 A simple measure of similarity between the trees that the DAG expresses.
 However, keep in mind that two trees with the same topology but different labels
 would be considered entirely unalike by this measure.</p>
@@ -381,7 +393,8 @@ proportional to the number of subtrees possible below that edge.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.explode_nodes">
 <span class="sig-name descname"><span class="pre">explode_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">expand_func=&lt;function</span> <span class="pre">sequence_resolutions&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expandable_func=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.explode_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.explode_nodes" title="Permalink to this definition"></a></dt>
-<dd><p>Explode nodes according to a provided function, adding copies of each node
+<dd><p>Explode nodes according to a provided function.
+Adds copies of each node
 to the DAG with exploded labels, but with the same parents and children as the
 original node.</p>
 <dl class="field-list simple">
@@ -408,7 +421,7 @@ than one item.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.summary">
 <span class="sig-name descname"><span class="pre">summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.summary" title="Permalink to this definition"></a></dt>
-<dd><p>Print nicely formatted summary input about the history DAG.</p>
+<dd><p>Print nicely formatted summary about the history DAG.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -446,7 +459,8 @@ of the edge above it. If <cite>None</cite>, this function will be inferred from
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.optimal_weight_annotate">
 <span class="sig-name descname"><span class="pre">optimal_weight_annotate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_func=&lt;function</span> <span class="pre">HistoryDag.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight_func=&lt;function</span> <span class="pre">HistoryDag.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accum_func=&lt;built-in</span> <span class="pre">function</span> <span class="pre">sum&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimal_func=&lt;built-in</span> <span class="pre">function</span> <span class="pre">min&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.optimal_weight_annotate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.optimal_weight_annotate" title="Permalink to this definition"></a></dt>
-<dd><p>Dynamically annotates each node in the DAG with the optimal weight of a clade
+<dd><p>A template method for finding the optimal tree weight in the DAG.
+Dynamically annotates each node in the DAG with the optimal weight of a clade
 sub-tree beneath it, so that the DAG root node is annotated with the optimal
 weight of a clade tree in the DAG.</p>
 <dl class="field-list simple">
@@ -470,8 +484,8 @@ one, like min.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.weight_count">
 <span class="sig-name descname"><span class="pre">weight_count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_func=&lt;function</span> <span class="pre">HistoryDag.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight_func=&lt;function</span> <span class="pre">HistoryDag.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accum_func=&lt;built-in</span> <span class="pre">function</span> <span class="pre">sum&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.weight_count"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.weight_count" title="Permalink to this definition"></a></dt>
-<dd><p>Counts the weights of all clade trees expressed in the history DAG.</p>
-<p>Weights must be hashable.</p>
+<dd><p>A template method for counting weights of trees expressed in the history DAG.</p>
+<p>Weights must be hashable, but may otherwise be of arbitrary type.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -504,26 +518,24 @@ parent node label the first argument</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.count_topologies">
 <span class="sig-name descname"><span class="pre">count_topologies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">collapse_leaves</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.count_topologies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.count_topologies" title="Permalink to this definition"></a></dt>
-<dd><p>Counts the number of unique topologies in the history DAG by
-counting the number of unique newick strings with only leaves labeled.</p>
+<dd><p>Counts the number of unique topologies in the history DAG. This is
+achieved by counting the number of unique newick strings with only
+leaves labeled.</p>
 <p><a class="reference internal" href="#historydag.HistoryDag.count_trees" title="historydag.HistoryDag.count_trees"><code class="xref py py-meth docutils literal notranslate"><span class="pre">count_trees()</span></code></a> gives the total number of unique trees in the DAG, taking
 into account internal node labels.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>collapse_leaves</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – By default, topologies are counted as-is in the DAG. However,</p></li>
-<li><p><strong>label</strong> (<em>even if the DAG is collapsed by</em>) – </p></li>
-<li><p><strong>collapsed.</strong> (<em>edges above leaf nodes will not be</em>) – </p></li>
-<li><p><strong>True</strong> (<em>if collapse_leaves is</em>) – </p></li>
-<li><p><strong>all</strong> (<em>then the number of unique topologies with</em>) – </p></li>
-<li><p><strong>collapsed</strong> (<em>leaf-adjacent edges collapsed will be counted. Assumes that the DAG is</em>) – </p></li>
-</ul>
+<dd class="field-odd"><p><strong>collapse_leaves</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – By default, topologies are counted as-is in the DAG. However,
+even if the DAG is collapsed by label, edges above leaf nodes will not be collapsed.
+if <cite>collapse_leaves</cite> is True, then the number of unique topologies with all
+leaf-adjacent edges collapsed will be counted. Assumes that the DAG is collapsed
+with <a class="reference internal" href="#historydag.HistoryDag.convert_to_collapsed" title="historydag.HistoryDag.convert_to_collapsed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">HistoryDag.convert_to_collapsed()</span></code></a>.</p>
 </dd>
-</dl>
-<p>:param with <a class="reference internal" href="#historydag.HistoryDag.convert_to_collapsed" title="historydag.HistoryDag.convert_to_collapsed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">HistoryDag.convert_to_collapsed()</span></code></a>.:</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The number of topologies in the history DAG</p>
 </dd>
 </dl>
 </dd></dl>
@@ -531,8 +543,7 @@ into account internal node labels.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.count_trees">
 <span class="sig-name descname"><span class="pre">count_trees</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">expand_func=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expand_count_func=&lt;function</span> <span class="pre">HistoryDag.&lt;lambda&gt;&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.count_trees"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.count_trees" title="Permalink to this definition"></a></dt>
-<dd><p>Annotates each node in the DAG with the number of clade sub-trees underneath
-(extending to leaves, and containing exactly one edge for each node-clade pair).</p>
+<dd><p>Annotates each node in the DAG with the number of clade sub-trees underneath.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -556,7 +567,8 @@ guaranteed to be unique.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.weight_counts_with_ambiguities">
 <span class="sig-name descname"><span class="pre">weight_counts_with_ambiguities</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_func=&lt;function</span> <span class="pre">HistoryDag.&lt;lambda&gt;&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_func=&lt;function</span> <span class="pre">wrapped_hamming_distance&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">accum_func=&lt;built-in</span> <span class="pre">function</span> <span class="pre">sum&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expand_func=&lt;function</span> <span class="pre">sequence_resolutions&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.weight_counts_with_ambiguities"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.weight_counts_with_ambiguities" title="Permalink to this definition"></a></dt>
-<dd><p>Like <code class="xref py py-meth docutils literal notranslate"><span class="pre">weight_counts()</span></code>, but creates dictionaries of Counter objects at each
+<dd><p>Template method for counting tree weights in the DAG, with exploded labels.
+Like <code class="xref py py-meth docutils literal notranslate"><span class="pre">weight_counts()</span></code>, but creates dictionaries of Counter objects at each
 node, keyed by possible sequences at that node. Analogous to <a class="reference internal" href="#historydag.HistoryDag.count_trees" title="historydag.HistoryDag.count_trees"><code class="xref py py-meth docutils literal notranslate"><span class="pre">count_trees()</span></code></a>
 with <cite>expand_func</cite> provided.</p>
 <p>Weights must be hashable.</p>
@@ -608,44 +620,55 @@ one, like min.</p></li>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="historydag.HistoryDag.serialize">
-<span class="sig-name descname"><span class="pre">serialize</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.serialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.serialize" title="Permalink to this definition"></a></dt>
-<dd><p>Serializes a HistoryDag object as a bytestring.
-Since a HistoryDag is a recursive data structure, and contains label
-types defined in function scope, modifications must be made for pickling.</p>
+<dt class="sig sig-object py" id="historydag.HistoryDag.get_topologies">
+<span class="sig-name descname"><span class="pre">get_topologies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">collapse_leaves</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.get_topologies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.get_topologies" title="Permalink to this definition"></a></dt>
+<dd><p>Return a list of pseudo-newick representations of topologies in the
+history DAG.</p>
+<p>The newicks returned are not well-formed, and are for use with
+<a class="reference internal" href="#historydag.HistoryDag.trim_topology" title="historydag.HistoryDag.trim_topology"><code class="xref py py-meth docutils literal notranslate"><span class="pre">HistoryDag.trim_topology()</span></code></a>. Otherwise, this method would be equivalent to
+<a class="reference internal" href="#historydag.HistoryDag.to_newicks" title="historydag.HistoryDag.to_newicks"><code class="xref py py-meth docutils literal notranslate"><span class="pre">HistoryDag.to_newicks()</span></code></a> with keyword arguments <code class="docutils literal notranslate"><span class="pre">internal_labels=False</span></code> and
+<code class="docutils literal notranslate"><span class="pre">collapsed_leaves</span></code> as desired.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><ul class="simple">
-<li><p>label_fields: The names of label fields.</p></li>
-<li><dl class="simple">
-<dt>label_list: labels used in nodes, without duplicates. Indices are</dt><dd><p>mapped to nodes in node_list</p>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>node_list: node tuples containing</dt><dd><p>(node label index in label_list, frozenset of frozensets of leaf label indices, node.attr).</p>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>edge_list: a tuple for each edge:</dt><dd><p>(origin node index, target node index, edge weight, edge probability)</p>
-</dd>
-</dl>
-</li>
-</ul>
-</p>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>collapse_leaves</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether to collapse leaf-adjacent edges between nodes with
+matching labels</p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p>A bytestring expressing a dictionary containing</p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]</p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>A list of strings, each representing a topology present in the history DAG.</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDag.trim_topology">
+<span class="sig-name descname"><span class="pre">trim_topology</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">topology</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collapse_leaves</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.trim_topology"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.trim_topology" title="Permalink to this definition"></a></dt>
+<dd><p>Trims the history DAG to express only trees matching the provided
+topology.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>topology</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – A string like one output by <a class="reference internal" href="#historydag.HistoryDag.get_topologies" title="historydag.HistoryDag.get_topologies"><code class="xref py py-meth docutils literal notranslate"><span class="pre">HistoryDag.get_topologies()</span></code></a></p></li>
+<li><p><strong>collapse_leaves</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – must match the same argument provided to <a class="reference internal" href="#historydag.HistoryDag.get_topologies" title="historydag.HistoryDag.get_topologies"><code class="xref py py-meth docutils literal notranslate"><span class="pre">HistoryDag.get_topologies()</span></code></a>
+when creating the string passed as <code class="docutils literal notranslate"><span class="pre">topology</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDag.recompute_parents">
+<span class="sig-name descname"><span class="pre">recompute_parents</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.recompute_parents"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.recompute_parents" title="Permalink to this definition"></a></dt>
+<dd><p>Repopulate <code class="docutils literal notranslate"><span class="pre">HistoryDagNode.parent</span></code> attributes.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.HistoryDag.convert_to_collapsed">
 <span class="sig-name descname"><span class="pre">convert_to_collapsed</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.convert_to_collapsed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.convert_to_collapsed" title="Permalink to this definition"></a></dt>
 <dd><p>Rebuilds the DAG so that no edge connects two nodes with the same label,
-unless one of them is a leaf node.</p>
+unless one is a leaf node.</p>
 <p>The resulting DAG should express at least the collapsed clade trees present
 in the original.</p>
 </dd></dl>
@@ -668,7 +691,8 @@ in the original.</p>
 <dt class="sig sig-object py" id="historydag.HistoryDag.preorder">
 <span class="sig-name descname"><span class="pre">preorder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">skip_root</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.preorder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.preorder" title="Permalink to this definition"></a></dt>
 <dd><p>Recursive postorder traversal of the history DAG.</p>
-<p>Careful! This is not guaranteed to visit a parent node before any of its children.</p>
+<p>Careful! This is not guaranteed to visit a parent node before any of its children.
+for that, need reverse postorder traversal.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generator</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">HistoryDagNode</span></code>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>]</p>
@@ -677,7 +701,6 @@ in the original.</p>
 <dd class="field-even"><p>Generator on nodes</p>
 </dd>
 </dl>
-<p>for that, need reverse postorder traversal.</p>
 </dd></dl>
 
 </dd></dl>

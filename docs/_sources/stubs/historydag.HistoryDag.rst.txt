@@ -20,6 +20,7 @@
       ~HistoryDag.count_topologies
       ~HistoryDag.count_trees
       ~HistoryDag.explode_nodes
+      ~HistoryDag.get_topologies
       ~HistoryDag.get_trees
       ~HistoryDag.hamming_parsimony_count
       ~HistoryDag.internal_avg_parents

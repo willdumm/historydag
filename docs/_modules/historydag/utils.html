@@ -34,7 +34,11 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../api.html">Classes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api.html#modules">Modules</a></li>
@@ -65,7 +69,9 @@
            <div itemprop="articleBody">
              
   <h1>Source code for historydag.utils</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">ete3</span>
+<span></span><span class="sd">&quot;&quot;&quot;Utility functions and classes for working with HistoryDag objects.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">ete3</span>
 <span class="kn">from</span> <span class="nn">Bio.Data.IUPACData</span> <span class="kn">import</span> <span class="n">ambiguous_dna_values</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
@@ -121,9 +127,9 @@
 
 <span class="c1"># ######## Decorators ########</span>
 <div class="viewcode-block" id="access_nodefield_default"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.access_nodefield_default">[docs]</a><span class="k">def</span> <span class="nf">access_nodefield_default</span><span class="p">(</span><span class="n">fieldname</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;A wrapper to convert a function taking some label field&#39;s values as</span>
-<span class="sd">    positional arguments, to a function taking HistoryDagNodes as positional</span>
-<span class="sd">    arguments.</span>
+    <span class="sd">&quot;&quot;&quot;A decorator for accessing label fields on a HistoryDagNode. Converts a</span>
+<span class="sd">    function taking some label field&#39;s values as positional arguments, to a</span>
+<span class="sd">    function taking HistoryDagNodes as positional arguments.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        fieldname: The name of the label field whose value the function takes as arguments</span>
@@ -198,7 +204,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        A decorator which converts a function which explodes a field value, into a function</span>
-<span class="sd">            which explodes the whole label at that field.</span>
+<span class="sd">        which explodes the whole label at that field.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span>
@@ -252,9 +258,13 @@
 <div class="viewcode-block" id="cartesian_product"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.cartesian_product">[docs]</a><span class="k">def</span> <span class="nf">cartesian_product</span><span class="p">(</span>
     <span class="n">optionlist</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[],</span> <span class="n">Iterable</span><span class="p">]],</span> <span class="n">accum</span><span class="o">=</span><span class="nb">tuple</span><span class="p">()</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Takes a list of functions which each return a fresh generator on options</span>
-<span class="sd">    at that site, and returns a generator yielding tuples, which are elements</span>
-<span class="sd">    of the cartesian product of the passed generators&#39; contents.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;The cartesian product of iterables in a list.</span>
+
+<span class="sd">    Takes a list of functions which each return a fresh generator on</span>
+<span class="sd">    options at that site, and returns a generator yielding tuples, which</span>
+<span class="sd">    are elements of the cartesian product of the passed generators&#39;</span>
+<span class="sd">    contents.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">optionlist</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">optionlist</span><span class="p">[</span><span class="mi">0</span><span class="p">]():</span>
             <span class="k">yield from</span> <span class="n">cartesian_product</span><span class="p">(</span><span class="n">optionlist</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">accum</span><span class="o">=</span><span class="p">(</span><span class="n">accum</span> <span class="o">+</span> <span class="p">(</span><span class="n">term</span><span class="p">,)))</span>
@@ -288,8 +298,8 @@
 
 <div class="viewcode-block" id="sequence_resolutions_count"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.sequence_resolutions_count">[docs]</a><span class="nd">@access_field</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">sequence_resolutions_count</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Count the number of sequence resolutions there would be in the returned</span>
-<span class="sd">    list from :meth:`sequence_resolutions`.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Count the number of possible sequence resolutions Equivalent to the</span>
+<span class="sd">    length of the list returned by :meth:`sequence_resolutions`.&quot;&quot;&quot;</span>
     <span class="n">base_options</span> <span class="o">=</span> <span class="p">[</span>
         <span class="nb">len</span><span class="p">(</span><span class="n">ambiguous_dna_values</span><span class="p">[</span><span class="n">base</span><span class="p">])</span>
         <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">sequence</span>
@@ -299,7 +309,7 @@
 
 
 <div class="viewcode-block" id="hist"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.hist">[docs]</a><span class="k">def</span> <span class="nf">hist</span><span class="p">(</span><span class="n">c</span><span class="p">:</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Pretty prints a counter, normalizing counts using the number of samples,</span>
+    <span class="sd">&quot;&quot;&quot;Pretty prints a counter Normalizing counts using the number of samples,</span>
 <span class="sd">    passed as the argument `samples`.&quot;&quot;&quot;</span>
     <span class="n">ls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
     <span class="n">ls</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
@@ -309,8 +319,11 @@
 
 
 <div class="viewcode-block" id="is_collapsed"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.is_collapsed">[docs]</a><span class="k">def</span> <span class="nf">is_collapsed</span><span class="p">(</span><span class="n">tree</span><span class="p">:</span> <span class="n">ete3</span><span class="o">.</span><span class="n">TreeNode</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Return whether the provided tree is collapsed, meaning that any edge</span>
-<span class="sd">    whose target is not a leaf node connects nodes with different sequences.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Return whether the provided tree is collapsed.</span>
+
+<span class="sd">    Collapsed means that any edge whose target is not a leaf node</span>
+<span class="sd">    connects nodes with different sequences.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
         <span class="n">node</span><span class="o">.</span><span class="n">sequence</span> <span class="o">==</span> <span class="n">node</span><span class="o">.</span><span class="n">up</span><span class="o">.</span><span class="n">sequence</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">node</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">iter_descendants</span><span class="p">()</span>
@@ -335,10 +348,16 @@
 
 
 <div class="viewcode-block" id="AddFuncDict"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.AddFuncDict">[docs]</a><span class="k">class</span> <span class="nc">AddFuncDict</span><span class="p">(</span><span class="n">UserDict</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Provides a container for function keyword arguments to</span>
-<span class="sd">    :meth:`dag.HistoryDag.weight_count`. This is primarily useful because it</span>
-<span class="sd">    allows instances to be added. Passing the result to `weight_count` as</span>
-<span class="sd">    keyword arguments counts the weights jointly.</span>
+    <span class="sd">&quot;&quot;&quot;Container for function keyword arguments to</span>
+<span class="sd">    :meth:`historydag.HistoryDag.weight_count`. This is primarily useful</span>
+<span class="sd">    because it allows instances to be added. Passing the result to</span>
+<span class="sd">    `weight_count` as keyword arguments counts the weights jointly. A</span>
+<span class="sd">    :class:`historydag.utils.AddFuncDict` which may be passed as keyword</span>
+<span class="sd">    arguments to :meth:`historydag.HistoryDag.weight_count`,</span>
+<span class="sd">    :meth:`historydag.HistoryDag.trim_optimal_weight`, or</span>
+<span class="sd">    :meth:`historydag.HistoryDag.optimal_weight_annotate` methods to trim or</span>
+<span class="sd">    annotate a :meth:`historydag.HistoryDag` according to the weight that the</span>
+<span class="sd">    contained functions implement.</span>
 
 <span class="sd">    For example, `dag.weight_count(**(utils.hamming_distance_countfuncs + make_newickcountfuncs()))`</span>
 <span class="sd">    would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings.</span>
@@ -422,8 +441,8 @@
     <span class="p">},</span>
     <span class="n">names</span><span class="o">=</span><span class="s2">&quot;HammingParsimony&quot;</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="sd">&quot;&quot;&quot;Provides functions necessary to count hamming distance parsimony of trees in a history DAG,</span>
-<span class="sd">using :meth:`dag.HistoryDag.weight_count`.&quot;&quot;&quot;</span>
+<span class="sd">&quot;&quot;&quot;Provides functions to count hamming distance parsimony.</span>
+<span class="sd">For use with :meth:`historydag.HistoryDag.weight_count`.&quot;&quot;&quot;</span>
 
 
 <div class="viewcode-block" id="make_newickcountfuncs"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.make_newickcountfuncs">[docs]</a><span class="k">def</span> <span class="nf">make_newickcountfuncs</span><span class="p">(</span>
@@ -433,10 +452,11 @@
     <span class="n">internal_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">collapse_leaves</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Provides functions necessary to count newick strings of trees in a</span>
-<span class="sd">    history DAG, using :meth:`dag.HistoryDag.weight_count`.</span>
+    <span class="sd">&quot;&quot;&quot;Provides functions to count newick strings. For use with</span>
+<span class="sd">    :meth:`historydag.HistoryDag.weight_count`.</span>
 
-<span class="sd">    Arguments are the same as for :meth:`dag.HistoryDag.to_newick`.</span>
+<span class="sd">    Arguments are the same as for</span>
+<span class="sd">    :meth:`historydag.HistoryDag.to_newick`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">_newicksum</span><span class="p">(</span><span class="n">newicks</span><span class="p">):</span>
