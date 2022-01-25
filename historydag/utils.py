@@ -1,3 +1,5 @@
+"""Utility functions and classes for working with HistoryDag objects."""
+
 import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
@@ -54,9 +56,9 @@ class UALabel:
 
 # ######## Decorators ########
 def access_nodefield_default(fieldname: str, default: Any) -> Any:
-    """A wrapper to convert a function taking some label field's values as
-    positional arguments, to a function taking HistoryDagNodes as positional
-    arguments.
+    """A decorator for accessing label fields on a HistoryDagNode. Converts a
+    function taking some label field's values as positional arguments, to a
+    function taking HistoryDagNodes as positional arguments.
 
     Args:
         fieldname: The name of the label field whose value the function takes as arguments
@@ -131,7 +133,7 @@ def explode_label(labelfield: str):
 
     Returns:
         A decorator which converts a function which explodes a field value, into a function
-            which explodes the whole label at that field.
+        which explodes the whole label at that field.
     """
 
     def decorator(
@@ -185,9 +187,13 @@ def is_ambiguous(sequence: str) -> bool:
 def cartesian_product(
     optionlist: List[Callable[[], Iterable]], accum=tuple()
 ) -> Generator[Tuple, None, None]:
-    """Takes a list of functions which each return a fresh generator on options
-    at that site, and returns a generator yielding tuples, which are elements
-    of the cartesian product of the passed generators' contents."""
+    """The cartesian product of iterables in a list.
+
+    Takes a list of functions which each return a fresh generator on
+    options at that site, and returns a generator yielding tuples, which
+    are elements of the cartesian product of the passed generators'
+    contents.
+    """
     if optionlist:
         for term in optionlist[0]():
             yield from cartesian_product(optionlist[1:], accum=(accum + (term,)))
@@ -221,8 +227,8 @@ def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
 
 @access_field("sequence")
 def sequence_resolutions_count(sequence: str) -> int:
-    """Count the number of sequence resolutions there would be in the returned
-    list from :meth:`sequence_resolutions`."""
+    """Count the number of possible sequence resolutions Equivalent to the
+    length of the list returned by :meth:`sequence_resolutions`."""
     base_options = [
         len(ambiguous_dna_values[base])
         for base in sequence
@@ -232,7 +238,7 @@ def sequence_resolutions_count(sequence: str) -> int:
 
 
 def hist(c: Counter, samples: int = 1):
-    """Pretty prints a counter, normalizing counts using the number of samples,
+    """Pretty prints a counter Normalizing counts using the number of samples,
     passed as the argument `samples`."""
     ls = list(c.items())
     ls.sort()
@@ -242,8 +248,11 @@ def hist(c: Counter, samples: int = 1):
 
 
 def is_collapsed(tree: ete3.TreeNode) -> bool:
-    """Return whether the provided tree is collapsed, meaning that any edge
-    whose target is not a leaf node connects nodes with different sequences."""
+    """Return whether the provided tree is collapsed.
+
+    Collapsed means that any edge whose target is not a leaf node
+    connects nodes with different sequences.
+    """
     return not any(
         node.sequence == node.up.sequence and not node.is_leaf()
         for node in tree.iter_descendants()
@@ -268,10 +277,16 @@ def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
 
 
 class AddFuncDict(UserDict):
-    """Provides a container for function keyword arguments to
-    :meth:`dag.HistoryDag.weight_count`. This is primarily useful because it
-    allows instances to be added. Passing the result to `weight_count` as
-    keyword arguments counts the weights jointly.
+    """Container for function keyword arguments to
+    :meth:`historydag.HistoryDag.weight_count`. This is primarily useful
+    because it allows instances to be added. Passing the result to
+    `weight_count` as keyword arguments counts the weights jointly. A
+    :class:`historydag.utils.AddFuncDict` which may be passed as keyword
+    arguments to :meth:`historydag.HistoryDag.weight_count`,
+    :meth:`historydag.HistoryDag.trim_optimal_weight`, or
+    :meth:`historydag.HistoryDag.optimal_weight_annotate` methods to trim or
+    annotate a :meth:`historydag.HistoryDag` according to the weight that the
+    contained functions implement.
 
     For example, `dag.weight_count(**(utils.hamming_distance_countfuncs + make_newickcountfuncs()))`
     would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings.
@@ -355,8 +370,8 @@ hamming_distance_countfuncs = AddFuncDict(
     },
     names="HammingParsimony",
 )
-"""Provides functions necessary to count hamming distance parsimony of trees in a history DAG,
-using :meth:`dag.HistoryDag.weight_count`."""
+"""Provides functions to count hamming distance parsimony.
+For use with :meth:`historydag.HistoryDag.weight_count`."""
 
 
 def make_newickcountfuncs(
@@ -366,10 +381,11 @@ def make_newickcountfuncs(
     internal_labels=True,
     collapse_leaves=False,
 ):
-    """Provides functions necessary to count newick strings of trees in a
-    history DAG, using :meth:`dag.HistoryDag.weight_count`.
+    """Provides functions to count newick strings. For use with
+    :meth:`historydag.HistoryDag.weight_count`.
 
-    Arguments are the same as for :meth:`dag.HistoryDag.to_newick`.
+    Arguments are the same as for
+    :meth:`historydag.HistoryDag.to_newick`.
     """
 
     def _newicksum(newicks):

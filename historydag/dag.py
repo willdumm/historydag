@@ -1,3 +1,5 @@
+"""A module providing the class HistoryDag, and supporting functions."""
+
 import pickle
 import graphviz as gv
 import ete3
@@ -205,7 +207,7 @@ class HistoryDagNode:
 
         Returns:
             A string which can be used as a node name in a newick string.
-                For example, `namefuncresult[&&NHX:feature1=val1:feature2=val2]`
+            For example, `namefuncresult[&&NHX:feature1=val1:feature2=val2]`
         """
         if self.is_root():
             return "UA_node"
@@ -224,7 +226,7 @@ class HistoryDagNode:
 
 
 class HistoryDag:
-    r"""
+    r"""An object to represent a collection of internally labeled trees.
     A wrapper object to contain exposed HistoryDag methods and point to a HistoryDagNode root
 
     Args:
@@ -300,7 +302,8 @@ class HistoryDag:
         return serial_dict
 
     def __setstate__(self, serial_dict):
-        """Rebuilds a HistoryDagNode using a serial_dict output by __getstate__"""
+        """Rebuilds a HistoryDagNode using a serial_dict output by
+        __getstate__"""
         label_list: List[Tuple] = serial_dict["label_list"]
         node_list: List[Tuple] = serial_dict["node_list"]
         edge_list: List[Tuple[int, int, float, float]] = serial_dict["edge_list"]
@@ -340,7 +343,8 @@ class HistoryDag:
             yield HistoryDag(cladetree)
 
     def sample(self) -> "HistoryDag":
-        r"""Samples a clade tree (a sub-history DAG containing the root and all
+        r"""Samples a clade tree from the history DAG.
+        (A clade tree is a sub-history DAG containing the root and all
         leaf nodes). Returns a new HistoryDagNode object."""
         return HistoryDag(self.dagroot._sample())
 
@@ -395,7 +399,7 @@ class HistoryDag:
         adjacent_labels: bool = True,
         preserve_parent_labels: bool = False,
     ) -> int:
-        r"""Add all allowed edges to the DAG, returning the number that were added.
+        r"""Add all allowed edges to the DAG.
 
         Args:
             new_from_root: If False, no edges will be added that start at the DAG root.
@@ -451,7 +455,8 @@ class HistoryDag:
         features: Optional[List[str]] = None,
         feature_funcs: Mapping[str, Callable[[HistoryDagNode], str]] = {},
     ) -> str:
-        r"""Converts to extended newick format with arbitrary node names and a
+        r"""Converts clade tree to extended newick format.
+        Supports arbitrary node names and a
         sequence feature. For use on a history DAG which is a clade tree.
 
         For extracting newick representations of trees in a general history DAG, see
@@ -508,7 +513,7 @@ class HistoryDag:
 
         Returns:
             An ete3 Tree with the same topology as self, and node names and attributes
-                as specified.
+            as specified.
         """
         # First build a dictionary of ete3 nodes keyed by HDagNodes.
         if features is None:
@@ -597,7 +602,7 @@ class HistoryDag:
         return G
 
     def internal_avg_parents(self) -> float:
-        r"""Returns the average number of parents among internal nodes
+        r"""Returns the average number of parents among internal nodes.
         A simple measure of similarity between the trees that the DAG expresses.
         However, keep in mind that two trees with the same topology but different labels
         would be considered entirely unalike by this measure."""
@@ -628,7 +633,8 @@ class HistoryDag:
         expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
         expandable_func: Callable[[Label], bool] = None,
     ) -> int:
-        r"""Explode nodes according to a provided function, adding copies of each node
+        r"""Explode nodes according to a provided function.
+        Adds copies of each node
         to the DAG with exploded labels, but with the same parents and children as the
         original node.
 
@@ -685,7 +691,7 @@ class HistoryDag:
         return len(new_nodes)
 
     def summary(self):
-        """Print nicely formatted summary input about the history DAG."""
+        """Print nicely formatted summary about the history DAG."""
         print(f"Nodes:\t{sum(1 for _ in self.postorder())}")
         print(f"Trees:\t{self.count_trees()}")
         utils.hist(self.weight_counts_with_ambiguities())
@@ -758,7 +764,7 @@ class HistoryDag:
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
     ):
-        r"""
+        r"""A template method for finding the optimal tree weight in the DAG.
         Dynamically annotates each node in the DAG with the optimal weight of a clade
         sub-tree beneath it, so that the DAG root node is annotated with the optimal
         weight of a clade tree in the DAG.
@@ -790,9 +796,9 @@ class HistoryDag:
         ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
         accum_func: Callable[[List[Weight]], Weight] = sum,
     ):
-        r"""Counts the weights of all clade trees expressed in the history DAG.
+        r"""A template method for counting weights of trees expressed in the history DAG.
 
-        Weights must be hashable.
+        Weights must be hashable, but may otherwise be of arbitrary type.
 
         Args:
             start_func: A function which assigns a weight to each leaf node
@@ -827,18 +833,22 @@ class HistoryDag:
         return [newick[1:-1] + ";" for newick in newicks]
 
     def count_topologies(self, collapse_leaves: bool = False) -> int:
-        """Counts the number of unique topologies in the history DAG by
-        counting the number of unique newick strings with only leaves labeled.
+        """Counts the number of unique topologies in the history DAG. This is
+        achieved by counting the number of unique newick strings with only
+        leaves labeled.
 
         :meth:`count_trees` gives the total number of unique trees in the DAG, taking
         into account internal node labels.
 
         Args:
             collapse_leaves: By default, topologies are counted as-is in the DAG. However,
-            even if the DAG is collapsed by label, edges above leaf nodes will not be collapsed.
-            if `collapse_leaves` is True, then the number of unique topologies with all
-            leaf-adjacent edges collapsed will be counted. Assumes that the DAG is collapsed
-            with :meth:`HistoryDag.convert_to_collapsed`.
+                even if the DAG is collapsed by label, edges above leaf nodes will not be collapsed.
+                if `collapse_leaves` is True, then the number of unique topologies with all
+                leaf-adjacent edges collapsed will be counted. Assumes that the DAG is collapsed
+                with :meth:`HistoryDag.convert_to_collapsed`.
+
+        Returns:
+            The number of topologies in the history DAG
         """
         kwargs = utils.make_newickcountfuncs(
             internal_labels=False, collapse_leaves=collapse_leaves
@@ -850,8 +860,7 @@ class HistoryDag:
         expand_func: Optional[Callable[[Label], List[Label]]] = None,
         expand_count_func: Callable[[Label], int] = lambda ls: 1,
     ):
-        r"""Annotates each node in the DAG with the number of clade sub-trees underneath
-        (extending to leaves, and containing exactly one edge for each node-clade pair).
+        r"""Annotates each node in the DAG with the number of clade sub-trees underneath.
 
         Args:
             expand_func: A function which takes a label and returns a list of labels, for
@@ -886,7 +895,8 @@ class HistoryDag:
         accum_func: Callable[[List[Weight]], Weight] = sum,
         expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
     ):
-        r"""Like :meth:`weight_counts`, but creates dictionaries of Counter objects at each
+        r"""Template method for counting tree weights in the DAG, with exploded labels.
+        Like :meth:`weight_counts`, but creates dictionaries of Counter objects at each
         node, keyed by possible sequences at that node. Analogous to :meth:`count_trees`
         with `expand_func` provided.
 
@@ -1016,7 +1026,37 @@ class HistoryDag:
                 n = len(eset.targets)
                 eset.probs = [1.0 / n] * n
 
+    def get_topologies(self, collapse_leaves: bool = False) -> List[str]:
+        """Return a list of pseudo-newick representations of topologies in the
+        history DAG.
+
+        The newicks returned are not well-formed, and are for use with
+        :meth:`HistoryDag.trim_topology`. Otherwise, this method would be equivalent to
+        :meth:`HistoryDag.to_newicks` with keyword arguments ``internal_labels=False`` and
+        ``collapsed_leaves`` as desired.
+
+        Args:
+            collapse_leaves: Whether to collapse leaf-adjacent edges between nodes with
+                matching labels
+
+        Returns:
+            A list of strings, each representing a topology present in the history DAG.
+        """
+        kwargs = utils.make_newickcountfuncs(
+            internal_labels=False, collapse_leaves=collapse_leaves
+        )
+        return list(self.weight_count(**kwargs).keys())
+
     def trim_topology(self, topology: str, collapse_leaves: bool = False):
+        """Trims the history DAG to express only trees matching the provided
+        topology.
+
+        Args:
+            topology: A string like one output by :meth:`HistoryDag.get_topologies`
+            collapse_leaves: must match the same argument provided to :meth:`HistoryDag.get_topologies`
+                when creating the string passed as ``topology``.
+        """
+
         def min_func(newicks: List[str]) -> str:
             # Each newick in presented to min_func will be well-formed, since
             # it will consist of a subtree newick added to a parent edge's
@@ -1037,6 +1077,7 @@ class HistoryDag:
         )
 
     def recompute_parents(self):
+        """Repopulate ``HistoryDagNode.parent`` attributes."""
         for node in self.postorder():
             node.parents = set()
         for node in self.postorder():
@@ -1045,7 +1086,7 @@ class HistoryDag:
 
     def convert_to_collapsed(self):
         r"""Rebuilds the DAG so that no edge connects two nodes with the same label,
-        unless one of them is a leaf node.
+        unless one is a leaf node.
 
         The resulting DAG should express at least the collapsed clade trees present
         in the original.
@@ -1144,10 +1185,10 @@ class HistoryDag:
         """Recursive postorder traversal of the history DAG.
 
         Careful! This is not guaranteed to visit a parent node before any of its children.
+        for that, need reverse postorder traversal.
 
         Returns:
             Generator on nodes
-        for that, need reverse postorder traversal.
         """
         visited = set()
 
@@ -1305,7 +1346,7 @@ def from_tree(
 
     Returns:
         HistoryDag object, which has the same topology as the input tree, with the required
-            UA node added as a new root.
+        UA node added as a new root.
     """
     # see https://stackoverflow.com/questions/50298582/why-does-python-asyncio-loop-call-soon-overwrite-data
     # or https://stackoverflow.com/questions/25670516/strange-overwriting-occurring-when-using-lambda-functions-as-dict-values

@@ -1,0 +1,18 @@
+digraph "labeled partition DAG" {
+	node [shape=record]
+	5081790016 [label="<label> AA"]
+	5081790640 [label="<label> CT"]
+	5081789296 [label="{ <label> CG |{<AA> AA|<CT> CT} }"]
+	5081789296:AA:s -> 5081790016:n [label=""]
+	5081789296:CT:s -> 5081790640:n [label=""]
+	5081791072 [label="<label> TA"]
+	5081791168 [label="<label> CC"]
+	5081790976 [label="{ <label> CA |{<TA> TA|<CC> CC} }"]
+	5081790976:TA:s -> 5081791072:n [label=""]
+	5081790976:CC:s -> 5081791168:n [label=""]
+	5081747216 [label="{ <label> CA |{<AA, CT> AA, CT|<CC, TA> CC, TA} }"]
+	5081747216:"AA, CT":s -> 5081789296:n [label=""]
+	5081747216:"CC, TA":s -> 5081790976:n [label=""]
+	5081791792 [label="{ <label> 𝛒 |{<AA, CC, CT, TA> AA, CC, CT, TA} }"]
+	5081791792:"AA, CC, CT, TA":s -> 5081747216:n [label=""]
+}
