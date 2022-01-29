@@ -40,7 +40,7 @@ node_count_funcs = hdag.utils.AddFuncDict(
         "edge_weight_func": lambda n1, n2: n1.label != n2.label,
         "accum_func": sum,
     },
-    names="NodeCount",
+    name="NodeCount",
 )
 dag.weight_count(**(node_count_funcs + hdag.utils.hamming_distance_countfuncs))
 # Counter({(50, 75): 444, (51, 75): 328, (49, 75): 270, (52, 75): 94, (48, 75): 68, (53, 75): 4})
