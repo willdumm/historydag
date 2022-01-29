@@ -42,7 +42,7 @@ def test_dp_templatefuncs():
             "edge_weight_func": lambda n, n1: int(n == n1),
             "accum_func": sum,
         },
-        names="sum0",
+        name="sum0",
     )
     templatedict1 = AddFuncDict(
         {
@@ -50,7 +50,7 @@ def test_dp_templatefuncs():
             "edge_weight_func": lambda n, n1: int(n != n1),
             "accum_func": min,
         },
-        names="min1",
+        name="min1",
     )
     template = templatedict + templatedict1
 

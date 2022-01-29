@@ -290,12 +290,36 @@ class AddFuncDict(UserDict):
 
     For example, `dag.weight_count(**(utils.hamming_distance_countfuncs + make_newickcountfuncs()))`
     would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings.
+
+    Args:
+        initialdata: A dictionary containing functions keyed by "start_func", "edge_weight_func", and
+            "accum_func". "start_func" specifies weight assigned to leaf HistoryDagNodes.
+            "edge_weight_func" specifies weight assigned to an edge between two HistoryDagNodes, with the
+            first argument the parent node, and the second argument the child node.
+            "accum_func" specifies how to 'add' a list of weights. See :meth:`historydag.HistoryDag.weight_count`
+            for more details.
+        name: A string containing a name for the weight to be counted. If a tuple of weights will be returned,
+            use ``names`` instead.
+        names: A tuple of strings containing names for the weights to be counted, if a tuple of weights will
+            be returned by passed functions. If only a single weight will be returned, use ``name`` instead.
     """
 
     requiredkeys = {"start_func", "edge_weight_func", "accum_func"}
 
-    def __init__(self, initialdata, names="unnamed_weight"):
-        self.names = names
+    def __init__(self, initialdata, name: str = None, names: Tuple[str] = None):
+        if name is not None and names is not None:
+            raise ValueError(
+                "Pass a value to either keyword argument 'name' or 'names'."
+            )
+        elif name is None and names is None:
+            self.name = "unknown weight"
+            self.names = (self.name,)
+        elif name is not None:
+            self.name = name
+            self.names = (self.name,)
+        elif names is not None:
+            self.names = names
+            self.name = None
         if not set(initialdata.keys()) == self.requiredkeys:
             raise ValueError(
                 "Must provide functions named " + ", ".join(self.requiredkeys)
@@ -330,7 +354,7 @@ class AddFuncDict(UserDict):
         )
 
     def _convert_to_tupleargs(self):
-        if isinstance(self.names, str):
+        if self.name is not None:
 
             def node_to_weight_decorator(func):
                 @wraps(func)
@@ -356,7 +380,7 @@ class AddFuncDict(UserDict):
                         self["accum_func"]
                     ),
                 },
-                names=(self.names,),
+                names=(self.name,),
             )
         else:
             return self
@@ -423,7 +447,7 @@ def make_newickcountfuncs(
             "edge_weight_func": _newickedgeweight,
             "accum_func": _newicksum,
         },
-        names="NewickString",
+        name="NewickString",
     )
 
 
@@ -458,3 +482,56 @@ def prod(ls: list):
     else:
         accum = 1
     return accum
+
+
+# Unfortunately these can't be made with a class factory (just a bit too meta for Python)
+# short of doing something awful like https://hg.python.org/cpython/file/b14308524cff/Lib/collections/__init__.py#l232
+def _remstate(**kwargs):
+    if "state" not in kwargs:
+        raise ValueError("Constructor requires the keyword argument 'state'.")
+    intkwargs = kwargs.copy()
+    intkwargs.pop("state")
+    return intkwargs
+
+
+class IntState(int):
+    """A subclass of int, with arbitrary, mutable state.
+    State is provided to the constructor as the keyword argument ``state``.
+    All other arguments will be passed to ``int`` constructor.
+    Instances should be functionally indistinguishable from ``int``.
+    """
+
+    def __new__(cls, *args, **kwargs):
+        intkwargs = _remstate(**kwargs)
+        return super(IntState, cls).__new__(cls, *args, **intkwargs)
+
+    def __init__(self, *args, **kwargs):
+        self.state = kwargs["state"]
+
+
+class FloatState(float):
+    """A subclass of float, with arbitrary, mutable state.
+    State is provided to the constructor as the keyword argument ``state``.
+    All other arguments will be passed to ``float`` constructor.
+    Instances should be functionally indistinguishable from ``float``."""
+
+    def __new__(cls, *args, **kwargs):
+        intkwargs = _remstate(**kwargs)
+        return super(FloatState, cls).__new__(cls, *args, **intkwargs)
+
+    def __init__(self, *args, **kwargs):
+        self.state = kwargs["state"]
+
+
+class StrState(str):
+    """A subclass of string, with arbitrary, mutable state.
+    State is provided to the constructor as the keyword argument ``state``.
+    All other arguments will be passed to ``str`` constructor.
+    Instances should be functionally indistinguishable from ``str``."""
+
+    def __new__(cls, *args, **kwargs):
+        intkwargs = _remstate(**kwargs)
+        return super(StrState, cls).__new__(cls, *args, **intkwargs)
+
+    def __init__(self, *args, **kwargs):
+        self.state = kwargs["state"]

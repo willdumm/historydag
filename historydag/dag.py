@@ -148,7 +148,7 @@ class HistoryDagNode:
                 child.remove_node(nodedict=nodedict)
         for parent in self.parents:
             parent.clades[self.under_clade()].remove_from_edgeset_byid(self)
-            self.removed = True
+        self.removed = True
 
     def _sample(self) -> "HistoryDagNode":
         r"""Samples a clade tree (a sub-history DAG containing the root and all
@@ -763,7 +763,7 @@ class HistoryDag:
         ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
-    ):
+    ) -> Weight:
         r"""A template method for finding the optimal tree weight in the DAG.
         Dynamically annotates each node in the DAG with the optimal weight of a clade
         sub-tree beneath it, so that the DAG root node is annotated with the optimal
@@ -974,7 +974,7 @@ class HistoryDag:
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
-    ):
+    ) -> Weight:
         """Trims the DAG to only express trees with optimal weight. This is
         guaranteed to be possible when edge_weight_func depends only on the
         labels of an edge's parent and child node.
@@ -996,7 +996,7 @@ class HistoryDag:
                 one, like min.
             eq_func: A function which tests equality, taking a pair of weights and returning a bool.
         """
-        self.optimal_weight_annotate(
+        opt_weight = self.optimal_weight_annotate(
             start_func=start_func,
             edge_weight_func=edge_weight_func,
             accum_func=accum_func,
@@ -1025,6 +1025,7 @@ class HistoryDag:
                 eset.weights = newweights
                 n = len(eset.targets)
                 eset.probs = [1.0 / n] * n
+        return opt_weight
 
     def get_topologies(self, collapse_leaves: bool = False) -> List[str]:
         """Return a list of pseudo-newick representations of topologies in the
