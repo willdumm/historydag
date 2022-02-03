@@ -5,6 +5,7 @@ from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 from functools import wraps
 from collections import UserDict
+from decimal import Decimal
 from typing import (
     List,
     Any,
@@ -518,6 +519,20 @@ class FloatState(float):
     def __new__(cls, *args, **kwargs):
         intkwargs = _remstate(**kwargs)
         return super(FloatState, cls).__new__(cls, *args, **intkwargs)
+
+    def __init__(self, *args, **kwargs):
+        self.state = kwargs["state"]
+
+
+class DecimalState(Decimal):
+    """A subclass of ``decimal.Decimal``, with arbitrary, mutable state.
+    State is provided to the constructor as the keyword argument ``state``.
+    All other arguments will be passed to ``Decimal`` constructor.
+    Instances should be functionally indistinguishable from ``Decimal``."""
+
+    def __new__(cls, *args, **kwargs):
+        intkwargs = _remstate(**kwargs)
+        return super(DecimalState, cls).__new__(cls, *args, **intkwargs)
 
     def __init__(self, *args, **kwargs):
         self.state = kwargs["state"]

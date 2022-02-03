@@ -369,7 +369,7 @@ class HistoryDag:
 
         However, other object attributes will not be copied.
         """
-        return deserialize(self.serialize())
+        return pickle.loads(pickle.dumps(self))
 
     def merge(self, other: "HistoryDag"):
         r"""Graph union this history DAG with another."""
@@ -826,7 +826,9 @@ class HistoryDag:
     def to_newicks(self, **kwargs):
         """Returns a list of extended newick strings formed with label fields.
 
-        For arguments, see :meth:`utils.make_newickcountfuncs`.
+        Arguments are passed to :meth:`utils.make_newickcountfuncs`.
+        Arguments are the same as for
+        :meth:`historydag.HistoryDag.to_newick`.
         """
 
         newicks = self.weight_count(**utils.make_newickcountfuncs(**kwargs)).elements()
@@ -1496,16 +1498,4 @@ def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
     dag = treelist[0].copy()
     for tree in treelist[1:]:
         dag.merge(tree)
-    return dag
-
-
-# ######## Miscellaneous Functions ########
-
-
-def deserialize(bstring: bytes) -> HistoryDag:
-    """reloads a HistoryDag serialized object, as ouput by
-    HistoryDagNode.serialize."""
-    serial_dict = pickle.loads(bstring)
-    dag = HistoryDag(None)  # type: ignore
-    dag.__setstate__(serial_dict)
     return dag
