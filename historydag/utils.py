@@ -497,9 +497,11 @@ def _remstate(**kwargs):
 
 class IntState(int):
     """A subclass of int, with arbitrary, mutable state.
-    State is provided to the constructor as the keyword argument ``state``.
-    All other arguments will be passed to ``int`` constructor.
-    Instances should be functionally indistinguishable from ``int``.
+
+    State is provided to the constructor as the keyword argument
+    ``state``. All other arguments will be passed to ``int``
+    constructor. Instances should be functionally indistinguishable from
+    ``int``.
     """
 
     def __new__(cls, *args, **kwargs):
@@ -512,9 +514,12 @@ class IntState(int):
 
 class FloatState(float):
     """A subclass of float, with arbitrary, mutable state.
-    State is provided to the constructor as the keyword argument ``state``.
-    All other arguments will be passed to ``float`` constructor.
-    Instances should be functionally indistinguishable from ``float``."""
+
+    State is provided to the constructor as the keyword argument
+    ``state``. All other arguments will be passed to ``float``
+    constructor. Instances should be functionally indistinguishable from
+    ``float``.
+    """
 
     def __new__(cls, *args, **kwargs):
         intkwargs = _remstate(**kwargs)
@@ -526,9 +531,12 @@ class FloatState(float):
 
 class DecimalState(Decimal):
     """A subclass of ``decimal.Decimal``, with arbitrary, mutable state.
-    State is provided to the constructor as the keyword argument ``state``.
-    All other arguments will be passed to ``Decimal`` constructor.
-    Instances should be functionally indistinguishable from ``Decimal``."""
+
+    State is provided to the constructor as the keyword argument
+    ``state``. All other arguments will be passed to ``Decimal``
+    constructor. Instances should be functionally indistinguishable from
+    ``Decimal``.
+    """
 
     def __new__(cls, *args, **kwargs):
         intkwargs = _remstate(**kwargs)
@@ -540,9 +548,12 @@ class DecimalState(Decimal):
 
 class StrState(str):
     """A subclass of string, with arbitrary, mutable state.
-    State is provided to the constructor as the keyword argument ``state``.
-    All other arguments will be passed to ``str`` constructor.
-    Instances should be functionally indistinguishable from ``str``."""
+
+    State is provided to the constructor as the keyword argument
+    ``state``. All other arguments will be passed to ``str``
+    constructor. Instances should be functionally indistinguishable from
+    ``str``.
+    """
 
     def __new__(cls, *args, **kwargs):
         intkwargs = _remstate(**kwargs)
