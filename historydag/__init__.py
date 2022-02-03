@@ -8,3 +8,6 @@ from .dag import (  # noqa
     history_dag_from_etes,
     history_dag_from_clade_trees,
 )
+
+from . import _version
+__version__ = _version.get_versions()['version']

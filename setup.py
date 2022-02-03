@@ -1,10 +1,11 @@
 import setuptools
-
+import versioneer
 
 
 setuptools.setup(
     name="historydag",
-    version=0.1,
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     author="Will Dumm",
     author_email="wdumm88@gmail.com",
     description="Basic history DAG implementation",
