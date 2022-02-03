@@ -475,8 +475,11 @@ tree, and returns a weight, like sum.</p></li>
 one, like min.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>The optimal weight of a tree under the DAG UA node.</p>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>The optimal weight of a tree under the DAG UA node.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -512,7 +515,9 @@ parent node label the first argument</p></li>
 <dt class="sig sig-object py" id="historydag.HistoryDag.to_newicks">
 <span class="sig-name descname"><span class="pre">to_newicks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDag.to_newicks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDag.to_newicks" title="Permalink to this definition"></a></dt>
 <dd><p>Returns a list of extended newick strings formed with label fields.</p>
-<p>For arguments, see <a class="reference internal" href="historydag.utils.html#historydag.utils.make_newickcountfuncs" title="historydag.utils.make_newickcountfuncs"><code class="xref py py-meth docutils literal notranslate"><span class="pre">utils.make_newickcountfuncs()</span></code></a>.</p>
+<p>Arguments are passed to <a class="reference internal" href="historydag.utils.html#historydag.utils.make_newickcountfuncs" title="historydag.utils.make_newickcountfuncs"><code class="xref py py-meth docutils literal notranslate"><span class="pre">utils.make_newickcountfuncs()</span></code></a>.
+Arguments are the same as for
+<a class="reference internal" href="#historydag.HistoryDag.to_newick" title="historydag.HistoryDag.to_newick"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.to_newick()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -615,6 +620,9 @@ and returns a weight, like sum.</p></li>
 one, like min.</p></li>
 <li><p><strong>eq_func</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a>], <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>]) – A function which tests equality, taking a pair of weights and returning a bool.</p></li>
 </ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>

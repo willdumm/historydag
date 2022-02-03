@@ -44,6 +44,10 @@
    .. autosummary::
    
       AddFuncDict
+      DecimalState
+      FloatState
+      IntState
+      StrState
       UALabel
    
    

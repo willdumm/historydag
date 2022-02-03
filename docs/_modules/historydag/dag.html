@@ -219,7 +219,7 @@
                 <span class="n">child</span><span class="o">.</span><span class="n">remove_node</span><span class="p">(</span><span class="n">nodedict</span><span class="o">=</span><span class="n">nodedict</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">parent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parents</span><span class="p">:</span>
             <span class="n">parent</span><span class="o">.</span><span class="n">clades</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">under_clade</span><span class="p">()]</span><span class="o">.</span><span class="n">remove_from_edgeset_byid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">removed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">removed</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="k">def</span> <span class="nf">_sample</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;HistoryDagNode&quot;</span><span class="p">:</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Samples a clade tree (a sub-history DAG containing the root and all</span>
@@ -440,7 +440,7 @@
 
 <span class="sd">        However, other object attributes will not be copied.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">deserialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">serialize</span><span class="p">())</span></div>
+        <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="HistoryDag.merge"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.merge">[docs]</a>    <span class="k">def</span> <span class="nf">merge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;HistoryDag&quot;</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Graph union this history DAG with another.&quot;&quot;&quot;</span>
@@ -834,7 +834,7 @@
         <span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">n1</span><span class="p">,</span> <span class="n">n2</span><span class="p">:</span> <span class="n">utils</span><span class="o">.</span><span class="n">wrapped_hamming_distance</span><span class="p">(</span><span class="n">n1</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">n2</span><span class="o">.</span><span class="n">label</span><span class="p">),</span>
         <span class="n">accum_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">List</span><span class="p">[</span><span class="n">Weight</span><span class="p">]],</span> <span class="n">Weight</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">,</span>
         <span class="n">optimal_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">List</span><span class="p">[</span><span class="n">Weight</span><span class="p">]],</span> <span class="n">Weight</span><span class="p">]</span> <span class="o">=</span> <span class="nb">min</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Weight</span><span class="p">:</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;A template method for finding the optimal tree weight in the DAG.</span>
 <span class="sd">        Dynamically annotates each node in the DAG with the optimal weight of a clade</span>
 <span class="sd">        sub-tree beneath it, so that the DAG root node is annotated with the optimal</span>
@@ -897,7 +897,9 @@
 <div class="viewcode-block" id="HistoryDag.to_newicks"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.to_newicks">[docs]</a>    <span class="k">def</span> <span class="nf">to_newicks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns a list of extended newick strings formed with label fields.</span>
 
-<span class="sd">        For arguments, see :meth:`utils.make_newickcountfuncs`.</span>
+<span class="sd">        Arguments are passed to :meth:`utils.make_newickcountfuncs`.</span>
+<span class="sd">        Arguments are the same as for</span>
+<span class="sd">        :meth:`historydag.HistoryDag.to_newick`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">newicks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_count</span><span class="p">(</span><span class="o">**</span><span class="n">utils</span><span class="o">.</span><span class="n">make_newickcountfuncs</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">))</span><span class="o">.</span><span class="n">elements</span><span class="p">()</span>
@@ -1045,7 +1047,7 @@
         <span class="n">accum_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">List</span><span class="p">[</span><span class="n">Weight</span><span class="p">]],</span> <span class="n">Weight</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">,</span>
         <span class="n">optimal_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">List</span><span class="p">[</span><span class="n">Weight</span><span class="p">]],</span> <span class="n">Weight</span><span class="p">]</span> <span class="o">=</span> <span class="nb">min</span><span class="p">,</span>
         <span class="n">eq_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Weight</span><span class="p">,</span> <span class="n">Weight</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">w1</span><span class="p">,</span> <span class="n">w2</span><span class="p">:</span> <span class="n">w1</span> <span class="o">==</span> <span class="n">w2</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Weight</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Trims the DAG to only express trees with optimal weight. This is</span>
 <span class="sd">        guaranteed to be possible when edge_weight_func depends only on the</span>
 <span class="sd">        labels of an edge&#39;s parent and child node.</span>
@@ -1067,7 +1069,7 @@
 <span class="sd">                one, like min.</span>
 <span class="sd">            eq_func: A function which tests equality, taking a pair of weights and returning a bool.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">optimal_weight_annotate</span><span class="p">(</span>
+        <span class="n">opt_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimal_weight_annotate</span><span class="p">(</span>
             <span class="n">start_func</span><span class="o">=</span><span class="n">start_func</span><span class="p">,</span>
             <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">edge_weight_func</span><span class="p">,</span>
             <span class="n">accum_func</span><span class="o">=</span><span class="n">accum_func</span><span class="p">,</span>
@@ -1095,7 +1097,8 @@
                 <span class="n">eset</span><span class="o">.</span><span class="n">targets</span> <span class="o">=</span> <span class="n">newtargets</span>
                 <span class="n">eset</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">newweights</span>
                 <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">eset</span><span class="o">.</span><span class="n">targets</span><span class="p">)</span>
-                <span class="n">eset</span><span class="o">.</span><span class="n">probs</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span></div>
+                <span class="n">eset</span><span class="o">.</span><span class="n">probs</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+        <span class="k">return</span> <span class="n">opt_weight</span></div>
 
 <div class="viewcode-block" id="HistoryDag.get_topologies"><a class="viewcode-back" href="../../stubs/historydag.HistoryDag.html#historydag.HistoryDag.get_topologies">[docs]</a>    <span class="k">def</span> <span class="nf">get_topologies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collapse_leaves</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Return a list of pseudo-newick representations of topologies in the</span>
@@ -1566,18 +1569,6 @@
     <span class="n">dag</span> <span class="o">=</span> <span class="n">treelist</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">tree</span> <span class="ow">in</span> <span class="n">treelist</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
         <span class="n">dag</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">dag</span>
-
-
-<span class="c1"># ######## Miscellaneous Functions ########</span>
-
-
-<span class="k">def</span> <span class="nf">deserialize</span><span class="p">(</span><span class="n">bstring</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">HistoryDag</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;reloads a HistoryDag serialized object, as ouput by</span>
-<span class="sd">    HistoryDagNode.serialize.&quot;&quot;&quot;</span>
-    <span class="n">serial_dict</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">bstring</span><span class="p">)</span>
-    <span class="n">dag</span> <span class="o">=</span> <span class="n">HistoryDag</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-    <span class="n">dag</span><span class="o">.</span><span class="n">__setstate__</span><span class="p">(</span><span class="n">serial_dict</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">dag</span>
 </pre></div>
 

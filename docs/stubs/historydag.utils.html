@@ -151,8 +151,20 @@
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.AddFuncDict" title="historydag.utils.AddFuncDict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AddFuncDict</span></code></a>(initialdata[, names])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.AddFuncDict" title="historydag.utils.AddFuncDict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AddFuncDict</span></code></a>(initialdata[, name, names])</p></td>
 <td><p>Container for function keyword arguments to <a class="reference internal" href="historydag.HistoryDag.html#historydag.HistoryDag.weight_count" title="historydag.HistoryDag.weight_count"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.weight_count()</span></code></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.DecimalState" title="historydag.utils.DecimalState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DecimalState</span></code></a>(*args, **kwargs)</p></td>
+<td><p>A subclass of <code class="docutils literal notranslate"><span class="pre">decimal.Decimal</span></code>, with arbitrary, mutable state.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.FloatState" title="historydag.utils.FloatState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FloatState</span></code></a>(*args, **kwargs)</p></td>
+<td><p>A subclass of float, with arbitrary, mutable state.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.IntState" title="historydag.utils.IntState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">IntState</span></code></a>(*args, **kwargs)</p></td>
+<td><p>A subclass of int, with arbitrary, mutable state.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.utils.StrState" title="historydag.utils.StrState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrState</span></code></a>(*args, **kwargs)</p></td>
+<td><p>A subclass of string, with arbitrary, mutable state.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#historydag.utils.UALabel" title="historydag.utils.UALabel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UALabel</span></code></a>()</p></td>
 <td><p>A history DAG universal ancestor (UA) node label.</p></td>
@@ -349,7 +361,7 @@ connects nodes with different sequences.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="historydag.utils.AddFuncDict">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">AddFuncDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initialdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'unnamed_weight'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#AddFuncDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.AddFuncDict" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">AddFuncDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initialdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#AddFuncDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.AddFuncDict" title="Permalink to this definition"></a></dt>
 <dd><p>Container for function keyword arguments to
 <a class="reference internal" href="historydag.HistoryDag.html#historydag.HistoryDag.weight_count" title="historydag.HistoryDag.weight_count"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.weight_count()</span></code></a>. This is primarily useful
 because it allows instances to be added. Passing the result to
@@ -362,9 +374,25 @@ annotate a <a class="reference internal" href="historydag.HistoryDag.html#histor
 contained functions implement.</p>
 <p>For example, <cite>dag.weight_count(**(utils.hamming_distance_countfuncs + make_newickcountfuncs()))</cite>
 would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>initialdata</strong> – A dictionary containing functions keyed by “start_func”, “edge_weight_func”, and
+“accum_func”. “start_func” specifies weight assigned to leaf HistoryDagNodes.
+“edge_weight_func” specifies weight assigned to an edge between two HistoryDagNodes, with the
+first argument the parent node, and the second argument the child node.
+“accum_func” specifies how to ‘add’ a list of weights. See <a class="reference internal" href="historydag.HistoryDag.html#historydag.HistoryDag.weight_count" title="historydag.HistoryDag.weight_count"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.weight_count()</span></code></a>
+for more details.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – A string containing a name for the weight to be counted. If a tuple of weights will be returned,
+use <code class="docutils literal notranslate"><span class="pre">names</span></code> instead.</p></li>
+<li><p><strong>names</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]]) – A tuple of strings containing names for the weights to be counted, if a tuple of weights will
+be returned by passed functions. If only a single weight will be returned, use <code class="docutils literal notranslate"><span class="pre">name</span></code> instead.</p></li>
+</ul>
+</dd>
+</dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="historydag.utils.AddFuncDict.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initialdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'unnamed_weight'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#AddFuncDict.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.AddFuncDict.__init__" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initialdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#AddFuncDict.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.AddFuncDict.__init__" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -390,6 +418,66 @@ For use with <a class="reference internal" href="historydag.HistoryDag.html#hist
 <span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">prod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ls</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#prod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.prod" title="Permalink to this definition"></a></dt>
 <dd><p>Return product of elements of the input list.</p>
 <p>if passed list is empty, returns 1.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.utils.IntState">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">IntState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#IntState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.IntState" title="Permalink to this definition"></a></dt>
+<dd><p>A subclass of int, with arbitrary, mutable state.</p>
+<p>State is provided to the constructor as the keyword argument
+<code class="docutils literal notranslate"><span class="pre">state</span></code>. All other arguments will be passed to <code class="docutils literal notranslate"><span class="pre">int</span></code>
+constructor. Instances should be functionally indistinguishable from
+<code class="docutils literal notranslate"><span class="pre">int</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.utils.IntState.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#IntState.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.IntState.__init__" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.utils.FloatState">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">FloatState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#FloatState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.FloatState" title="Permalink to this definition"></a></dt>
+<dd><p>A subclass of float, with arbitrary, mutable state.</p>
+<p>State is provided to the constructor as the keyword argument
+<code class="docutils literal notranslate"><span class="pre">state</span></code>. All other arguments will be passed to <code class="docutils literal notranslate"><span class="pre">float</span></code>
+constructor. Instances should be functionally indistinguishable from
+<code class="docutils literal notranslate"><span class="pre">float</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.utils.FloatState.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#FloatState.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.FloatState.__init__" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.utils.DecimalState">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">DecimalState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#DecimalState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.DecimalState" title="Permalink to this definition"></a></dt>
+<dd><p>A subclass of <code class="docutils literal notranslate"><span class="pre">decimal.Decimal</span></code>, with arbitrary, mutable state.</p>
+<p>State is provided to the constructor as the keyword argument
+<code class="docutils literal notranslate"><span class="pre">state</span></code>. All other arguments will be passed to <code class="docutils literal notranslate"><span class="pre">Decimal</span></code>
+constructor. Instances should be functionally indistinguishable from
+<code class="docutils literal notranslate"><span class="pre">Decimal</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.utils.DecimalState.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#DecimalState.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.DecimalState.__init__" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.utils.StrState">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.utils.</span></span><span class="sig-name descname"><span class="pre">StrState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#StrState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.StrState" title="Permalink to this definition"></a></dt>
+<dd><p>A subclass of string, with arbitrary, mutable state.</p>
+<p>State is provided to the constructor as the keyword argument
+<code class="docutils literal notranslate"><span class="pre">state</span></code>. All other arguments will be passed to <code class="docutils literal notranslate"><span class="pre">str</span></code>
+constructor. Instances should be functionally indistinguishable from
+<code class="docutils literal notranslate"><span class="pre">str</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.utils.StrState.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/utils.html#StrState.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.utils.StrState.__init__" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 </section>

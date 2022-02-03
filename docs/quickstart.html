@@ -225,7 +225,7 @@ nodes in each tree, at the same time:</p>
 <span class="gp">... </span>        <span class="s2">&quot;edge_weight_func&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">n1</span><span class="p">,</span> <span class="n">n2</span><span class="p">:</span> <span class="n">n1</span><span class="o">.</span><span class="n">label</span> <span class="o">!=</span> <span class="n">n2</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
 <span class="gp">... </span>        <span class="s2">&quot;accum_func&quot;</span><span class="p">:</span> <span class="nb">sum</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="n">names</span><span class="o">=</span><span class="s2">&quot;NodeCount&quot;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;NodeCount&quot;</span><span class="p">,</span>
 <span class="gp">... </span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">weight_count</span><span class="p">(</span><span class="o">**</span> <span class="p">(</span><span class="n">node_count_funcs</span> <span class="o">+</span> <span class="n">hdag</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">hamming_distance_countfuncs</span><span class="p">))</span>
 <span class="go">Counter({(50, 75): 444, (51, 75): 328, (49, 75): 270, (52, 75): 94, (48, 75): 68, (53, 75): 4})</span>

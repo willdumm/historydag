@@ -76,6 +76,7 @@
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">UserDict</span>
+<span class="kn">from</span> <span class="nn">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">List</span><span class="p">,</span>
     <span class="n">Any</span><span class="p">,</span>
@@ -361,12 +362,36 @@
 
 <span class="sd">    For example, `dag.weight_count(**(utils.hamming_distance_countfuncs + make_newickcountfuncs()))`</span>
 <span class="sd">    would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        initialdata: A dictionary containing functions keyed by &quot;start_func&quot;, &quot;edge_weight_func&quot;, and</span>
+<span class="sd">            &quot;accum_func&quot;. &quot;start_func&quot; specifies weight assigned to leaf HistoryDagNodes.</span>
+<span class="sd">            &quot;edge_weight_func&quot; specifies weight assigned to an edge between two HistoryDagNodes, with the</span>
+<span class="sd">            first argument the parent node, and the second argument the child node.</span>
+<span class="sd">            &quot;accum_func&quot; specifies how to &#39;add&#39; a list of weights. See :meth:`historydag.HistoryDag.weight_count`</span>
+<span class="sd">            for more details.</span>
+<span class="sd">        name: A string containing a name for the weight to be counted. If a tuple of weights will be returned,</span>
+<span class="sd">            use ``names`` instead.</span>
+<span class="sd">        names: A tuple of strings containing names for the weights to be counted, if a tuple of weights will</span>
+<span class="sd">            be returned by passed functions. If only a single weight will be returned, use ``name`` instead.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">requiredkeys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;start_func&quot;</span><span class="p">,</span> <span class="s2">&quot;edge_weight_func&quot;</span><span class="p">,</span> <span class="s2">&quot;accum_func&quot;</span><span class="p">}</span>
 
-<div class="viewcode-block" id="AddFuncDict.__init__"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.AddFuncDict.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initialdata</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="s2">&quot;unnamed_weight&quot;</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">names</span> <span class="o">=</span> <span class="n">names</span>
+<div class="viewcode-block" id="AddFuncDict.__init__"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.AddFuncDict.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initialdata</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">names</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Pass a value to either keyword argument &#39;name&#39; or &#39;names&#39;.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">names</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;unknown weight&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">names</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,)</span>
+        <span class="k">elif</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">names</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,)</span>
+        <span class="k">elif</span> <span class="n">names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">names</span> <span class="o">=</span> <span class="n">names</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">initialdata</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">requiredkeys</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Must provide functions named &quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">requiredkeys</span><span class="p">)</span>
@@ -401,7 +426,7 @@
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_convert_to_tupleargs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 
             <span class="k">def</span> <span class="nf">node_to_weight_decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
                 <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
@@ -427,7 +452,7 @@
                         <span class="bp">self</span><span class="p">[</span><span class="s2">&quot;accum_func&quot;</span><span class="p">]</span>
                     <span class="p">),</span>
                 <span class="p">},</span>
-                <span class="n">names</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="p">,),</span>
+                <span class="n">names</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,),</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span></div>
@@ -494,7 +519,7 @@
             <span class="s2">&quot;edge_weight_func&quot;</span><span class="p">:</span> <span class="n">_newickedgeweight</span><span class="p">,</span>
             <span class="s2">&quot;accum_func&quot;</span><span class="p">:</span> <span class="n">_newicksum</span><span class="p">,</span>
         <span class="p">},</span>
-        <span class="n">names</span><span class="o">=</span><span class="s2">&quot;NewickString&quot;</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;NewickString&quot;</span><span class="p">,</span>
     <span class="p">)</span></div>
 
 
@@ -529,6 +554,84 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="n">accum</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="k">return</span> <span class="n">accum</span></div>
+
+
+<span class="c1"># Unfortunately these can&#39;t be made with a class factory (just a bit too meta for Python)</span>
+<span class="c1"># short of doing something awful like https://hg.python.org/cpython/file/b14308524cff/Lib/collections/__init__.py#l232</span>
+<span class="k">def</span> <span class="nf">_remstate</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s2">&quot;state&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Constructor requires the keyword argument &#39;state&#39;.&quot;</span><span class="p">)</span>
+    <span class="n">intkwargs</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">intkwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">intkwargs</span>
+
+
+<div class="viewcode-block" id="IntState"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.IntState">[docs]</a><span class="k">class</span> <span class="nc">IntState</span><span class="p">(</span><span class="nb">int</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A subclass of int, with arbitrary, mutable state.</span>
+
+<span class="sd">    State is provided to the constructor as the keyword argument</span>
+<span class="sd">    ``state``. All other arguments will be passed to ``int``</span>
+<span class="sd">    constructor. Instances should be functionally indistinguishable from</span>
+<span class="sd">    ``int``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">intkwargs</span> <span class="o">=</span> <span class="n">_remstate</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">IntState</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">intkwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="IntState.__init__"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.IntState.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="FloatState"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.FloatState">[docs]</a><span class="k">class</span> <span class="nc">FloatState</span><span class="p">(</span><span class="nb">float</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A subclass of float, with arbitrary, mutable state.</span>
+
+<span class="sd">    State is provided to the constructor as the keyword argument</span>
+<span class="sd">    ``state``. All other arguments will be passed to ``float``</span>
+<span class="sd">    constructor. Instances should be functionally indistinguishable from</span>
+<span class="sd">    ``float``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">intkwargs</span> <span class="o">=</span> <span class="n">_remstate</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">FloatState</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">intkwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FloatState.__init__"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.FloatState.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="DecimalState"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.DecimalState">[docs]</a><span class="k">class</span> <span class="nc">DecimalState</span><span class="p">(</span><span class="n">Decimal</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A subclass of ``decimal.Decimal``, with arbitrary, mutable state.</span>
+
+<span class="sd">    State is provided to the constructor as the keyword argument</span>
+<span class="sd">    ``state``. All other arguments will be passed to ``Decimal``</span>
+<span class="sd">    constructor. Instances should be functionally indistinguishable from</span>
+<span class="sd">    ``Decimal``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">intkwargs</span> <span class="o">=</span> <span class="n">_remstate</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">DecimalState</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">intkwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="DecimalState.__init__"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.DecimalState.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="StrState"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.StrState">[docs]</a><span class="k">class</span> <span class="nc">StrState</span><span class="p">(</span><span class="nb">str</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A subclass of string, with arbitrary, mutable state.</span>
+
+<span class="sd">    State is provided to the constructor as the keyword argument</span>
+<span class="sd">    ``state``. All other arguments will be passed to ``str``</span>
+<span class="sd">    constructor. Instances should be functionally indistinguishable from</span>
+<span class="sd">    ``str``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">intkwargs</span> <span class="o">=</span> <span class="n">_remstate</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">StrState</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">intkwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="StrState.__init__"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.StrState.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span></div></div>
 </pre></div>
 
            </div>
