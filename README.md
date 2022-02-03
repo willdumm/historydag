@@ -6,7 +6,9 @@ a common set of leaf labels.
 
 ## Getting Started
 
-Once you've cloned the repo, `pip install -e historydag` should be enough to
+HistoryDAG is on PyPI! Install with `pip install historydag`.
+
+Alternatively, once you've cloned the repo, `pip install -e historydag` should be enough to
 get set up.
 
 There is sample data in `sample_data/`. For example:
@@ -91,5 +93,7 @@ In addition, all the trees in the collection must have identical sets of leaf la
 
 ## Documentation
 
-After installing requirements from `requirements.txt`, do `make docs` to build
+Docs are available at [https://matsengrp.github.io/historydag](https://matsengrp.github.io/historydag).
+
+To build docs, after installing requirements from `requirements.txt`, do `make docs` to build
 sphinx documentation locally. You'll find it at `docs/_build/html/index.html`.
