@@ -487,9 +487,9 @@ def prod(ls: list):
 
 # Unfortunately these can't be made with a class factory (just a bit too meta for Python)
 # short of doing something awful like https://hg.python.org/cpython/file/b14308524cff/Lib/collections/__init__.py#l232
-def _remstate(**kwargs):
+def _remstate(kwargs):
     if "state" not in kwargs:
-        raise ValueError("Constructor requires the keyword argument 'state'.")
+        kwargs["state"] = None
     intkwargs = kwargs.copy()
     intkwargs.pop("state")
     return intkwargs
@@ -505,11 +505,20 @@ class IntState(int):
     """
 
     def __new__(cls, *args, **kwargs):
-        intkwargs = _remstate(**kwargs)
+        intkwargs = _remstate(kwargs)
         return super(IntState, cls).__new__(cls, *args, **intkwargs)
 
     def __init__(self, *args, **kwargs):
         self.state = kwargs["state"]
+
+    def __copy__(self):
+        return IntState(int(self), state=self.state)
+
+    def __getstate__(self):
+        return {"val": int(self), "state": self.state}
+
+    def __setstate__(self, statedict):
+        self.state = statedict["state"]
 
 
 class FloatState(float):
@@ -522,11 +531,20 @@ class FloatState(float):
     """
 
     def __new__(cls, *args, **kwargs):
-        intkwargs = _remstate(**kwargs)
+        intkwargs = _remstate(kwargs)
         return super(FloatState, cls).__new__(cls, *args, **intkwargs)
 
     def __init__(self, *args, **kwargs):
         self.state = kwargs["state"]
+
+    def __copy__(self):
+        return FloatState(float(self), state=self.state)
+
+    def __getstate__(self):
+        return {"val": float(self), "state": self.state}
+
+    def __setstate__(self, statedict):
+        self.state = statedict["state"]
 
 
 class DecimalState(Decimal):
@@ -539,11 +557,20 @@ class DecimalState(Decimal):
     """
 
     def __new__(cls, *args, **kwargs):
-        intkwargs = _remstate(**kwargs)
+        intkwargs = _remstate(kwargs)
         return super(DecimalState, cls).__new__(cls, *args, **intkwargs)
 
     def __init__(self, *args, **kwargs):
         self.state = kwargs["state"]
+
+    def __copy__(self):
+        return DecimalState(Decimal(self), state=self.state)
+
+    def __getstate__(self):
+        return {"val": Decimal(self), "state": self.state}
+
+    def __setstate__(self, statedict):
+        self.state = statedict["state"]
 
 
 class StrState(str):
@@ -556,8 +583,17 @@ class StrState(str):
     """
 
     def __new__(cls, *args, **kwargs):
-        intkwargs = _remstate(**kwargs)
+        intkwargs = _remstate(kwargs)
         return super(StrState, cls).__new__(cls, *args, **intkwargs)
 
     def __init__(self, *args, **kwargs):
         self.state = kwargs["state"]
+
+    def __copy__(self):
+        return StrState(str(self), state=self.state)
+
+    def __getstate__(self):
+        return {"val": str(self), "state": self.state}
+
+    def __setstate__(self, statedict):
+        self.state = statedict["state"]

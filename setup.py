@@ -1,6 +1,8 @@
 import setuptools
 import versioneer
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
 
 setuptools.setup(
     name="historydag",
@@ -9,6 +11,9 @@ setuptools.setup(
     author="Will Dumm",
     author_email="wdumm88@gmail.com",
     description="Basic history DAG implementation",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://matsengrp.github.io/historydag",
     packages=['historydag'],
     classifiers=[
         "Programming Language :: Python :: 3",
