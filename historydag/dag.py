@@ -50,7 +50,7 @@ class HistoryDagNode:
             raise ValueError(
                 f"Internal nodes (those which are not the DAG UA root node) "
                 f"may not have exactly one child clade; Unifurcations cannot be expressed "
-                f"in the history DAG. A HistoryDagNode with {label} and clades {set(clades.keys())} is not allowed."
+                f"in the history DAG."
             )
 
     def __repr__(self) -> str:
@@ -122,9 +122,6 @@ class HistoryDagNode:
         if key not in self.clades:
             raise KeyError(
                 "Target clades' union is not a clade of this parent node: "
-                + str(key)
-                + " not in "
-                + str(self.clades)
             )
         else:
             target.parents.add(self)
@@ -375,7 +372,7 @@ class HistoryDag:
         r"""Graph union this history DAG with another."""
         if not self.dagroot == other.dagroot:
             raise ValueError(
-                f"The given HistoryDag must be a root node on identical taxa.\n{self.dagroot}\nvs\n{other.dagroot}"
+                f"The given HistoryDag must be a root node on identical taxa."
             )
         selforder = self.postorder()
         otherorder = other.postorder()
@@ -1390,7 +1387,6 @@ def from_tree(
         raise ValueError(
             "This tree's leaves are not labeled uniquely. Check your tree, "
             "or modify the label fields so that leaves are unique.\n"
-            + str(leaf_names(tree))
         )
 
     # Checking for unifurcation is handled in HistoryDagNode.__init__.
