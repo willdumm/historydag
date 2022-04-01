@@ -1,6 +1,5 @@
 from historydag.utils import (
     hamming_distance,
-    UALabel,
     hist,
     AddFuncDict,
     hamming_distance_countfuncs,
@@ -20,11 +19,6 @@ def test_hamming_distance():
         "hamming distance allowed comparison of sequences with different lengths."
     )
 
-
-def test_ualabel():
-    assert UALabel() == UALabel()
-    assert UALabel() is not None
-    assert UALabel() != 0
 
 
 def test_hist():

@@ -173,7 +173,7 @@ def test_postorder():
         10,
         9,
         1,
-        "UA_node",
+        "UA_Node",
     ]
     # print([namedict[node.label] for node in postorder(dag)])
 
@@ -298,7 +298,6 @@ def test_eq():
     tree2 = ete3.Tree("((z, b)b, c)c;", format=1)
     dag2 = from_tree(tree2, ["name"])
     assert dag1.dagroot == dag1.copy().dagroot
-    assert dag1.dagroot != dag2.dagroot
 
 
 def test_to_graphviz():
