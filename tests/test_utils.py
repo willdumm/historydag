@@ -55,7 +55,7 @@ def test_dp_templatefuncs():
     template = templatedict + templatedict1
 
     startfunc, ewfunc, accumfunc = template.values()
-    assert hamming_distance_countfuncs.names == "HammingParsimony"
+    assert hamming_distance_countfuncs.names == ("HammingParsimony",)
     assert template.names == ("sum0", "min1")
     assert startfunc("doesnotmatter") == (0, 1)
     assert ewfunc("somenode", "someother") == (0, 1)
