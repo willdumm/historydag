@@ -393,7 +393,7 @@ hamming_distance_countfuncs = AddFuncDict(
         "edge_weight_func": lambda n1, n2: wrapped_hamming_distance(n1.label, n2.label),
         "accum_func": sum,
     },
-    names="HammingParsimony",
+    name="HammingParsimony",
 )
 """Provides functions to count hamming distance parsimony.
 For use with :meth:`historydag.HistoryDag.weight_count`."""
