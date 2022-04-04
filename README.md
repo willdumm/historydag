@@ -66,14 +66,12 @@ t = dag.sample().to_ete()
     * `HistoryDag.to_ete`
     * `HistoryDag.to_newick` and `HistoryDag.to_newicks`
 * Simple history DAGs can be inspected with `HistoryDag.to_graphviz`
-* Pickling must be done using `HistoryDag.serialize` and the top-level function
-    `deserialize`.
 * The DAG can be trimmed according to arbitrary tree weight functions. Use
     `HistoryDag.trim_optimal_weight`.
 * Disambiguation of sparse ambiguous labels can be done efficiently, but
     doesn't scale well. Use `HistoryDag.explode_nodes` followed by
     `HistoryDag.trim_optimal_weight`.
-* Weights of trees in the DAG can be counted, using arbitrary weight functions
+* Weights of trees in the DAG can be counted, according to arbitrary weight functions
     using `HistoryDag.weight_count`. The class `utils.AddFuncDict` is provided
     to manage these function arguments, and implements addition so that
     different weights can be counted jointly. These same functions can be used
