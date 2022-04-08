@@ -393,6 +393,29 @@ class HistoryDag:
                 for child, weight, _ in edgeset:
                     pnode.add_edge(nodedict[child], weight=weight)
 
+    def merge_list(self, treelist: List["HistoryDag"]):
+        r"""Graph union this histroy DAG with all those in a list of history DAGs."""
+        selforder = self.postorder()
+        nodedict = {n: n for n in selforder}
+        for other in treelist:
+            if not self.dagroot == other.dagroot:
+                raise ValueError(
+                    f"The given HistoryDag must be a root node on identical taxa.\n{self.dagroot}\nvs\n{other.dagroot}"
+                )
+            otherorder = other.postorder()
+            # hash and __eq__ are implemented for nodes, but we need to retrieve
+            # the actual instance that's the same as a proposed node-to-add:
+            for n in otherorder:
+                if n in nodedict:
+                    pnode = nodedict[n]
+                else:
+                    pnode = n.node_self()
+                    nodedict[n] = pnode
+
+                for _, edgeset in n.clades.items():
+                    for child, weight, _ in edgeset:
+                        pnode.add_edge(nodedict[child], weight=weight)
+
     def add_all_allowed_edges(
         self,
         new_from_root: bool = True,
@@ -1495,7 +1518,14 @@ def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
     trees."""
     # merge checks that all clade trees have the same leaf label set.
     # Is copying the first enough to avoid mutating treelist?
-    dag = treelist[0].copy()
-    for tree in treelist[1:]:
-        dag.merge(tree)
-    return dag
+
+    # NOTE: I commented this out
+    if len(treelist) <= 1:
+        dag = treelist[0].copy()
+        for tree in treelist[1:]:
+            dag.merge(tree)
+        return dag
+    else:
+        dag = treelist[0].copy()
+        dag.merge_list(treelist[1:])
+        return dag
