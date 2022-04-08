@@ -17,13 +17,13 @@ sys.path.insert(0, os.path.abspath(".."))  # Source code dir relative to this fi
 
 project = "historydag"
 author = "Will Dumm"
-copyright = '2020, Will Dumm'
+copyright = "2020, Will Dumm"
 
 # No version in docs, doesn't play nice with versioneer
 # The short X.Y version
-version = ''
+version = ""
 # The full version, including alpha/beta/rc tags
-release = ''
+release = ""
 
 # -- General configuration ---------------------------------------------------
 
@@ -57,23 +57,23 @@ todo_include_todos = True
 
 # Mappings for sphinx.ext.intersphinx. Projects have to have Sphinx-generated doc! (.inv file)
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3/', None),
-    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
-    'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
-    'ete3': ('http://etetoolkit.org/docs/latest/', None),
+    "python": ("https://docs.python.org/3/", None),
+    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "ete3": ("http://etetoolkit.org/docs/latest/", None),
 }
 
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 autoclass_content = "both"  # Add __init__ doc (ie. params) to class summaries
 html_show_sourcelink = (
-    False
-)  # Remove 'view source code' from top of page (for html, not python)
+    False  # Remove 'view source code' from top of page (for html, not python)
+)
 autodoc_inherit_docstrings = True  # If no class summary, inherit base class summary
 
 autodoc_default_options = {
-    'members': True,
-    'member-order': 'bysource',
-    'special-members': '__init__',
+    "members": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -84,20 +84,20 @@ templates_path = ["_templates"]
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'logo_only': True,
+    "logo_only": True,
 }
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = '_static/logo.png'
+html_logo = "_static/logo.png"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
