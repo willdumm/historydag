@@ -384,13 +384,15 @@ class HistoryDag:
         nodedict = {n: n for n in selforder}
         for n in otherorder:
             if n in nodedict:
-                pnode = nodedict[n]
+                pnode = nodedict[n]  # Get self's node in memory
             else:
                 pnode = n.node_self()
-                nodedict[n] = pnode
+                nodedict[n] = pnode  # Create and add node to dict
 
             for _, edgeset in n.clades.items():
                 for child, weight, _ in edgeset:
+                    # Add edge from parent to each child. Postorder
+                    #   traversal means new children will be in self
                     pnode.add_edge(nodedict[child], weight=weight)
 
     def merge_list(self, treelist: List["HistoryDag"]):
@@ -1519,13 +1521,11 @@ def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
     # merge checks that all clade trees have the same leaf label set.
     # Is copying the first enough to avoid mutating treelist?
 
-    # NOTE: I commented this out
+    dag = treelist[0].copy()
     if len(treelist) <= 1:
-        dag = treelist[0].copy()
         for tree in treelist[1:]:
             dag.merge(tree)
-        return dag
     else:
-        dag = treelist[0].copy()
         dag.merge_list(treelist[1:])
-        return dag
+
+    return dag
