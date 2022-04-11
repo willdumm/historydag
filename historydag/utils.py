@@ -83,7 +83,7 @@ def ignore_uanode(default: Any) -> Callable[[F], F]:
 
     def decorator(func):
         @wraps(func)
-        def wrapper(*args: 'HistoryDagNode', **kwargs: Any):
+        def wrapper(*args: "HistoryDagNode", **kwargs: Any):
             for node in args:
                 if node.is_root():
                     return default
@@ -131,6 +131,7 @@ def hamming_distance(s1: str, s2: str) -> int:
     if len(s1) != len(s2):
         raise ValueError("Sequences must have the same length!")
     return sum(x != y for x, y in zip(s1, s2))
+
 
 @access_nodefield_default("sequence", 0)
 def wrapped_hamming_distance(s1, s2) -> int:

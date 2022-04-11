@@ -118,9 +118,7 @@ class HistoryDagNode:
         # target clades must union to a clade of self
         key = frozenset() if self.is_root() else target.under_clade()
         if key not in self.clades:
-            raise KeyError(
-                "Target clades' union is not a clade of this parent node: "
-            )
+            raise KeyError("Target clades' union is not a clade of this parent node: ")
         else:
             target.parents.add(self)
             return self.clades[key].add_to_edgeset(
@@ -219,10 +217,11 @@ class HistoryDagNode:
             featurestr = ":".join(f"{name}={val}" for name, val in nameval_dict.items())
             return name_func(self) + (f"[&&NHX:{featurestr}]" if featurestr else "")
 
+
 class UANode(HistoryDagNode):
     r"""A universal ancestor node, the root node of a HistoryDag"""
 
-    def __init__(self, targetnodes: 'EdgeSet'):
+    def __init__(self, targetnodes: "EdgeSet"):
         self.label = "UA_Node"
         # an empty frozenset is not used as a key in any other node
         self.targetnodes = targetnodes
@@ -240,6 +239,7 @@ class UANode(HistoryDagNode):
 
     def is_root(self):
         return True
+
 
 class HistoryDag:
     r"""An object to represent a collection of internally labeled trees.
@@ -293,9 +293,10 @@ class HistoryDag:
             if node.label not in label_indices:
                 label_indices[node.label] = len(label_list)
                 label_list.append(None if node.is_root() else tuple(node.label))
-                assert label_list[
-                    label_indices[node.label]
-                ] == node.label or node.is_root()
+                assert (
+                    label_list[label_indices[node.label]] == node.label
+                    or node.is_root()
+                )
             node_list.append((label_indices[node.label], cladesets(node), node.attr))
             node_idx = len(node_list) - 1
             for eset in node.clades.values():
@@ -333,8 +334,7 @@ class HistoryDag:
         node_postorder = [
             UANode(EdgeSet())
             if label_list[labelidx] is None
-            else
-            HistoryDagNode(
+            else HistoryDagNode(
                 (Label(*label_list[labelidx])),
                 {unpack_labels(clade): EdgeSet() for clade in clades},
                 attr,
@@ -388,7 +388,10 @@ class HistoryDag:
 
     def merge(self, other: "HistoryDag"):
         r"""Graph union this history DAG with another."""
-        if not self.dagroot.targetnodes.targets[0].under_clade() == other.dagroot.targetnodes.targets[0].under_clade():
+        if (
+            not self.dagroot.targetnodes.targets[0].under_clade()
+            == other.dagroot.targetnodes.targets[0].under_clade()
+        ):
             raise ValueError(
                 f"The given HistoryDag must be a root node on identical taxa."
             )
