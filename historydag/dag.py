@@ -774,7 +774,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
+        ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
     ) -> Weight:
@@ -807,7 +807,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
+        ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
     ):
         r"""A template method for counting weights of trees expressed in the history DAG.
@@ -987,7 +987,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
+        ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,

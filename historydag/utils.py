@@ -136,7 +136,7 @@ def hamming_distance(s1: str, s2: str) -> int:
 @access_nodefield_default("sequence", 0)
 def wrapped_hamming_distance(s1, s2) -> int:
     """The sitewise sum of base differences between sequence field contents of
-    two labels.
+    two nodes.
 
     Takes two HistoryDagNodes as arguments.
 
@@ -356,7 +356,7 @@ class AddFuncDict(UserDict):
 hamming_distance_countfuncs = AddFuncDict(
     {
         "start_func": lambda n: 0,
-        "edge_weight_func": lambda n1, n2: wrapped_hamming_distance(n1.label, n2.label),
+        "edge_weight_func": wrapped_hamming_distance,
         "accum_func": sum,
     },
     name="HammingParsimony",

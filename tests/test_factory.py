@@ -99,7 +99,7 @@ def test_valid_dags():
         for node in dag.postorder():
             for clade in node.clades:
                 for target in node.clades[clade].targets:
-                    assert target.under_clade() == clade
+                    assert target.under_clade() == clade or node.is_root()
 
         # each clade has a descendant edge:
         for node in dag.postorder():
@@ -131,7 +131,7 @@ def test_parsimony():
     def parsimony(tree):
         tree.recompute_parents()
         return sum(
-            dagutils.wrapped_hamming_distance(list(node.parents)[0].label, node.label)
+            dagutils.wrapped_hamming_distance(list(node.parents)[0], node)
             for node in tree.postorder()
             if node.parents
         )
@@ -222,7 +222,7 @@ def test_min_weight():
     def parsimony(tree):
         tree.recompute_parents()
         return sum(
-            dagutils.wrapped_hamming_distance(list(node.parents)[0].label, node.label)
+            dagutils.wrapped_hamming_distance(list(node.parents)[0], node)
             for node in tree.postorder()
             if node.parents
         )
