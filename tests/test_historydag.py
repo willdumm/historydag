@@ -93,6 +93,11 @@ def test_from_tree():
     G = dag.to_graphviz(namedict=namedict)
     return G
 
+def test_is_clade_tree():
+    tree = ete3.Tree(newickstring2, format=1)
+    print(tree.sequence)
+    dag = from_tree(tree, ["sequence"])
+    assert dag.is_clade_tree()
 
 def test_from_tree_label():
     tree = ete3.Tree(newickstring2, format=1)
@@ -222,6 +227,8 @@ def test_sample():
     newicks = ["((1, 2)2, 3)3;", "((1, 2)3, 3)3;", "((1, 2)1, 3)3;", "((1, 2)4, 3)4;"]
     namedict = {(str(x),): x for x in range(5)}
     dag = history_dag_from_newicks(newicks, ["name"])
+    for i in range(10):
+        assert dag.sample().is_clade_tree()
     sample = dag.sample()
     return sample.to_graphviz(namedict=namedict)
 

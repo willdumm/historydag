@@ -228,14 +228,15 @@ class UANode(HistoryDagNode):
         self.clades = {frozenset(): targetnodes}
         self.parents = set()
         self.attr = dict()
-        targetnodes.parent = self
         for child in self.children():
             child.parents.add(self)
 
     def node_self(self) -> "UANode":
         """Returns a UANode object with the same clades and label, but
         no descendant edges."""
-        return UANode(self.targetnodes)
+        newnode =  UANode(EdgeSet())
+        newnode.attr = deepcopy(self.attr)
+        return newnode
 
     def is_root(self):
         return True
@@ -940,7 +941,7 @@ class HistoryDag:
                 for label in expand_func(node.label)
             }
 
-        @utils.ignore_uanode(0)
+        @utils.ignore_uanode({'UA_Node': Counter({0: 1})})
         def edge_weight_func(parent, child):
             # This will handle 'adding' child node counts to the edge, so we
             # have accum_above_edge just return this result.
