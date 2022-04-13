@@ -20,7 +20,6 @@ def test_hamming_distance():
     )
 
 
-
 def test_hist():
     hist(Counter([1, 2, 3, 3, 3, 3, 4]))
 

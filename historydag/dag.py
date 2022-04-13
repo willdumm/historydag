@@ -88,7 +88,8 @@ class HistoryDagNode:
         return False
 
     def partitions(self) -> frozenset:
-        """Returns the node's child clades, or a frozenset containing a frozenset if this node is a UANode"""
+        """Returns the node's child clades, or a frozenset containing a
+        frozenset if this node is a UANode."""
         return frozenset(self.clades.keys())
 
     def children(
@@ -240,8 +241,8 @@ class UANode(HistoryDagNode):
             child.parents.add(self)
 
     def node_self(self) -> "UANode":
-        """Returns a UANode object with the same clades and label, but
-        no descendant edges."""
+        """Returns a UANode object with the same clades and label, but no
+        descendant edges."""
         newnode = UANode(EdgeSet())
         newnode.attr = deepcopy(self.attr)
         return newnode

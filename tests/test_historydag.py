@@ -93,11 +93,13 @@ def test_from_tree():
     G = dag.to_graphviz(namedict=namedict)
     return G
 
+
 def test_is_clade_tree():
     tree = ete3.Tree(newickstring2, format=1)
     print(tree.sequence)
     dag = from_tree(tree, ["sequence"])
     assert dag.is_clade_tree()
+
 
 def test_from_tree_label():
     tree = ete3.Tree(newickstring2, format=1)
@@ -291,6 +293,7 @@ def test_eq():
     tree2 = ete3.Tree("((z, b)b, c)c;", format=1)
     dag2 = from_tree(tree2, ["name"])
     assert dag1.dagroot == dag1.copy().dagroot
+    assert list(dag1.dagroot.children())[0] != list(dag2.dagroot.children())[0]
 
 
 def test_to_graphviz():
