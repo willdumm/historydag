@@ -22,7 +22,7 @@ from collections import Counter
 from copy import deepcopy
 
 from historydag import utils
-from historydag.utils import UALabel, Weight, Label, NTLabel, prod
+from historydag.utils import Weight, Label, UALabel, prod
 from historydag.counterops import counter_sum, counter_prod
 
 
@@ -33,7 +33,6 @@ class HistoryDagNode:
     """
 
     def __init__(self, label: Label, clades: dict, attr: Any):
-        assert isinstance(label, tuple) or isinstance(label, UALabel)
         self.clades = clades
         # If passed a nonempty dictionary, need to add self to children's parents
         self.label = label
@@ -46,11 +45,11 @@ class HistoryDagNode:
             for child in self.children():
                 child.parents.add(self)
 
-        if not self.is_root() and len(self.clades) == 1:
+        if len(self.clades) == 1:
             raise ValueError(
-                f"Internal nodes (those which are not the DAG UA root node) "
-                f"may not have exactly one child clade; Unifurcations cannot be expressed "
-                f"in the history DAG. A HistoryDagNode with {label} and clades {set(clades.keys())} is not allowed."
+                "Internal nodes (those which are not the DAG UA root node) "
+                "may not have exactly one child clade; Unifurcations cannot be expressed "
+                "in the history DAG."
             )
 
     def __repr__(self) -> str:
@@ -72,10 +71,9 @@ class HistoryDagNode:
             self.label, {clade: EdgeSet() for clade in self.clades}, deepcopy(self.attr)
         )
 
-    def under_clade(self) -> FrozenSet[NTLabel]:
+    def under_clade(self) -> FrozenSet[Label]:
         r"""Returns the union of this node's child clades"""
         if self.is_leaf():
-            assert not isinstance(self.label, UALabel)
             return frozenset([self.label])
         else:
             return frozenset().union(*self.clades.keys())
@@ -87,10 +85,11 @@ class HistoryDagNode:
     def is_root(self) -> bool:
         """Returns whether this is a DAG root node, or UA (universal ancestor)
         node."""
-        return isinstance(self.label, UALabel)
+        return False
 
     def partitions(self) -> frozenset:
-        """Returns the node's child clades."""
+        """Returns the node's child clades, or a frozenset containing a
+        frozenset if this node is a UANode."""
         return frozenset(self.clades.keys())
 
     def children(
@@ -118,14 +117,9 @@ class HistoryDagNode:
     ) -> bool:
         r"""Adds edge, if allowed and not already present. Returns whether edge was added."""
         # target clades must union to a clade of self
-        key = target.under_clade()
+        key = frozenset() if self.is_root() else target.under_clade()
         if key not in self.clades:
-            raise KeyError(
-                "Target clades' union is not a clade of this parent node: "
-                + str(key)
-                + " not in "
-                + str(self.clades)
-            )
+            raise KeyError("Target clades' union is not a clade of this parent node: ")
         else:
             target.parents.add(self)
             return self.clades[key].add_to_edgeset(
@@ -134,6 +128,14 @@ class HistoryDagNode:
                 prob=prob,
                 prob_norm=prob_norm,
             )
+
+    def remove_edge_by_clade_and_id(self, target: "HistoryDagNode", clade: frozenset):
+        key: frozenset
+        if self.is_root():
+            key = frozenset()
+        else:
+            key = clade
+        self.clades[key].remove_from_edgeset_byid(target)
 
     def remove_node(self, nodedict: Dict["HistoryDagNode", "HistoryDagNode"] = {}):
         r"""Recursively removes node self and any orphaned children from dag.
@@ -147,7 +149,7 @@ class HistoryDagNode:
             if not child.parents:
                 child.remove_node(nodedict=nodedict)
         for parent in self.parents:
-            parent.clades[self.under_clade()].remove_from_edgeset_byid(self)
+            parent.remove_edge_by_clade_and_id(self, self.under_clade())
         self.removed = True
 
     def _sample(self) -> "HistoryDagNode":
@@ -210,7 +212,7 @@ class HistoryDagNode:
             For example, `namefuncresult[&&NHX:feature1=val1:feature2=val2]`
         """
         if self.is_root():
-            return "UA_node"
+            return self.label  # type: ignore
         else:
             if features is None:
                 features = self.label._fields
@@ -225,6 +227,30 @@ class HistoryDagNode:
             return name_func(self) + (f"[&&NHX:{featurestr}]" if featurestr else "")
 
 
+class UANode(HistoryDagNode):
+    r"""A universal ancestor node, the root node of a HistoryDag"""
+
+    def __init__(self, targetnodes: "EdgeSet"):
+        self.label = UALabel()
+        # an empty frozenset is not used as a key in any other node
+        self.targetnodes = targetnodes
+        self.clades = {frozenset(): targetnodes}
+        self.parents = set()
+        self.attr = dict()
+        for child in self.children():
+            child.parents.add(self)
+
+    def node_self(self) -> "UANode":
+        """Returns a UANode object with the same clades and label, but no
+        descendant edges."""
+        newnode = UANode(EdgeSet())
+        newnode.attr = deepcopy(self.attr)
+        return newnode
+
+    def is_root(self):
+        return True
+
+
 class HistoryDag:
     r"""An object to represent a collection of internally labeled trees.
     A wrapper object to contain exposed HistoryDag methods and point to a HistoryDagNode root
@@ -235,6 +261,7 @@ class HistoryDag:
     """
 
     def __init__(self, dagroot: HistoryDagNode, attr: Any = {}):
+        assert isinstance(dagroot, UANode)  # for typing
         self.attr = attr
         self.dagroot = dagroot
 
@@ -260,7 +287,7 @@ class HistoryDag:
             * edge_list: a tuple for each edge:
                     (origin node index, target node index, edge weight, edge probability)"""
         label_fields = list(self.dagroot.children())[0].label._fields
-        label_list: List[Tuple] = []
+        label_list: List[Optional[Tuple]] = []
         node_list: List[Tuple] = []
         edge_list: List[Tuple] = []
         label_indices: Dict[Label, int] = {}
@@ -276,10 +303,11 @@ class HistoryDag:
         for node in self.postorder():
             if node.label not in label_indices:
                 label_indices[node.label] = len(label_list)
-                label_list.append(utils.ignore_ualabel(None)(tuple)(node.label))
-                assert label_list[
-                    label_indices[node.label]
-                ] == node.label or isinstance(node.label, UALabel)
+                label_list.append(None if node.is_root() else tuple(node.label))
+                assert (
+                    label_list[label_indices[node.label]] == node.label
+                    or node.is_root()
+                )
             node_list.append((label_indices[node.label], cladesets(node), node.attr))
             node_idx = len(node_list) - 1
             for eset in node.clades.values():
@@ -315,12 +343,10 @@ class HistoryDag:
             return res
 
         node_postorder = [
-            HistoryDagNode(
-                (
-                    utils.UALabel()
-                    if label_list[labelidx] is None
-                    else Label(*label_list[labelidx])
-                ),
+            UANode(EdgeSet())
+            if label_list[labelidx] is None
+            else HistoryDagNode(
+                (Label(*label_list[labelidx])),
                 {unpack_labels(clade): EdgeSet() for clade in clades},
                 attr,
             )
@@ -373,10 +399,6 @@ class HistoryDag:
 
     def merge(self, other: "HistoryDag"):
         r"""Graph union this history DAG with another."""
-        if not self.dagroot == other.dagroot:
-            raise ValueError(
-                f"The given HistoryDag must be a root node on identical taxa.\n{self.dagroot}\nvs\n{other.dagroot}"
-            )
         selforder = self.postorder()
         otherorder = other.postorder()
         # hash and __eq__ are implemented for nodes, but we need to retrieve
@@ -415,7 +437,7 @@ class HistoryDag:
             The number of edges added to the history DAG
         """
         n_added = 0
-        clade_dict: Dict[FrozenSet[NTLabel], List[HistoryDagNode]] = {
+        clade_dict: Dict[FrozenSet[Label], List[HistoryDagNode]] = {
             node.under_clade(): [] for node in self.postorder()
         }
         if preserve_parent_labels is True:
@@ -557,12 +579,6 @@ class HistoryDag:
             show_partitions: Whether to include child clades in output.
         """
 
-        def taxa(clade):
-            ls = [labeller(taxon) for taxon in clade]
-            ls.sort()
-            return ",".join(ls)
-
-        @utils.ignore_ualabel("UA_node")
         def labeller(label):
             if label in namedict:
                 return str(namedict[label])
@@ -571,12 +587,13 @@ class HistoryDag:
             else:
                 return str(hash(label))
 
+        def taxa(clade):
+            ls = [labeller(taxon) for taxon in clade]
+            ls.sort()
+            return ",".join(ls)
+
         if labelfunc is None:
-
-            def default_labelfunc(n):
-                return labeller(node.label)
-
-            labelfunc = default_labelfunc
+            labelfunc = utils.ignore_uanode("UA_node")(lambda n: labeller(n.label))
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in self.postorder():
@@ -760,7 +777,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
+        ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
     ) -> Weight:
@@ -793,7 +810,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
+        ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
     ):
         r"""A template method for counting weights of trees expressed in the history DAG.
@@ -893,7 +910,9 @@ class HistoryDag:
     def weight_counts_with_ambiguities(
         self,
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_func: Callable[[Label, Label], Weight] = utils.wrapped_hamming_distance,
+        edge_func: Callable[[Label, Label], Weight] = lambda l1, l2: (
+            0 if isinstance(l1, UALabel) else utils.hamming_distance(l1.sequence, l2.sequence)  # type: ignore
+        ),
         accum_func: Callable[[List[Weight]], Weight] = sum,
         expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
     ):
@@ -907,7 +926,8 @@ class HistoryDag:
         Args:
             start_func: A function which assigns a weight to each leaf node
             edge_func: A function which assigns a weight to pairs of labels, with the
-                parent node label the first argument
+                parent node label the first argument. Must correctly handle the UA
+                node label which is a UALabel instead of a namedtuple.
             accum_func: A way to 'add' a list of weights together
             expand_func: A function which takes a label and returns a list of labels, such
                 as disambiguations of an ambiguous sequence.
@@ -918,6 +938,12 @@ class HistoryDag:
             possible disambiguations of trees. These disambiguations may not be unique,
             but if two are the same, they come from different subtrees of the DAG.
         """
+
+        def wrapped_expand_func(label, is_root):
+            if is_root:
+                return [label]
+            else:
+                return expand_func(label)
 
         # The old direct implementation not using postorder_cladetree_accum was
         # more straightforward, and may be significantly faster.
@@ -941,7 +967,7 @@ class HistoryDag:
                     ]
                 )
                 for childlabel, target_wc in child._dp_data.items()
-                for label in expand_func(parent.label)
+                for label in wrapped_expand_func(parent.label, parent.is_root())
             }
 
         def accum_within_clade(dictlist):
@@ -972,7 +998,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = lambda n1, n2: utils.wrapped_hamming_distance(n1.label, n2.label),
+        ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
@@ -1138,7 +1164,7 @@ class HistoryDag:
                     newparent.add_edge(grandchild)
                     edgequeue.append([newparent, grandchild])
                 # Remove the edge we were fixing from old parent
-                parent.clades[clade].remove_from_edgeset_byid(child)
+                parent.remove_edge_by_clade_and_id(child, clade)
                 # Clean up the DAG:
                 # Delete old parent if it is no longer a valid node
                 if parent_clade_edges == 1:
@@ -1147,7 +1173,7 @@ class HistoryDag:
                     # edges added to new parent from the same clade.
                     upclade = parent.under_clade()
                     for grandparent in parent.parents:
-                        grandparent.clades[upclade].remove_from_edgeset_byid(parent)
+                        grandparent.remove_edge_by_clade_and_id(parent, upclade)
                     for child2 in parent.children():
                         child2.parents.remove(parent)
                         if not child2.parents:
@@ -1390,21 +1416,12 @@ def from_tree(
         raise ValueError(
             "This tree's leaves are not labeled uniquely. Check your tree, "
             "or modify the label fields so that leaves are unique.\n"
-            + str(leaf_names(tree))
         )
 
     # Checking for unifurcation is handled in HistoryDagNode.__init__.
 
     dag = _unrooted_from_tree(tree)
-    dagroot = HistoryDagNode(
-        UALabel(),
-        {
-            frozenset({taxon for s in dag.clades for taxon in s}): EdgeSet(
-                [dag], weights=[tree.dist]
-            )
-        },
-        None,
-    )
+    dagroot = UANode(EdgeSet([dag], weights=[tree.dist]))
     dagroot.add_edge(dag, weight=0)
     return HistoryDag(dagroot)
 
