@@ -16,14 +16,40 @@ from typing import (
     Generator,
     Tuple,
     NamedTuple,
+    Optional,
 )
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from historydag.dag import HistoryDagNode
 
 Weight = Any
-Label = NamedTuple
+Label = Union[NamedTuple, "UALabel"]
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+class UALabel(str):
+    _fields: Tuple = tuple()
+
+    def __new__(cls):
+        return super(UALabel, cls).__new__(cls, "UA_Node")
+
+    def __eq__(self, other):
+        return isinstance(other, UALabel)
+
+    def __hash__(self):
+        return hash("UA_Node")
+
+    def __iter__(self):
+        raise RuntimeError("Attempted to iterate from dag root UALabel")
+
+    def _asdict(self):
+        raise RuntimeError("Attempted to iterate from dag root UALabel")
+
 
 bases = "AGCT-"
 ambiguous_dna_values.update({"?": bases, "-": "-"})
+
 
 # ######## Decorators ########
 def access_nodefield_default(fieldname: str, default: Any) -> Any:
@@ -274,6 +300,8 @@ class AddFuncDict(UserDict):
     requiredkeys = {"start_func", "edge_weight_func", "accum_func"}
 
     def __init__(self, initialdata, name: str = None, names: Tuple[str] = None):
+        self.name: Optional[str]
+        self.names: Tuple[str]
         if name is not None and names is not None:
             raise ValueError(
                 "Pass a value to either keyword argument 'name' or 'names'."

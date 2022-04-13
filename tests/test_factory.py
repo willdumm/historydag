@@ -36,11 +36,11 @@ newicklistlist = [
         "((CA, GG)CG, AA, (TT, (CC, GA)GC)GC)AG;",
     ],
     ["((AA, CT)CG, (TA, CC)CG)CC;", "((AA, CT)CA, (TA, CC)CC)CC;"],
-    # [
-    #     "((CA, GG)CA, AT, (TT, (CC, GA)CC)CC)AA;",
-    #     "((CA, GG)CA, AA, (TT, (CC, GA)CA)CA)AA;",
-    #     "((CA, GG)CG, AA, (TT, (CC, GA)GC)GC)AG;",
-    # ],
+    [
+        "((CA, GG)CA, AT, (TT, (CC, GA)CC)CC)AA;",
+        "((CA, GG)CA, AA, (TT, (CC, GA)CA)CA)AA;",
+        "((CA, GG)CG, AA, (TT, (CC, GA)GC)GC)AG;",
+    ],
 ]
 
 dags = [

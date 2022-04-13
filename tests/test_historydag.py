@@ -279,20 +279,6 @@ def test_explode_rejects_leaf_ambiguities():
         return
 
 
-def test_differentleaves():
-    # Make sure that a DAG will not be created from trees with different leaf
-    # labels
-    # First make sure the call works when the problem is fixed
-    history_dag_from_newicks(["((a, b)b, c)c;", "((a, b)b, c)c;"], ["name"])
-    try:
-        history_dag_from_newicks(["((z, b)b, c)c;", "((a, b)b, c)c;"], ["name"])
-        raise RuntimeError(
-            "history DAG was allowed to be constructed from trees with different leaf labels."
-        )
-    except ValueError:
-        return
-
-
 def test_print():
     tree1 = ete3.Tree(newickstring2, format=1)
     dag1 = from_tree(tree1, ["sequence"])
