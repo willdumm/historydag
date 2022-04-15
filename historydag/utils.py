@@ -16,43 +16,39 @@ from typing import (
     Generator,
     Tuple,
     NamedTuple,
+    Optional,
 )
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from historydag.dag import HistoryDagNode
 
 Weight = Any
-NTLabel = NamedTuple
-Label = Union["UALabel", NTLabel]
+Label = Union[NamedTuple, "UALabel"]
 F = TypeVar("F", bound=Callable[..., Any])
 
-bases = "AGCT-"
-ambiguous_dna_values.update({"?": bases, "-": "-"})
 
+class UALabel(str):
+    _fields: Tuple = tuple()
 
-class UALabel:
-    """A history DAG universal ancestor (UA) node label."""
-
-    _fields: Any = tuple()
-
-    def __init__(self):
-        pass
-
-    def __repr__(self):
-        return "UA_node"
-
-    def __hash__(self):
-        return 0
+    def __new__(cls):
+        return super(UALabel, cls).__new__(cls, "UA_Node")
 
     def __eq__(self, other):
-        if isinstance(other, UALabel):
-            return True
-        else:
-            return False
+        return isinstance(other, UALabel)
 
-    # For typing:
+    def __hash__(self):
+        return hash("UA_Node")
+
     def __iter__(self):
         raise RuntimeError("Attempted to iterate from dag root UALabel")
 
     def _asdict(self):
         raise RuntimeError("Attempted to iterate from dag root UALabel")
+
+
+bases = "AGCT-"
+ambiguous_dna_values.update({"?": bases, "-": "-"})
 
 
 # ######## Decorators ########
@@ -71,8 +67,8 @@ def access_nodefield_default(fieldname: str, default: Any) -> Any:
     """
 
     def decorator(func):
+        @ignore_uanode(default)
         @access_field("label")
-        @ignore_ualabel(default)
         @access_field(fieldname)
         @wraps(func)
         def wrapper(*args: Label, **kwargs: Any) -> Weight:
@@ -104,18 +100,18 @@ def access_field(fieldname: str) -> Callable[[F], F]:
     return decorator
 
 
-def ignore_ualabel(default: Any) -> Callable[[F], F]:
-    """A decorator to return a default value if any argument is a UALabel.
+def ignore_uanode(default: Any) -> Callable[[F], F]:
+    """A decorator to return a default value if any argument is a UANode.
 
-    For instance, to allow distance between two labels to be zero if one
-    is UALabel
+    For instance, to allow distance between two nodes to be zero if one
+    is UANode
     """
 
     def decorator(func):
         @wraps(func)
-        def wrapper(*args: Union[Label, UALabel], **kwargs: Any):
-            for label in args:
-                if isinstance(label, UALabel):
+        def wrapper(*args: "HistoryDagNode", **kwargs: Any):
+            for node in args:
+                if node.is_root():
                     return default
             else:
                 return func(*args, **kwargs)
@@ -142,14 +138,11 @@ def explode_label(labelfield: str):
     ) -> Callable[[Label], Iterable[Label]]:
         @wraps(func)
         def wrapfunc(label, *args, **kwargs):
-            if isinstance(label, UALabel):
-                yield label
-            else:
-                Label = type(label)
-                d = label._asdict()
-                for newval in func(d[labelfield], *args, **kwargs):
-                    d[labelfield] = newval
-                    yield Label(**d)
+            Label = type(label)
+            d = label._asdict()
+            for newval in func(d[labelfield], *args, **kwargs):
+                d[labelfield] = newval
+                yield Label(**d)
 
         return wrapfunc
 
@@ -166,15 +159,14 @@ def hamming_distance(s1: str, s2: str) -> int:
     return sum(x != y for x, y in zip(s1, s2))
 
 
-@ignore_ualabel(0)
-@access_field("sequence")
+@access_nodefield_default("sequence", 0)
 def wrapped_hamming_distance(s1, s2) -> int:
     """The sitewise sum of base differences between sequence field contents of
-    two labels.
+    two nodes.
 
-    Takes two Labels as arguments.
+    Takes two HistoryDagNodes as arguments.
 
-    If l1 or l2 is a UALabel, returns 0.
+    If l1 or l2 is a UANode, returns 0.
     """
     return hamming_distance(s1, s2)
 
@@ -308,6 +300,8 @@ class AddFuncDict(UserDict):
     requiredkeys = {"start_func", "edge_weight_func", "accum_func"}
 
     def __init__(self, initialdata, name: str = None, names: Tuple[str] = None):
+        self.name: Optional[str]
+        self.names: Tuple[str]
         if name is not None and names is not None:
             raise ValueError(
                 "Pass a value to either keyword argument 'name' or 'names'."
@@ -390,7 +384,7 @@ class AddFuncDict(UserDict):
 hamming_distance_countfuncs = AddFuncDict(
     {
         "start_func": lambda n: 0,
-        "edge_weight_func": lambda n1, n2: wrapped_hamming_distance(n1.label, n2.label),
+        "edge_weight_func": wrapped_hamming_distance,
         "accum_func": sum,
     },
     name="HammingParsimony",

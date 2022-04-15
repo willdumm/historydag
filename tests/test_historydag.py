@@ -94,6 +94,13 @@ def test_from_tree():
     return G
 
 
+def test_is_clade_tree():
+    tree = ete3.Tree(newickstring2, format=1)
+    print(tree.sequence)
+    dag = from_tree(tree, ["sequence"])
+    assert dag.is_clade_tree()
+
+
 def test_from_tree_label():
     tree = ete3.Tree(newickstring2, format=1)
     for node in tree.traverse():
@@ -173,7 +180,7 @@ def test_postorder():
         10,
         9,
         1,
-        "UA_node",
+        "UA_Node",
     ]
     # print([namedict[node.label] for node in postorder(dag)])
 
@@ -222,6 +229,8 @@ def test_sample():
     newicks = ["((1, 2)2, 3)3;", "((1, 2)3, 3)3;", "((1, 2)1, 3)3;", "((1, 2)4, 3)4;"]
     namedict = {(str(x),): x for x in range(5)}
     dag = history_dag_from_newicks(newicks, ["name"])
+    for i in range(10):
+        assert dag.sample().is_clade_tree()
     sample = dag.sample()
     return sample.to_graphviz(namedict=namedict)
 
@@ -272,20 +281,6 @@ def test_explode_rejects_leaf_ambiguities():
         return
 
 
-def test_differentleaves():
-    # Make sure that a DAG will not be created from trees with different leaf
-    # labels
-    # First make sure the call works when the problem is fixed
-    history_dag_from_newicks(["((a, b)b, c)c;", "((a, b)b, c)c;"], ["name"])
-    try:
-        history_dag_from_newicks(["((z, b)b, c)c;", "((a, b)b, c)c;"], ["name"])
-        raise RuntimeError(
-            "history DAG was allowed to be constructed from trees with different leaf labels."
-        )
-    except ValueError:
-        return
-
-
 def test_print():
     tree1 = ete3.Tree(newickstring2, format=1)
     dag1 = from_tree(tree1, ["sequence"])
@@ -298,7 +293,7 @@ def test_eq():
     tree2 = ete3.Tree("((z, b)b, c)c;", format=1)
     dag2 = from_tree(tree2, ["name"])
     assert dag1.dagroot == dag1.copy().dagroot
-    assert dag1.dagroot != dag2.dagroot
+    assert list(dag1.dagroot.children())[0] != list(dag2.dagroot.children())[0]
 
 
 def test_to_graphviz():
