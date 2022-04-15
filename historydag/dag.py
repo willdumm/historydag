@@ -17,6 +17,8 @@ from typing import (
     NamedTuple,
     Dict,
     FrozenSet,
+    Union,
+    Sequence,
 )
 from collections import Counter
 from copy import deepcopy
@@ -371,12 +373,12 @@ class HistoryDag:
         """
         return pickle.loads(pickle.dumps(self))
 
-    def merge(self, trees: List["HistoryDag"]):
+    def merge(self, trees: Union["HistoryDag", Sequence["HistoryDag"]]):
         r"""Graph union this histroy DAG with all those in a list of history DAGs."""
         selforder = self.postorder()
         nodedict = {n: n for n in selforder}
 
-        if not isinstance(trees, list):
+        if isinstance(trees, HistoryDag):
             trees = [trees]
 
         for other in trees:
