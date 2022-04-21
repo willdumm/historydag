@@ -1,0 +1,13 @@
+name: hdag-aggregate
+channels:
+  - conda-forge
+  - defaults
+  - anaconda
+  - bioconda
+  - jmcbroome
+dependencies:
+  - historydag
+  - ete3
+  - click
+  - bte
+  - frozendict
