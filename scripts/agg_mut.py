@@ -59,8 +59,8 @@ def build_tree_from_lists(node_info, edges):
 def build_tree_from_mat(infile):
     mattree = mat.MATree(infile)
     nl = mattree.depth_first_expansion()
-    node_info = [(n.get_id(), n.get_mutations()) for n in nl]
-    edges = [(n.get_id(), child.get_id()) for n in nl for child in n.get_children()]
+    node_info = [(n.id, n.mutations) for n in nl]
+    edges = [(n.id, child.id) for n in nl for child in n.children]
     return build_tree_from_lists(node_info, edges)
 
 def process_from_mat(file, refseqid):
@@ -98,8 +98,7 @@ def summarize(dagpath, treedir, csv_data, print_header):
     @hdag.utils.access_nodefield_default("mutseq", default=0)
     def dist(seq1, seq2):
         return distance(seq1, seq2)
-    with open(dagpath, 'rb') as fh:
-        dag = pickle.load(fh)
+    dag = load_dag(dagpath)
     data = []
     data.append(("before_collapse_n_trees", dag.count_trees()))
     data.append(("before_collapse_n_nodes", len(list(dag.preorder()))))
@@ -137,8 +136,15 @@ def summarize(dagpath, treedir, csv_data, print_header):
 
 
 def load_dag(dagname):
-    with open(dagname, 'rb') as fh:
-        return pickle.load(fh)
+    if dagname.split('.')[-1] == 'p':
+        with open(dagname, 'rb') as fh:
+            return pickle.load(fh)
+    elif dagname.split('.')[-1] == 'json':
+        with open(dagname, 'r') as fh:
+            json_dict = json.load(fh)
+        return unflatten(json_dict)
+    else:
+        raise ValueError("Unrecognized file format. Provide either pickled dag (*.p), or json serialized dags (*.json).")
 
 @cli.command('merge')
 @click.argument('input_dags', nargs=-1, type=click.Path(exists=True))
@@ -196,8 +202,7 @@ def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseqid):
     ushertrees = (process_from_mat(str(file), refseqid) for file in trees)
     if dagpath is not None:
         print("opening old DAG...")
-        with open(dagpath, 'rb') as fh:
-            olddag = pickle.load(fh)
+        olddag = load_dag(dagpath)
     else:
         etetree = next(ushertrees)
         print("Creating DAG from first tree...")
@@ -271,58 +276,33 @@ def aggregate_trees(tree, duplicatefile, refseqid):
 # #### fitting stuff:
 # forest = bp.CollapsedForest(rerooted_trees, sequence_counts)
 
-@cli.command('deserialize')
-@click.argument('json_path')
-@click.argument('out_path')
-def deserialize(json_path, out_path):
-    """load a history DAG from the provided json serialized history DAG file"""
-    with open(json_path, 'r') as fh:
-        json_dict = json.load(fh)
 
-    dag = unflatten(json_dict)
+class Encoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, frozendict):
+            return dict(obj)
+        elif isinstance(obj, frozenset):
+            return list(obj)
+        return json.JSONEncoder.default(self, obj)
 
-    with open(out_path, 'wb') as fh:
-        fh.write(pickle.dumps(dag))
+def write_dag(dag, dagpath, sort=False):
+    extension = dagpath.split('.')[-1].lower()
+    if extension == 'p':
+        with open(dagpath, 'wb') as fh:
+            fh.write(pickle.dumps(dag))
+    elif extension == 'json':
+        with open(dagpath, 'w') as fh:
+            fh.write(json.dumps(flatten(dag, sort_compact_genomes=sort), cls=Encoder))
+    else:
+        raise ValueError("unrecognized output file extension. Supported extensions are .p and .json.")
 
-
-@cli.command('serialize')
+@cli.command('convert')
 @click.argument('dag_path')
 @click.argument('out_path')
 @click.option('-s', '--sort', is_flag=True)
-def serialize(dag_path, out_path, sort):
+def convert(dag_path, out_path, sort):
     """write the provided history DAG to JSON format"""
-    with open(dag_path, 'rb') as fh:
-        dag = pickle.load(fh)
-
-    class Encoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, frozendict):
-                return dict(obj)
-            elif isinstance(obj, frozenset):
-                return list(obj)
-            return json.JSONEncoder.default(self, obj)
-
-    with open(out_path, 'w') as fh:
-        fh.write(json.dumps(flatten(dag, sort_compact_genomes=sort), cls=Encoder))
-
-@cli.command('test-equal')
-@click.argument('dagpath1')
-@click.argument('dagpath2')
-def test_equal(dagpath1, dagpath2):
-    """Test whether the two provided history DAGs are equal, by comparing their JSON serializations"""
-    paths = [dagpath1, dagpath2]
-    if all(dagpath.split('.')[-1] == 'p' for dagpath in paths):
-        dags = [load_dag(dagpath1), load_dag(dagpath2)]
-        jsons = [flatten(dag, sort_compact_genomes=True) for dag in dags]
-        print(equal_flattened(*jsons, test_sorted=False))
-    elif all(dagpath.split('.')[-1] == 'json' for dagpath in paths):
-        jsons = []
-        for jsonpath in [dagpath1, dagpath2]:
-            with open(jsonpath, 'r') as fh:
-                jsons.append(json.load(fh))
-        print(equal_flattened(*jsons))
-    else:
-        raise ValueError("Provide either the filenames of two pickled dags (*.p) , or two sorted json serialized dags (*.json).")
+    write_dag(load_dag(dag_path), out_path, sort=sort)
 
 @cli.command('find-leaf')
 @click.argument('infile')
@@ -331,19 +311,39 @@ def find_closest_leaf(infile):
     mattree = mat.MATree(infile)
     nl = mattree.depth_first_expansion()
     ll = [n for n in nl if n.is_leaf()]
-    click.echo(ll[0].get_id())
+    click.echo(ll[0].id)
 
 
-def equal_flattened(flatdag1, flatdag2, test_sorted=True):
+@cli.command('test-equal')
+@click.argument('dagpath1')
+@click.argument('dagpath2')
+def test_equal(dagpath1, dagpath2):
+    """Test whether the two provided history DAGs are equal, by comparing their JSON serializations"""
+    paths = [dagpath1, dagpath2]
     def is_sorted(ls):
         return all(ls[i] <= ls[i+1] for i in range(len(ls) - 1))
+    def load_json(path):
+        if path.split('.')[-1] == 'p':
+            dag = load_dag(path)
+            flatdag = flatten(dag, sort_compact_genomes=True)
+            if is_sorted(flatdag['compact_genomes']):
+                return flatdag
+            else:
+                raise ValueError("Set sort_compact_genomes flag to True when flattening dags for comparison")
+        elif path.split('.')[-1] == 'json':
+            with open(path, 'r') as fh:
+                return json.load(fh)
+        else:
+            raise ValueError("Provide either the filenames of pickled dags (*.p), or sorted json serialized dags (*.json).")
+    jsons = [load_json(path) for path in paths]
+    print(equal_flattened(*jsons))
+
+def equal_flattened(flatdag1, flatdag2):
+    """Test whether two flattened history DAGs are equal.
+    Provided history DAGs must have been flattened with sort_compact_genomes=True."""
     
     cg_list1 = flatdag1["compact_genomes"]
     cg_list2 = flatdag2["compact_genomes"]
-
-    if test_sorted:
-        if not is_sorted(cg_list1) or not is_sorted(cg_list2):
-            raise ValueError("Set sort_compact_genomes flag to True when flattening dags for comparison")
 
     def get_edge_set(flatdag):
         edgelist = flatdag['edges']
@@ -384,10 +384,11 @@ def flatten(dag, sort_compact_genomes=False):
         if node.is_root():
             return []
         else:
-            if sort_compact_genomes:
-                return sorted(node.label.mutseq.items())
-            else:
-                return list(node.label.mutseq.items())
+            ret = [[idx, list(bases)] for idx, bases in node.label.mutseq.items()]
+
+        if sort_compact_genomes:
+            ret.sort()
+        return ret
 
     for node in dag.postorder():
         node_cg = get_compact_genome(node)
