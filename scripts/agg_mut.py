@@ -324,6 +324,15 @@ def test_equal(dagpath1, dagpath2):
     else:
         raise ValueError("Provide either the filenames of two pickled dags (*.p) , or two sorted json serialized dags (*.json).")
 
+@cli.command('find-leaf')
+@click.argument('infile')
+def find_closest_leaf(infile):
+    """Find a leaf id in the passed MAT protobuf file"""
+    mattree = mat.MATree(infile)
+    nl = mattree.depth_first_expansion()
+    ll = [n for n in nl if n.is_leaf()]
+    click.echo(ll[0].get_id())
+
 
 def equal_flattened(flatdag1, flatdag2, test_sorted=True):
     def is_sorted(ls):
