@@ -88,6 +88,36 @@ def process_from_mat(file, refseqid):
             node.delete(prevent_nondicotomic=False)
     return tree
 
+def load_dag(dagname):
+    if dagname.split('.')[-1] == 'p':
+        with open(dagname, 'rb') as fh:
+            return pickle.load(fh)
+    elif dagname.split('.')[-1] == 'json':
+        with open(dagname, 'r') as fh:
+            json_dict = json.load(fh)
+        return unflatten(json_dict)
+    else:
+        raise ValueError("Unrecognized file format. Provide either pickled dag (*.p), or json serialized dags (*.json).")
+
+class Encoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, frozendict):
+            return dict(obj)
+        elif isinstance(obj, frozenset):
+            return list(obj)
+        return json.JSONEncoder.default(self, obj)
+
+def write_dag(dag, dagpath, sort=False):
+    extension = dagpath.split('.')[-1].lower()
+    if extension == 'p':
+        with open(dagpath, 'wb') as fh:
+            fh.write(pickle.dumps(dag))
+    elif extension == 'json':
+        with open(dagpath, 'w') as fh:
+            fh.write(json.dumps(flatten(dag, sort_compact_genomes=sort), cls=Encoder))
+    else:
+        raise ValueError("unrecognized output file extension. Supported extensions are .p and .json.")
+
 @cli.command('summarize')
 @click.argument('dagpath')
 @click.option('-t', '--treedir', help='include parsimony counts for .pb trees in the given directory')
@@ -134,17 +164,6 @@ def summarize(dagpath, treedir, csv_data, print_header):
         for stat in data:
             print(stat[0], stat[1])
 
-
-def load_dag(dagname):
-    if dagname.split('.')[-1] == 'p':
-        with open(dagname, 'rb') as fh:
-            return pickle.load(fh)
-    elif dagname.split('.')[-1] == 'json':
-        with open(dagname, 'r') as fh:
-            json_dict = json.load(fh)
-        return unflatten(json_dict)
-    else:
-        raise ValueError("Unrecognized file format. Provide either pickled dag (*.p), or json serialized dags (*.json).")
 
 @cli.command('merge')
 @click.argument('input_dags', nargs=-1, type=click.Path(exists=True))
@@ -277,31 +296,13 @@ def aggregate_trees(tree, duplicatefile, refseqid):
 # forest = bp.CollapsedForest(rerooted_trees, sequence_counts)
 
 
-class Encoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, frozendict):
-            return dict(obj)
-        elif isinstance(obj, frozenset):
-            return list(obj)
-        return json.JSONEncoder.default(self, obj)
-
-def write_dag(dag, dagpath, sort=False):
-    extension = dagpath.split('.')[-1].lower()
-    if extension == 'p':
-        with open(dagpath, 'wb') as fh:
-            fh.write(pickle.dumps(dag))
-    elif extension == 'json':
-        with open(dagpath, 'w') as fh:
-            fh.write(json.dumps(flatten(dag, sort_compact_genomes=sort), cls=Encoder))
-    else:
-        raise ValueError("unrecognized output file extension. Supported extensions are .p and .json.")
 
 @cli.command('convert')
 @click.argument('dag_path')
 @click.argument('out_path')
 @click.option('-s', '--sort', is_flag=True)
 def convert(dag_path, out_path, sort):
-    """write the provided history DAG to JSON format"""
+    """convert the provided history DAG to the format specified by the extension on `out_path`"""
     write_dag(load_dag(dag_path), out_path, sort=sort)
 
 @cli.command('find-leaf')
