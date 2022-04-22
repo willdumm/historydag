@@ -24,10 +24,12 @@ To get a value for `shared_sequence_id` from a single MAT protobuf, you can use
 python agg_mut.py find-leaf tree.pb
 ```
 
+If you're confident that all the trees have the same root sequence, you can use `--refseqid "node_1"` to use the root node as the reference. It only makes sense to compare history DAGs which are built using the same reference sequence. If you compare two identical history DAGs built using different reference sequences, the comparison will falsely accuse them of being different.
+
 To convert the created file `historydag.p` to json format
 
 ```
-python agg_mut.py serialize historydag.p historydag.json -s
+python agg_mut.py convert historydag.p historydag.json -s
 ```
 
 where the `-s` flag guarantees that compact genomes are sorted, so that the resulting json can be used for equality comparison.
@@ -35,7 +37,7 @@ where the `-s` flag guarantees that compact genomes are sorted, so that the resu
 To convert from json to Python pickle file:
 
 ```
-python agg_mut.py deserialize historydag.json historydag.p
+python agg_mut.py convert historydag.json historydag.p
 ```
 
 To see if two history DAGs are equal:
