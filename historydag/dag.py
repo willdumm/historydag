@@ -1,8 +1,6 @@
 """A module providing the class HistoryDag, and supporting functions."""
 
-from operator import getitem
 import pickle
-from re import sub
 import graphviz as gv
 import ete3
 import random
@@ -135,7 +133,7 @@ class HistoryDagNode:
 
     def _get_subtree_by_subid(self, subid: int) -> "HistoryDagNode":
         r"""Returns the subtree below the current HistoryDagNode corresponding to the given index"""
-        if (self.is_leaf()): # base case - the node is a leaf
+        if (self.is_leaf()):  # base case - the node is a leaf
             return self
         else:
             history = self.node_self()
@@ -143,11 +141,9 @@ class HistoryDagNode:
             # get the subtree for each of the clades
             for clade, eset in self.clade.items():
                 # get the sum of subtrees of the edges for this clade
-                # is dp_data a dictionary?
-                num_subtrees = 0 # is this the right way to get the number of edges?
+                num_subtrees = 0  # is this the right way to get the number of edges?
                 for child, weight, _ in eset:
-                    num_subtrees = num_subtrees + child._dp_data
-                
+                    num_subtrees = num_subtrees + child._dp_data   
                 curr_index = subid % num_subtrees
 
                 # find the edge corresponding to the curr_index
