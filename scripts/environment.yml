@@ -7,7 +7,6 @@ channels:
   - jmcbroome
 dependencies:
   - historydag
-  - usher
   - ete3
   - click
   - bte
