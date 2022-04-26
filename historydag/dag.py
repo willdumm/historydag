@@ -143,7 +143,7 @@ class HistoryDagNode:
                 # get the sum of subtrees of the edges for this clade
                 num_subtrees = 0  # is this the right way to get the number of edges?
                 for child, weight, _ in eset:
-                    num_subtrees = num_subtrees + child._dp_data   
+                    num_subtrees = num_subtrees + child._dp_data
                 curr_index = subid % num_subtrees
 
                 # find the edge corresponding to the curr_index
