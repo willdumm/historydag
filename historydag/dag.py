@@ -125,15 +125,12 @@ class HistoryDagNode:
         else:
             target.parents.add(self)
             return self.clades[key].add_to_edgeset(
-                target,
-                weight=weight,
-                prob=prob,
-                prob_norm=prob_norm,
+                target, weight=weight, prob=prob, prob_norm=prob_norm,
             )
 
     def _get_subtree_by_subid(self, subid: int) -> "HistoryDagNode":
         r"""Returns the subtree below the current HistoryDagNode corresponding to the given index"""
-        if (self.is_leaf()):  # base case - the node is a leaf
+        if self.is_leaf():  # base case - the node is a leaf
             return self
         else:
             history = self.node_self()
@@ -190,8 +187,7 @@ class HistoryDagNode:
         for clade, eset in self.clades.items():
             sampled_target, target_weight = eset.sample()
             sample.clades[clade].add_to_edgeset(
-                sampled_target._sample(),
-                weight=target_weight,
+                sampled_target._sample(), weight=target_weight,
             )
         return sample
 
@@ -218,8 +214,7 @@ class HistoryDagNode:
             tree = self.node_self()
             for clade, targettree, index in option:
                 tree.clades[clade].add_to_edgeset(
-                    targettree,
-                    weight=self.clades[clade].weights[index],
+                    targettree, weight=self.clades[clade].weights[index],
                 )
             yield tree
 
@@ -806,8 +801,7 @@ class HistoryDag:
                         accum_within_clade(
                             [
                                 accum_above_edge(
-                                    target._dp_data,
-                                    edge_func(node, target),
+                                    target._dp_data, edge_func(node, target),
                                 )
                                 for target in node.children(clade=clade)
                             ]
@@ -844,10 +838,7 @@ class HistoryDag:
             The optimal weight of a tree under the DAG UA node.
         """
         return self.postorder_cladetree_accum(
-            start_func,
-            edge_weight_func,
-            optimal_func,
-            accum_func,
+            start_func, edge_weight_func, optimal_func, accum_func,
         )
 
     def weight_count(
