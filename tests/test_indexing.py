@@ -2,33 +2,47 @@ from historydag.dag import (
     history_dag_from_newicks,
 )
 
-newickstring1 = (
-    "((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=S],"
-    "7[&&NHX:name=7:sequence=T])5[&&NHX:name=5:sequence=M])3[&&NHX:name=3:sequence=M],"
-    "8[&&NHX:name=8:sequence=W],(11[&&NHX:name=11:sequence=V],"
-    "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=R])1[&&NHX:name=1:sequence=G];"
-)
-
-newickstring2 = (
-    "((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=S],"
-    "7[&&NHX:name=7:sequence=T])5[&&NHX:name=5:sequence=H])3[&&NHX:name=3:sequence=G],"
-    "8[&&NHX:name=8:sequence=W],(11[&&NHX:name=11:sequence=V],"
-    "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=C])1[&&NHX:name=1:sequence=A];"
-)
-
-newickstring3 = (
-    "((4[&&NHX:name=4:sequence=K],(6[&&NHX:name=6:sequence=S],"
-    "7[&&NHX:name=7:sequence=T])5[&&NHX:name=5:sequence=H])2[&&NHX:name=2:sequence=B],"
-    "8[&&NHX:name=8:sequence=W],(11[&&NHX:name=11:sequence=V],"
-    "10[&&NHX:name=10:sequence=D])9[&&NHX:name=9:sequence=C])1[&&NHX:name=1:sequence=A];"
-)
+newicklistlist = [
+    [
+        "((AA, CT)CG, (TA, CC)CG)CC;",
+        "((AA, CT)CA, (TA, CC)CC)CC;",
+    ],
+    [
+        "((CA, GG)CA, AA, (TT, (CC, GA)CC)CC)AA;",
+        "((CA, GG)CA, AA, (TT, (CC, GA)CA)CA)AA;",
+        "((CA, GG)CG, AA, (TT, (CC, GA)GC)GC)AG;",
+    ],
+    [
+        "((AA, CT)CG, (TA, CC)CG)CC;",
+        "((AA, CT)CA, (TA, CC)CC)CC;",
+    ],
+]
 
 
-def test_preserve_attr():
-    dag = history_dag_from_newicks(
-        [newickstring1, newickstring2, newickstring3],
-        ["sequence"],
-        attr_func=lambda n: n.name,
-    )
-    assert all(n.attr for n in dag.preorder(skip_root=True))
-    dag[2]
+# this should check if the indexing algorithm accurately
+# captures all possible subtrees of the dag
+# (this is the dag defined by newicklistlist)
+def test_indexing_comprehensive():
+    dags = [
+        history_dag_from_newicks(
+            newicklist, [], label_functions={"sequence": lambda n: n.name}
+        )
+        for newicklist in newicklistlist
+    ]
+    history_dag = history_dag[1]
+    # get the set of all dags that were indexed
+    all_dags_indexed = {None} # set of all the indexed dags
+    curr_dag_index = 0
+    while not history_dag[curr_dag_index] == None:
+        next_tree = history_dag[curr_dag_index]
+        curr_dag_index = curr_dag_index + 1
+        all_dags_indexed.add(next_tree)
+    
+    # get the set of all dags from the get_trees
+    all_dags_true_generator = history_dag.get_trees()
+    all_dags_true = {None}
+
+    for tree in all_dags_true_generator:
+        all_dags_true.add(tree)
+
+    assert all_dags_true == all_dags_indexed
