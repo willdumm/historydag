@@ -1,13 +1,19 @@
 from historydag.dag import history_dag_from_newicks
 
 newicklistlist = [
-    ["((AA, CT)CG, (TA, CC)CG)CC;", "((AA, CT)CA, (TA, CC)CC)CC;", ],
+    [
+        "((AA, CT)CG, (TA, CC)CG)CC;",
+        "((AA, CT)CA, (TA, CC)CC)CC;",
+    ],
     [
         "((CA, GG)CA, AA, (TT, (CC, GA)CC)CC)AA;",
         "((CA, GG)CA, AA, (TT, (CC, GA)CA)CA)AA;",
         "((CA, GG)CG, AA, (TT, (CC, GA)GC)GC)AG;",
     ],
-    ["((AA, CT)CG, (TA, CC)CG)CC;", "((AA, CT)CA, (TA, CC)CC)CC;", ],
+    [
+        "((AA, CT)CG, (TA, CC)CG)CC;",
+        "((AA, CT)CA, (TA, CC)CC)CC;",
+    ],
 ]
 
 
