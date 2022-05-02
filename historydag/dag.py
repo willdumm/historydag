@@ -136,7 +136,7 @@ class HistoryDagNode:
             history = self.node_self()
 
             # get the subtree for each of the clades
-            for clade, eset in self.clade.items():
+            for clade, eset in self.clades.items():
                 # get the sum of subtrees of the edges for this clade
                 num_subtrees = 0  # is this the right way to get the number of edges?
                 for child, weight, _ in eset:

@@ -38,9 +38,9 @@ etetree = list(
 etetree2 = utils.collapse_adjacent_sequences(etetree.copy())
 
 
-with open("sample_data/toy_trees_100_collapsed.p", "rb") as fh:
+with open("../sample_data/toy_trees_100_collapsed.p", "rb") as fh:
     collapsed = pickle.load(fh)
-with open("sample_data/toy_trees_100_uncollapsed.p", "rb") as fh:
+with open("../sample_data/toy_trees_100_uncollapsed.p", "rb") as fh:
     uncollapsed = pickle.load(fh)
 trees = collapsed + uncollapsed
 for tree in trees:
