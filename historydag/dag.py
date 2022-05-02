@@ -300,7 +300,7 @@ class HistoryDag:
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the sub-history below the current history dag corresponding to the given index."""
         self.count_trees()
-        if self.dagroot._dp_data < key:  # invalide index
+        if self.dagroot._dp_data < key:  # invalid index
             return None
         return HistoryDag(self.dagroot._get_subtree_by_subid(key))
 
