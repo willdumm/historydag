@@ -10,6 +10,7 @@ newicklistlist = [
     ["((AA, CT)CG, (TA, CC)CG)CC;", "((AA, CT)CA, (TA, CC)CC)CC;", ],
 ]
 
+
 # this tests is each of the trees indexed are valide subtrees
 # they should have exactly one edge descending from each node clade pair
 def test_valid_subtrees():
