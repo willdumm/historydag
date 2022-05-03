@@ -50,7 +50,7 @@ dags = [
     for newicklist in newicklistlist
 ]
 
-with open("../sample_data/toy_trees_100_uncollapsed.p", "rb") as fh:
+with open("sample_data/toy_trees_100_uncollapsed.p", "rb") as fh:
     uncollapsed = pickle.load(fh)
 for tree in uncollapsed:
     if len(tree.children) == 1:
