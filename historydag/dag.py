@@ -295,6 +295,7 @@ class HistoryDag:
         assert isinstance(dagroot, UANode)  # for typing
         self.attr = attr
         self.dagroot = dagroot
+        self.current = 0
 
     def __eq__(self, other: object) -> bool:
         # Eventually this can be done by comparing bytestrings, but we need
@@ -302,12 +303,24 @@ class HistoryDag:
         # identical trees return True. TODO
         raise NotImplementedError
 
+    def __iter__(self):
+        return ((self[i]) for i in range(0, len(self)))
+
+        # return (
+        #     (self.targets[i], self.weights[i], self.probs[i])
+        #     for i in range(len(self.targets))
+        # )
+
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the sub-history below the current history dag corresponding to the given index."""
         self.count_trees()
-        if self.dagroot._dp_data < key:  # invalid index
-            return None  # change to raise IndexError
+        if self.dagroot._dp_data <= key:  # invalid index
+            raise IndexError
         return HistoryDag(self.dagroot._get_subtree_by_subid(key))
+
+    def __len__(self) -> int:
+        self.count_trees()
+        return self.dagroot._dp_data
 
     def __getstate__(self) -> Dict:
         r"""Converts HistoryDag to a bytestring-serializable dictionary.
