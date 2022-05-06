@@ -288,7 +288,7 @@ def test_topology_count_collapse():
         )
     )
     assert dag.count_topologies(collapse_leaves=True) == 2
-    
+
 
 # this tests is each of the trees indexed are valide subtrees
 # they should have exactly one edge descending from each node clade pair
@@ -340,4 +340,3 @@ def test_indexing_comprehensive():
         for next_tree in history_dag:
             for_each_indexed.add(next_tree.to_newick())
         assert for_each_indexed == all_dags_true
-
