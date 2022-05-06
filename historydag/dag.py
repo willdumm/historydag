@@ -306,11 +306,6 @@ class HistoryDag:
     def __iter__(self):
         return ((self[i]) for i in range(0, len(self)))
 
-        # return (
-        #     (self.targets[i], self.weights[i], self.probs[i])
-        #     for i in range(len(self.targets))
-        # )
-
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the sub-history below the current history dag corresponding to the given index."""
         self.count_trees()
