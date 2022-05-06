@@ -25,10 +25,8 @@ def merge(first, others):
     # the actual instance that's the same as a proposed node-to-add:
     nodedict = {n: n for n in selforder}
     for other in others:
-        if not first.dagroot == other.dagroot:
-            raise ValueError(
-                f"The given HistoryDag must be a root node on identical taxa.\n{first.dagroot}\nvs\n{other.dagroot}"
-            )
+        if first.refseq != other.refseq:
+            raise NotImplementedError("Cannot yet merge history DAGs with different UA node reference sequences.")
         for n in other.postorder():
             if n in nodedict:
                 pnode = nodedict[n]
@@ -66,7 +64,10 @@ def build_tree_from_mat(infile):
 def process_from_mat(file, refseqid):
     tree = build_tree_from_mat(file)
     # reconstruct root sequence:
-    known_node = tree & refseqid
+    try:
+        known_node = tree & refseqid
+    except:
+        raise RuntimeError(f"{refseqid} not found in loaded MAT")
     known_node.add_feature("mutseq", frozendict())
     while not known_node.is_root():
         known_node.up.add_feature("mutseq", apply_muts(known_node.mutseq, known_node.mutations, reverse=True))
@@ -91,7 +92,9 @@ def process_from_mat(file, refseqid):
 def load_dag(dagname):
     if dagname.split('.')[-1] == 'p':
         with open(dagname, 'rb') as fh:
-            return pickle.load(fh)
+            dag, refseqtuple = pickle.load(fh)
+            dag.refseq = refseqtuple
+            return dag
     elif dagname.split('.')[-1] == 'json':
         with open(dagname, 'r') as fh:
             json_dict = json.load(fh)
@@ -111,7 +114,7 @@ def write_dag(dag, dagpath, sort=False):
     extension = dagpath.split('.')[-1].lower()
     if extension == 'p':
         with open(dagpath, 'wb') as fh:
-            fh.write(pickle.dumps(dag))
+            fh.write(pickle.dumps((dag, dag.refseq)))
     elif extension == 'json':
         with open(dagpath, 'w') as fh:
             fh.write(json.dumps(flatten(dag, sort_compact_genomes=sort), cls=Encoder))
@@ -175,16 +178,26 @@ def merge_dags(input_dags, outdagpath):
         return
     dag_gen = (load_dag(dagname) for dagname in input_dags)
     start_dag = next(dag_gen)
-    for dag in dag_gen:
-        start_dag.merge(dag)
-    with open(outdagpath, 'wb') as fh:
-        fh.write(pickle.dumps(start_dag))
+    merge(start_dag, dag_gen)
+    write_dag(start_dag, outdagpath)
 
 def parsimony(etetree):
     return sum(distance(n.up.mutseq, n.mutseq) for n in etetree.iter_descendants())
 
 def count_parsimony(trees):
     return(Counter(parsimony(process_from_mat(str(file), 'node_1')) for file in trees))
+
+def load_fasta(fastapath):
+    fasta_records = []
+    current_seq = ''
+    with open(fastapath, 'r') as fh:
+        for line in fh:
+            if line[0] == '>':
+                fasta_records.append([line[1:].strip(), ''])
+            else:
+                fasta_records[-1][-1] += line.strip()
+    return dict(fasta_records)
+
 
 @cli.command('count_parsimony')
 @click.argument('trees', nargs=-1, type=click.Path(exists=True))
@@ -197,10 +210,13 @@ def count_parsimony_command(trees):
 @click.option('-i', '--dagpath', default=None, help='input history DAG')
 @click.option('-o', '--outdagpath', default='dag.p', help='output history DAG file')
 @click.option('-d', '--outtreedir', default=None, help='directory to move input trees to once added to DAG')
-@click.option('--refseqid')
-def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseqid):
+@click.option('--refseq', help='fasta file containing a reference sequence id found in all trees, and that reference sequence')
+# @click.option('--refseqid', help='fasta file containing a reference sequence id found in all trees, and that reference sequence')
+def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseq):
     """Aggregate the passed trees (MAT protobufs) into a history DAG"""
     
+    ((refseqid, refsequence), ) = load_fasta(refseq).items()
+
     parsimony_counter = Counter()
     treecounter = []
 
@@ -215,6 +231,7 @@ def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseqid):
                 "name": n.name,
             }
         )
+        dag.refseq = (refseqid, refsequence)
         return dag
 
     print(f"loading {len(trees)} trees lazily...")
@@ -236,8 +253,8 @@ def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseqid):
     print("\nParsimony scores of added trees:")
     print(parsimony_counter)
     print("writing new DAG...")
-    with open(outdagpath, 'wb') as fh:
-        fh.write(pickle.dumps(olddag))
+    olddag.refseq = (refseqid, refsequence)
+    write_dag(olddag, outdagpath)
 
     if outtreedir is not None:
         print("moving added treefiles...")
@@ -285,7 +302,10 @@ def aggregate_trees(tree, duplicatefile, refseqid):
     """Search for duplicate samples in the provided MAT protobuf, and output their names.
     samples not named in the output represent an exhaustive list of unique samples in the provided tree."""
     ushertree = process_from_mat(tree, refseqid)
-    refmutseq = (ushertree & refseqid).mutseq
+    try:
+        refmutseq = (ushertree & refseqid).mutseq
+    except:
+        raise RuntimeError(f"{refseqid} not found in loaded tree")
     leaf_d = {n.mutseq: n.name for n in ushertree.iter_leaves()}
     leaf_d.update({refmutseq: refseqid})
     with open(duplicatefile, 'w') as fh:
@@ -307,11 +327,15 @@ def convert(dag_path, out_path, sort):
 
 @cli.command('find-leaf')
 @click.argument('infile')
-def find_closest_leaf(infile):
-    """Find a leaf id in the passed MAT protobuf file"""
+@click.option('-o', '--outfile', default=None)
+def find_closest_leaf(infile, outfile):
+    """Find a leaf id in the passed MAT protobuf file, and write to outfile, if provided"""
     mattree = mat.MATree(infile)
     nl = mattree.depth_first_expansion()
     ll = [n for n in nl if n.is_leaf()]
+    if outfile is not None:
+        with open(outfile, 'w') as fh:
+            fh.write(ll[0].id)
     click.echo(ll[0].id)
 
 
@@ -361,17 +385,18 @@ def equal_flattened(flatdag1, flatdag2):
     return cg_list1 == cg_list2 and get_edge_set(flatdag1) == get_edge_set(flatdag2)
 
 def flatten(dag, sort_compact_genomes=False):
-    """return a dictionary containing three keys:
+    """return a dictionary containing four keys:
+
+    * `refseq` is a list containing the reference sequence id, and the reference sequence (the implied sequence on the UA node)
     * `compact_genome_list` is a list of compact genomes, where each compact genome is a list of nested lists `[seq_idx, [old_base, new_base]]` where `seq_idx` is (1-indexed) nucleotide sequence site. If sort_compact_genomes is True, compact genomes and `compact_genome_list` are sorted.
+    * `node_list` is a list of `[label_idx, clade_list]` pairs, where
+        * `label_idx` is the index of the node's compact genome in `compact_genome_list`, and
+        * `clade_list` is a list of lists of `compact_genome_list` indices, encoding sets of child clades.
 
-* `node_list` is a list of `[label_idx, clade_list]` pairs, where
-    * `label_idx` is the index of the node's compact genome in `compact_genome_list`, and
-    * `clade_list` is a list of lists of `compact_genome_list` indices, encoding sets of child clades.
-
-* `edge_list` is a list of triples `[parent_idx, child_idx, clade_idx]`, where
-    * `parent_idx` is the index of the edge's parent node in `node_list`,
-    * `child_idx` is the index of the edge's child node in `node_list`, and
-    * `clade_idx` is the index of the clade in the parent node's `clade_list` from which this edge descends."""
+    * `edge_list` is a list of triples `[parent_idx, child_idx, clade_idx]`, where
+        * `parent_idx` is the index of the edge's parent node in `node_list`,
+        * `child_idx` is the index of the edge's child node in `node_list`, and
+        * `clade_idx` is the index of the clade in the parent node's `clade_list` from which this edge descends."""
     compact_genome_list = []
     node_list = []
     edge_list = []
@@ -412,9 +437,12 @@ def flatten(dag, sort_compact_genomes=False):
             for child in eset.targets:
                 edge_list.append((node_idx, node_indices[id(child)], clade_idx))
 
-    return {"compact_genomes": compact_genome_list,
-            "nodes": node_list,
-            "edges": edge_list}
+    return {
+        "refseq": dag.refseq,
+        "compact_genomes": compact_genome_list,
+        "nodes": node_list,
+        "edges": edge_list
+    }
 
 def unflatten(flat_dag):
     """Takes a dictionary like that returned by flatten, and returns a HistoryDag"""
@@ -446,7 +474,9 @@ def unflatten(flat_dag):
         node_postorder[parent_idx][1][clade_idx][1].add_to_edgeset(node_postorder[child_idx][0])
 
     # UA node is last in postorder
-    return HistoryDag(node_postorder[-1][0])
+    dag = HistoryDag(node_postorder[-1][0])
+    dag.refseq = tuple(flat_dag["refseq"])
+    return dag
 
 
 ## TODO this needs to be updated to apply recorded mutations at each node
