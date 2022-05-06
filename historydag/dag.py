@@ -417,10 +417,12 @@ class HistoryDag:
 
     def get_trees(self) -> Generator["HistoryDag", None, None]:
         """Return a generator containing all trees in the history DAG.
-        The order of these trees does not necessarily match the order of indexing.
-        That is, ``dag.get_trees()`` and ``tree for tree in dag``
-        will result in different orderings. ``get_trees`` should be slightly faster,
-        but possibly more memory intensive."""
+
+        The order of these trees does not necessarily match the order of
+        indexing. That is, ``dag.get_trees()`` and ``tree for tree in
+        dag`` will result in different orderings. ``get_trees`` should
+        be slightly faster, but possibly more memory intensive.
+        """
         for cladetree in self.dagroot._get_trees():
             yield HistoryDag(cladetree)
 
@@ -462,9 +464,6 @@ class HistoryDag:
 
         selforder = self.postorder()
         nodedict = {n: n for n in selforder}
-
-        if isinstance(trees, HistoryDag):
-            trees = [trees]
 
         for other in trees:
             if not self.dagroot == other.dagroot:

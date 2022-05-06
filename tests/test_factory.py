@@ -293,7 +293,7 @@ def test_topology_count_collapse():
 # this tests is each of the trees indexed are valide subtrees
 # they should have exactly one edge descending from each node clade pair
 def test_valid_subtrees():
-    for history_dag in (dags + cdags):
+    for history_dag in dags + cdags:
         # get the set of all dags that were indexed
         # all_dags_indexed = {None}  # set of all the indexed dags
         # curr_dag_index = 0
@@ -311,7 +311,7 @@ def test_valid_subtrees():
 # this should check if the indexing algorithm accurately
 # captures all possible subtrees of the dag
 def test_indexing_comprehensive():
-    for history_dag in (dags + cdags):
+    for history_dag in dags + cdags:
         # get the set of all dags that were indexed
         all_dags_indexed = {None}  # set of all the indexed dags
 
@@ -332,8 +332,10 @@ def test_indexing_comprehensive():
         assert all_dags_true == all_dags_indexed
 
         # verify the lengths match
-        assert(len(history_dag) == len(all_dags_indexed) - 1)  # subtracting 1 because of the None added to the sets
-        assert(len(all_dags_indexed) == len(all_dags_true))
+        assert (
+            len(history_dag) == len(all_dags_indexed) - 1
+        )  # subtracting 1 because of the None added to the sets
+        assert len(all_dags_indexed) == len(all_dags_true)
 
         # test the for each loop
         for_each_indexed = {None}  # set of all the indexed dags
