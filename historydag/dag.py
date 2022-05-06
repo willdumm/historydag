@@ -303,9 +303,6 @@ class HistoryDag:
         # identical trees return True. TODO
         raise NotImplementedError
 
-    def __iter__(self):
-        return ((self[i]) for i in range(0, len(self)))
-
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the sub-history below the current history dag corresponding to the given index."""
         self.count_trees()
@@ -316,6 +313,15 @@ class HistoryDag:
     def __len__(self) -> int:
         self.count_trees()
         return self.dagroot._dp_data
+
+    def __or__(self, other) -> "HistoryDag":
+        newdag = self.copy()
+        newdag.merge(other)
+        return newdag
+
+    def __ior__(self, other) -> "HistoryDag":
+        self.merge(other)
+        return self
 
     def __getstate__(self) -> Dict:
         r"""Converts HistoryDag to a bytestring-serializable dictionary.
@@ -410,7 +416,11 @@ class HistoryDag:
         return pickle.dumps(self.__getstate__())
 
     def get_trees(self) -> Generator["HistoryDag", None, None]:
-        """Return a generator containing all trees in the history DAG."""
+        """Return a generator containing all trees in the history DAG.
+        The order of these trees does not necessarily match the order of indexing.
+        That is, ``dag.get_trees()`` and ``tree for tree in dag``
+        will result in different orderings. ``get_trees`` should be slightly faster,
+        but possibly more memory intensive."""
         for cladetree in self.dagroot._get_trees():
             yield HistoryDag(cladetree)
 
@@ -444,7 +454,12 @@ class HistoryDag:
         return pickle.loads(pickle.dumps(self))
 
     def merge(self, trees: Union["HistoryDag", Sequence["HistoryDag"]]):
-        r"""Graph union this histroy DAG with all those in a list of history DAGs."""
+        r"""Graph union this history DAG with all those in a list of history DAGs."""
+        if isinstance(trees, HistoryDag):
+            trees = [trees]
+        elif not isinstance(trees, Sequence["HistoryDag"]):
+            raise NotImplementedError(f"History DAGs cannot be merged with objects of type {type(other)}")
+
         selforder = self.postorder()
         nodedict = {n: n for n in selforder}
 
