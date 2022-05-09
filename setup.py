@@ -14,18 +14,12 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://matsengrp.github.io/historydag",
-    packages=['historydag'],
+    packages=["historydag"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License (GPL)",
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.7",
-    install_requires=[
-        "six",
-        "PyQt5",
-        "ete3",
-        "biopython",
-        "graphviz"
-    ],
+    install_requires=["six", "PyQt5", "ete3", "biopython", "graphviz"],
 )
