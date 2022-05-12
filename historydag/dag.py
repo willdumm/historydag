@@ -305,9 +305,9 @@ class HistoryDag:
 
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the sub-history below the current history dag corresponding to the given index."""
-        if key < len(self):
+        if key < 0:
             key = len(self) + key
-        if isinstance(key, slice) or not type(key) == int: 
+        if isinstance(key, slice) or not type(key) == int:
             raise TypeError(f"History DAG indices must be integers, not {type(key)}")
         if not (key >= 0 and key < len(self)):
             raise IndexError

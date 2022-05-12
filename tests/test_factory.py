@@ -3,6 +3,7 @@ import pickle
 import historydag.dag as hdag
 import historydag.utils as dagutils
 from collections import Counter
+import pytest
 
 
 def deterministic_newick(tree: ete3.TreeNode) -> str:
@@ -303,31 +304,30 @@ def test_valid_subtrees():
 # this should check if the indexing algorithm accurately
 # captures all possible subtrees of the dag
 def test_indexing_comprehensive():
-    for history_dag in dags + cdags:
-        # get the set of all dags that were indexed
-        all_dags_indexed = set(dag.to_newicks())  # set of all the indexed dags
+    with pytest.raises(Exception) as _:
+        dags[5][-len(dags[5]) - 5]
 
-        # get all the possible dags using indexingd
+    for history_dag in dags + cdags:
+        # get all the possible dags using indexing
+        all_dags_indexed = {None}
         for curr_dag_index in range(0, len(history_dag)):
             next_tree = history_dag[curr_dag_index]
             all_dags_indexed.add(next_tree.to_newick())
         print("len: " + str(len(history_dag)))
         print("number of indexed trees: " + str(len(all_dags_indexed)))
+        all_dags_indexed.remove(None)
 
         # get the set of all actual dags from the get_trees
-        all_dags_true_generator = history_dag.to_newicks()
-        all_dags_true = {None}
+        all_dags_true = set(history_dag.to_newicks())
 
-        for tree in all_dags_true_generator:
-            all_dags_true.add(tree)
         print("actual number of subtrees: " + str(len(all_dags_true)))
         assert all_dags_true == all_dags_indexed
 
         # verify the lengths match
         assert (
-            len(history_dag) == len(all_dags_indexed) - 1
-        )  # subtracting 1 because of the None added to the sets
+            len(history_dag) == len(all_dags_indexed) 
+        )
         assert len(all_dags_indexed) == len(all_dags_true)
 
         # test the for each loop
-        assert set(dag.to_newicks()) == {tree.to_newick() for tree in history_dag}
+        assert set(history_dag.to_newicks()) == set({tree.to_newick() for tree in history_dag})
