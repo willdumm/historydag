@@ -60,3 +60,14 @@ To print information about a history DAG, such as the number of nodes, edges, tr
 ```
 python agg_mut.py summarize historydag.p
 ```
+
+find_trees.sh
+=============
+
+This script is self-documented (accepts `-h`), and uses Usher to produce
+a collection of low parsimony trees, given a fasta file containing some
+sequences, without duplication. The first sequence in the fasta will be used as
+the reference sequence.
+
+The script must be run in an environment where `matOptimize`, `usher`, and
+`faToVcf` are available. I use the docker image `docker://yatisht/usher`.
