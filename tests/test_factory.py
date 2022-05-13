@@ -325,7 +325,7 @@ def test_indexing_comprehensive():
 
         # verify the lengths match
         assert (
-            len(history_dag) == len(all_dags_indexed) 
+            len(history_dag) == len(all_dags_indexed)
         )
         assert len(all_dags_indexed) == len(all_dags_true)
 

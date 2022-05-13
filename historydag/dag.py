@@ -327,6 +327,9 @@ class HistoryDag:
         self.merge(other)
         return self
 
+    def __ror__(self, other) -> "HistoryDag":
+        return other | self
+
     def __getstate__(self) -> Dict:
         r"""Converts HistoryDag to a bytestring-serializable dictionary.
 
