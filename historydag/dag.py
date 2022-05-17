@@ -131,6 +131,35 @@ class HistoryDagNode:
                 prob_norm=prob_norm,
             )
 
+    def _get_subtree_by_subid(self, subid: int) -> "HistoryDagNode":
+        r"""Returns the subtree below the current HistoryDagNode corresponding to the given index"""
+        if self.is_leaf():  # base case - the node is a leaf
+            return self
+        else:
+            history = self.node_self()
+
+            # get the subtree for each of the clades
+            for clade, eset in self.clades.items():
+                # get the sum of subtrees of the edges for this clade
+                num_subtrees = 0  # is this the right way to get the number of edges?
+                for child, weight, _ in eset:
+                    num_subtrees = num_subtrees + child._dp_data
+                curr_index = subid % num_subtrees
+
+                # find the edge corresponding to the curr_index
+                for child, weight, _ in eset:
+                    if curr_index >= child._dp_data:
+                        curr_index = curr_index - child._dp_data
+                    else:
+                        # add this edge to the tree somehow
+                        history.clades[clade].add_to_edgeset(
+                            child._get_subtree_by_subid(curr_index)
+                        )
+                        break
+
+                subid = subid / num_subtrees
+        return history
+
     def remove_edge_by_clade_and_id(self, target: "HistoryDagNode", clade: frozenset):
         key: frozenset
         if self.is_root():
@@ -266,12 +295,40 @@ class HistoryDag:
         assert isinstance(dagroot, UANode)  # for typing
         self.attr = attr
         self.dagroot = dagroot
+        self.current = 0
 
     def __eq__(self, other: object) -> bool:
         # Eventually this can be done by comparing bytestrings, but we need
         # some sorting to be done first, to ensure two dags that represent
         # identical trees return True. TODO
         raise NotImplementedError
+
+    def __getitem__(self, key) -> "HistoryDag":
+        r"""Returns the sub-history below the current history dag corresponding to the given index."""
+        if key < 0:
+            key = len(self) + key
+        if isinstance(key, slice) or not type(key) == int:
+            raise TypeError(f"History DAG indices must be integers, not {type(key)}")
+        if not (key >= 0 and key < len(self)):
+            raise IndexError
+        self.count_trees()
+        return HistoryDag(self.dagroot._get_subtree_by_subid(key))
+
+    def __len__(self) -> int:
+        self.count_trees()
+        return self.dagroot._dp_data
+
+    def __or__(self, other) -> "HistoryDag":
+        newdag = self.copy()
+        newdag.merge(other)
+        return newdag
+
+    def __ior__(self, other) -> "HistoryDag":
+        self.merge(other)
+        return self
+
+    def __ror__(self, other) -> "HistoryDag":
+        return other | self
 
     def __getstate__(self) -> Dict:
         r"""Converts HistoryDag to a bytestring-serializable dictionary.
@@ -366,7 +423,13 @@ class HistoryDag:
         return pickle.dumps(self.__getstate__())
 
     def get_trees(self) -> Generator["HistoryDag", None, None]:
-        """Return a generator containing all trees in the history DAG."""
+        """Return a generator containing all trees in the history DAG.
+
+        The order of these trees does not necessarily match the order of
+        indexing. That is, ``dag.get_trees()`` and ``tree for tree in
+        dag`` will result in different orderings. ``get_trees`` should
+        be slightly faster, but possibly more memory intensive.
+        """
         for cladetree in self.dagroot._get_trees():
             yield HistoryDag(cladetree)
 
@@ -400,12 +463,12 @@ class HistoryDag:
         return pickle.loads(pickle.dumps(self))
 
     def merge(self, trees: Union["HistoryDag", Sequence["HistoryDag"]]):
-        r"""Graph union this histroy DAG with all those in a list of history DAGs."""
-        selforder = self.postorder()
-        nodedict = {n: n for n in selforder}
-
+        r"""Graph union this history DAG with all those in a list of history DAGs."""
         if isinstance(trees, HistoryDag):
             trees = [trees]
+
+        selforder = self.postorder()
+        nodedict = {n: n for n in selforder}
 
         for other in trees:
             if not self.dagroot == other.dagroot:
