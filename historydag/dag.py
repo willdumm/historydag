@@ -466,8 +466,6 @@ class HistoryDag:
         r"""Graph union this history DAG with all those in a list of history DAGs."""
         if isinstance(trees, HistoryDag):
             trees = [trees]
-        elif not isinstance(trees, Sequence["HistoryDag"]):
-            raise NotImplementedError(f"History DAGs cannot be merged with objects of type {type(other)}")
 
         selforder = self.postorder()
         nodedict = {n: n for n in selforder}
