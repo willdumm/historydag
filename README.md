@@ -52,6 +52,19 @@ dag.trim_optimal_weight(**node_count_funcs, optimal_func=min)
 
 # Sample a tree from the dag and make it an ete tree
 t = dag.sample().to_ete()
+
+# the history DAG also supports indexing and iterating:
+t = dag[0].to_ete()
+trees = [tree for tree in dag]
+
+# Another method for fetching all trees in the dag is provided, but the order
+# will not match index order:
+scrambled_trees = list(dag.get_trees())
+
+
+# Union is implemented as dag merging, including with sequences of dags
+newdag = dag[0] | dag[1]
+newdag = dag[0] | (dag[i] for i in range(3,5))
 ```
 
 ### Highlights
@@ -87,7 +100,6 @@ meet the following criteria:
 * The label attributes used to construct history DAG labels must be unique,
     because history DAG nodes which represent leaves must be labeled uniquely.
 
-In addition, all the trees in the collection must have identical sets of leaf labels.
 
 ## Documentation
 

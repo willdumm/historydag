@@ -198,3 +198,22 @@ ete tree for further rendering/processing:
 
 The :meth:`historydag.HistoryDag.to_ete` method allows full control over
 mapping of history DAG node attributes to :class:`ete3.Tree` node attributes.
+
+We can also retrieve trees in the history DAG by index, and iterate in
+index-order:
+
+>>> t = dag[0].to_ete()
+>>> trees = [tree for tree in dag]
+
+Another method for fetching all trees in the dag is provided, but the order
+will not match index order:
+
+>>> scrambled_trees = list(dag.get_trees())
+
+
+History DAGs can be merged using the :meth:`historydag.HistoryDag.merge`
+method, or equivalently using the ``or`` operator. This supports merging with
+sequences of history DAGs.
+
+>>> newdag = dag[0] | dag[1]
+>>> newdag = dag[0] | (dag[i] for i in range(3,5))

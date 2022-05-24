@@ -338,6 +338,53 @@ def find_closest_leaf(infile, outfile):
             fh.write(ll[0].id)
     click.echo(ll[0].id)
 
+@cli.command('find-leaf-seq')
+@click.argument('infile')
+@click.argument('reference_seq_fasta')
+@click.option('-o', '--outfile', default=None)
+@click.option('-i', '--leaf-id', default=None)
+@click.option('-f', '--leaf-id-file', default=None)
+def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_file):
+    if leaf_id is not None:
+        leaf_ids = {leaf_id}
+    else:
+        assert leaf_id_file is not None
+        with open(leaf_id_file, 'r') as fh:
+            leaf_ids = set(line.strip() for line in fh)
+    def apply_muts_to_string(sequence, muts, reverse=False):
+        for mut in muts:
+            oldbase = mut[0]
+            newbase = mut[-1]
+            # muts seem to be 1-indexed!
+            idx = int(mut[1:-1]) - 1
+            if reverse:
+                newbase, oldbase = oldbase, newbase
+            if idx > len(sequence):
+                print(idx, len(sequence))
+            if sequence[idx] != oldbase:
+                print("warning: sequence does not have expected (old) base at site")
+            sequence = sequence[: idx] + newbase + sequence[idx + 1 :]
+        return sequence
+    fasta_data = load_fasta(reference_seq_fasta)
+    ((_, refseq_constant), ) = fasta_data.items()
+
+    mattree = mat.MATree(infile)
+    nl = mattree.depth_first_expansion()
+    focus_leaves = [node for node in nl if node.id in leaf_ids]
+    print(len(leaf_ids))
+    print(len(focus_leaves))
+    for current_node in focus_leaves:
+        leaf_id = current_node.id
+        refseq = refseq_constant
+        mutslist = []
+        while current_node.id != "node_1":
+            mutslist.append(current_node.mutations)
+            current_node = current_node.parent
+        for muts in mutslist:
+            refseq = apply_muts_to_string(refseq, muts)
+        with open(outfile, 'a') as fh:
+            print('>' + leaf_id + '\n' + refseq, file=fh)
+
 
 @cli.command('test-equal')
 @click.argument('dagpath1')
