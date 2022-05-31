@@ -1,4 +1,5 @@
 import ete3
+import dag_pb2 as dpb
 from collections import Counter
 import bte as mat
 from pathlib import Path
@@ -10,6 +11,8 @@ from sequence import mutate, distance
 from frozendict import frozendict
 import json
 from typing import NamedTuple
+nuc_lookup = {0: "A", 1: "C", 2: "G", 3: "T"}
+nuc_codes = {nuc: code for code, nuc in nuc_lookup.items()}
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def cli():
@@ -99,6 +102,11 @@ def load_dag(dagname):
         with open(dagname, 'r') as fh:
             json_dict = json.load(fh)
         return unflatten(json_dict)
+    elif dagname.split('.')[-1] == 'pb':
+        with open(dagname, 'rb') as fh:
+            pb_data = dpb.data()
+            pb_data.ParseFromString(fh.read())
+        return pb_to_dag(pb_data)
     else:
         raise ValueError("Unrecognized file format. Provide either pickled dag (*.p), or json serialized dags (*.json).")
 
@@ -111,6 +119,7 @@ class Encoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 def write_dag(dag, dagpath, sort=False):
+    """Write to pickle file, json, or MAD protobuf (`pb`)"""
     extension = dagpath.split('.')[-1].lower()
     if extension == 'p':
         with open(dagpath, 'wb') as fh:
@@ -118,8 +127,164 @@ def write_dag(dag, dagpath, sort=False):
     elif extension == 'json':
         with open(dagpath, 'w') as fh:
             fh.write(json.dumps(flatten(dag, sort_compact_genomes=sort), cls=Encoder))
+    elif extension == 'pb':
+        with open(dagpath, 'wb') as fh:
+            fh.write(dag_to_mad_pb(dag).SerializeToString())
     else:
         raise ValueError("unrecognized output file extension. Supported extensions are .p and .json.")
+
+def sequence_to_cg(sequence, ref_seq):
+    cg = {idx: (old_base, new_base) for idx, (old_base, new_base) in zip(ref_seq, sequence) if old_base != new_base}
+    return frozendict(cg)
+
+def cg_to_sequence(cg, ref_seq):
+    newseq = []
+    for idx, ref_nuc in enumerate(ref_seq):
+        if idx in cg:
+            newseq.append(cg[idx][1])
+        else:
+            newseq.append(ref_nuc)
+    return ''.join(newseq)
+
+def cg_diff(parent_cg, child_cg):
+    """Yields mutations in the format (parent_nuc, child_nuc, sequence_index)
+    distinguishing two compact genomes, such that applying the
+    resulting mutations to `parent_cg` would yield `child_cg`"""
+    keys = set(parent_cg.keys()) | set(child_cg.keys())
+    for key in keys:
+        if key in parent_cg:
+            parent_base = parent_cg[key][1]
+        else:
+            parent_base = child_cg[key][0]
+        if key in child_cg:
+            new_base = child_cg[key][1]
+        else:
+            new_base = parent_cg[key][0]
+        yield (parent_base, new_base, key)
+
+def dag_to_mad_pb(dag, add_leaf_seqs=False):
+    """convert a DAG with compact genome data on each node, to a MAD protobuf with mutation
+    information on edges.
+    """
+    refseqid, refseq = dag.refseq
+    node_dict = {}
+    data = dpb.data()
+    for idx, node in enumerate(dag.postorder()):
+        node_dict[node] = idx
+        node_name = data.node_names.add()
+        node_name.node_id = idx
+        if add_leaf_seqs:
+            if node.is_leaf():
+                node_name.condensed_leaves.append(cg_to_sequence(node.label.mutseq, refseq))
+
+    for node in dag.postorder():
+        if node.is_root():
+            parent_seq = frozendict()
+        else:
+            parent_seq = node.label.mutseq
+        for cladeidx, (clade, edgeset) in enumerate(node.clades.items()):
+            for child in edgeset.targets:
+                edge = data.edges.add()
+                edge.parent_node = node_dict[node]
+                edge.parent_clade = cladeidx
+                edge.child_node = node_dict[child]
+                for par_nuc, child_nuc, idx in cg_diff(parent_seq, child.label.mutseq):
+                    mut = edge.edge_mutations.add()
+                    mut.position = idx + 1
+                    mut.par_nuc = nuc_codes[par_nuc.upper()]
+                    mut.mut_nuc.append(nuc_codes[child_nuc.upper()])
+    data.reference_seq = refseq
+    data.reference_id = refseqid
+    return data
+
+def pb_mut_to_str(mut):
+    return nuc_lookup[mut.par_nuc] + str(mut.position) + nuc_lookup[mut.mut_nuc[0]]
+
+def pb_to_dag(pbdata):
+    """Convert a MAD protobuf to a history DAG with compact genomes in the `mutseq` label attribute"""
+    # use HistoryDag.__setstate__ to make this happen
+    # all of a node's parent edges
+    parent_edges = {node.node_id: [] for node in pbdata.node_names}
+    # a list of list of a node's child edges
+    child_edges = {node.node_id: [] for node in pbdata.node_names}
+    for edge in pbdata.edges:
+        parent_edges[edge.child_node].append(edge)
+
+        edge_list_list = child_edges[edge.parent_node]
+        while len(edge_list_list) <= edge.parent_clade:
+            edge_list_list.append([])
+        edge_list_list[edge.parent_clade].append(edge)
+
+
+    # now each node id is in parent_edges and child_edges as a key,
+    # except for the ua node id. node_names is a postordering, so UA node is last
+    # fix the UA node's compact genome
+    node_compact_genomes = {pbdata.node_names[-1].node_id: frozendict()}
+    for node in pbdata.node_names:
+        edge_queue = []
+        curr_id = node.node_id
+        while curr_id not in node_compact_genomes:
+            edge = parent_edges[curr_id][0]
+            edge_queue.append(edge)
+            curr_id = edge.parent_node
+        curr_seq = node_compact_genomes[curr_id]
+        for edge in reversed(edge_queue):
+            for mut in edge.edge_mutations:
+                curr_seq = mutate(curr_seq, pb_mut_to_str(mut))
+            node_compact_genomes[edge.child_node] = curr_seq
+
+    label_list = []
+    label_dict = {}
+
+    for node_record in pbdata.node_names:
+        cg = node_compact_genomes[node_record.node_id]
+        if cg in label_dict:
+            cg_idx = label_dict[cg]
+        else:
+            cg_idx = len(label_list)
+            label_dict[cg] = cg_idx
+            label_list.append(cg)
+
+    # compute leaf node child clades
+    child_clades = {node_name.node_id: frozenset({frozenset({label_dict[node_compact_genomes[node_name.node_id]]})}) for node_name in pbdata.node_names if len(child_edges[node_name.node_id]) == 0}
+    # now build child clade sets in postorder
+    def union(nestedset):
+        return frozenset(item for items in nestedset for item in items)
+
+    for node in pbdata.node_names:
+        if node.node_id not in child_clades:
+            clades = set()
+            for edges in child_edges[node.node_id]:
+                clades.add(union(child_clades[edges[0].child_node]))
+            child_clades[node.node_id] = frozenset(clades)
+
+    # fix child clades of leaves
+    for node_name in pbdata.node_names:
+        if len(child_edges[node_name.node_id]) == 0:
+            child_clades[node_name.node_id] = frozenset()
+
+    node_index_d = {record.node_id: idx for idx, record in enumerate(pbdata.node_names)}
+    node_list = [(label_dict[node_compact_genomes[node_record.node_id]],
+                  child_clades[node_record.node_id],
+                  None)
+                 for node_record in pbdata.node_names]
+    
+    edge_list = [(node_index_d[edge.parent_node], node_index_d[edge.child_node], 0, 1)
+                 for edge in pbdata.edges]
+    #fix label list
+    label_list = [(item, ) for item in label_list]
+    label_list.append(None)
+    ua_node = list(node_list[-1])
+    ua_node[0] = len(label_list) - 1
+    node_list[-1] = tuple(ua_node)
+    dag = hdag.HistoryDag(None)
+    dag.__setstate__({"label_fields": ("mutseq",),
+                      "label_list": label_list,
+                      "node_list": node_list,
+                      "edge_list": edge_list,
+                      "attr": None})
+    dag.refseq = (pbdata.reference_id, pbdata.reference_seq)
+    return dag
 
 @cli.command('summarize')
 @click.argument('dagpath')
