@@ -331,3 +331,13 @@ def test_indexing_comprehensive():
 
         # test the for each loop
         assert set(history_dag.to_newicks()) == set({tree.to_newick() for tree in history_dag})
+
+def test_trim_weight():
+    max_weight = 10
+    for history_dag in dags+cdags:
+        counter = history_dag.weight_count()
+        max_weight_passed = list(counter.keys())[int(len(counter.keys()) / 2)]
+        trimmed_tree = history_dag.trim_optimal_weight(max_weight = max_weight_passed)
+        break
+        # break
+    assert 0 == 1

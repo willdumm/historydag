@@ -4,6 +4,7 @@ import pickle
 import graphviz as gv
 import ete3
 import random
+import sys
 from typing import (
     List,
     Callable,
@@ -22,6 +23,8 @@ from typing import (
 )
 from collections import Counter
 from copy import deepcopy
+
+from numpy import double
 
 from historydag import utils
 from historydag.utils import Weight, Label, UALabel, prod
@@ -141,7 +144,7 @@ class HistoryDagNode:
             # get the subtree for each of the clades
             for clade, eset in self.clades.items():
                 # get the sum of subtrees of the edges for this clade
-                num_subtrees = 0  # is this the right way to get the number of edges?
+                num_subtrees = 0
                 for child, weight, _ in eset:
                     num_subtrees = num_subtrees + child._dp_data
                 curr_index = subid % num_subtrees
@@ -1075,6 +1078,7 @@ class HistoryDag:
         ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
+        max_weight: Weight = None,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
     ) -> Weight:
         """Trims the DAG to only express trees with optimal weight. This is
@@ -1106,6 +1110,8 @@ class HistoryDag:
         )
         # It may not be okay to use preorder here. May need reverse postorder
         # instead?
+        if max_weight is not None:
+            curr_max_score = max_weight
         for node in self.preorder():
             for clade, eset in node.clades.items():
                 weightlist = [
@@ -1119,10 +1125,24 @@ class HistoryDag:
                 optimalweight = optimal_func([weight for weight, _, _ in weightlist])
                 newtargets = []
                 newweights = []
-                for weight, target, index in weightlist:
-                    if eq_func(weight, optimalweight):
-                        newtargets.append(target)
-                        newweights.append(eset.weights[index])
+
+                if max_weight is not None:
+                    # get the minimum weight from the other clades
+                    weight_under_clade = []
+                    for weight, target, _ in weightlist:
+                        weight_under_clade.append(weight + target._dp_data)
+                    min_score_other = node._dp_data - min(weight_under_clade)
+                    print("min_score_other: " + str(min_score_other))
+                for weight, target, index in weightlist: # this is looping through all the edges under clade
+                    if max_weight is not None:
+                        if accum_func([weight, target._dp_data, min_score_other]) <= curr_max_score:
+                            newtargets.append(target)
+                            newweights.append(eset.weights[index])
+                            curr_max_score = curr_max_score - min_score_other
+                    else:
+                        if eq_func(weight, optimalweight):
+                            newtargets.append(target)
+                            newweights.append(eset.weights[index])
                 eset.targets = newtargets
                 eset.weights = newweights
                 n = len(eset.targets)
