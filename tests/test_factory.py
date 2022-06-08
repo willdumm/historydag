@@ -126,10 +126,12 @@ def test_count_topologies():
         print(checkset)
         assert dag.count_topologies() == len(checkset)
 
+
 def test_unlabel():
     for dag in dags:
         udag = dag.unlabel()
         assert dag.count_topologies() == udag.count_trees()
+
 
 def test_parsimony():
     # test parsimony counts without ete
@@ -328,10 +330,10 @@ def test_indexing_comprehensive():
         assert all_dags_true == all_dags_indexed
 
         # verify the lengths match
-        assert (
-            len(history_dag) == len(all_dags_indexed)
-        )
+        assert len(history_dag) == len(all_dags_indexed)
         assert len(all_dags_indexed) == len(all_dags_true)
 
         # test the for each loop
-        assert set(history_dag.to_newicks()) == set({tree.to_newick() for tree in history_dag})
+        assert set(history_dag.to_newicks()) == set(
+            {tree.to_newick() for tree in history_dag}
+        )

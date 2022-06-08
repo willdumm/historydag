@@ -440,8 +440,8 @@ class HistoryDag:
         return HistoryDag(self.dagroot._sample())
 
     def unlabel(self) -> "HistoryDag":
-        """Sets all internal node labels to be identical, and merges nodes
-        so that all histories in the DAG have unique topologies."""
+        """Sets all internal node labels to be identical, and merges nodes so
+        that all histories in the DAG have unique topologies."""
 
         newdag = self.copy()
         model_label = next(self.preorder(skip_root=True)).label
@@ -451,13 +451,12 @@ class HistoryDag:
         for node in newdag.preorder(skip_root=True):
             if not node.is_leaf():
                 node.label = internal_label
-        
+
         # Use merging method to eliminate duplicate nodes, by starting with
         # a subdag with no duplicate nodes.
         ret = newdag.sample()
         ret.merge(newdag)
         return ret
-
 
     def is_clade_tree(self) -> bool:
         """Returns whether history DAG is a clade tree.
@@ -806,6 +805,24 @@ class HistoryDag:
         print(f"Nodes:\t{sum(1 for _ in self.postorder())}")
         print(f"Trees:\t{self.count_trees()}")
         utils.hist(self.weight_counts_with_ambiguities())
+
+    def label_uncertainty_summary(self):
+        """Print information about nodes which have the same child clades but
+        different labels."""
+        duplicates = list(
+            Counter(
+                node.partitions() for node in self.preorder(skip_root=True)
+            ).values()
+        )
+        print(
+            "Mean unique labels per unique child clade set:",
+            sum(duplicates) / len(duplicates),
+        )
+        print("Maximum duplication:", max(duplicates))
+        print(
+            "Counts of duplication numbers by unique child clade set:",
+            Counter(duplicates),
+        )
 
     # ######## Abstract dp method and derivatives: ########
 
