@@ -305,18 +305,18 @@ class HistoryDag:
 
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the sub-history below the current history dag corresponding to the given index."""
+        length = self.count_trees()
         if key < 0:
-            key = len(self) + key
+            key = length + key
         if isinstance(key, slice) or not type(key) == int:
             raise TypeError(f"History DAG indices must be integers, not {type(key)}")
-        if not (key >= 0 and key < len(self)):
+        if not (key >= 0 and key < length):
             raise IndexError
         self.count_trees()
         return HistoryDag(self.dagroot._get_subtree_by_subid(key))
 
     def __len__(self) -> int:
-        self.count_trees()
-        return self.dagroot._dp_data
+        return self.count_trees()
 
     def __or__(self, other) -> "HistoryDag":
         newdag = self.copy()
