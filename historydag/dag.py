@@ -807,11 +807,11 @@ class HistoryDag:
         utils.hist(self.weight_counts_with_ambiguities())
 
     def label_uncertainty_summary(self):
-        """Print information about nodes which have the same child clades but
+        """Print information about internal nodes which have the same child clades but
         different labels."""
         duplicates = list(
             Counter(
-                node.partitions() for node in self.preorder(skip_root=True)
+                node.partitions() for node in self.preorder(skip_root=True) if not node.is_leaf()
             ).values()
         )
         print(
