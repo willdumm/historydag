@@ -126,6 +126,10 @@ def test_count_topologies():
         print(checkset)
         assert dag.count_topologies() == len(checkset)
 
+def test_unlabel():
+    for dag in dags:
+        udag = dag.unlabel()
+        assert dag.count_topologies() == udag.count_trees()
 
 def test_parsimony():
     # test parsimony counts without ete
