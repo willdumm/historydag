@@ -1,3 +1,4 @@
+from ctypes.util import find_library
 import ete3
 import pickle
 import historydag.dag as hdag
@@ -333,11 +334,36 @@ def test_indexing_comprehensive():
         assert set(history_dag.to_newicks()) == set({tree.to_newick() for tree in history_dag})
 
 def test_trim_weight():
-    max_weight = 10
     for history_dag in dags+cdags:
+        history_dag = (dags+cdags)[6]
+        # print(history_dag.to_newicks())
         counter = history_dag.weight_count()
         max_weight_passed = list(counter.keys())[int(len(counter.keys()) / 2)]
-        trimmed_tree = history_dag.trim_optimal_weight(max_weight = max_weight_passed)
-        break
+        # max_weight_passed = 75
+        #  history_dag.render(filename='img/g1')
+        # history_dag.to_graphviz().view("img.png")
+        print("before")
+        print(history_dag.weight_count())
+        print(max_weight_passed)
+        opt_weight = history_dag.trim_optimal_min_weight(max_weight = max_weight_passed)
+        print("after")
+
+        print(history_dag.weight_count())
+        all_subtrees = history_dag.get_trees()
+        trees_to_merge = []
+        for tree in all_subtrees:
+            # print("parsimony count")
+            # print(tree.weight_count())
+            if list(tree.weight_count().keys())[0] <= max_weight_passed:
+                trees_to_merge.append(tree)
+        final_subtree = hdag.history_dag_from_clade_trees(trees_to_merge)
+        print(final_subtree.weight_count())
+        print("^that")
+        difference = (set(history_dag.to_newicks()) - set(final_subtree.to_newicks()))
+        print(len(difference))
+        difference2 = (set(final_subtree.to_newicks()) - set(history_dag.to_newicks()))
+        print(len(difference2))
+        assert set(final_subtree.to_newicks()) == set(history_dag.to_newicks())
+        print("passed!")
         # break
-    assert 0 == 1
+    # assert 0 == 1
