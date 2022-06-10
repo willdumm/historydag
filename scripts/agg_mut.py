@@ -1,4 +1,5 @@
 import ete3
+import random
 import dag_pb2 as dpb
 from collections import Counter
 import bte as mat
@@ -92,23 +93,27 @@ def process_from_mat(file, refseqid):
             node.delete(prevent_nondicotomic=False)
     return tree
 
+def load_MAD_pbdata(filename):
+    with open(filename, 'rb') as fh:
+        pb_data = dpb.data()
+        pb_data.ParseFromString(fh.read())
+    return pb_data
+
 def load_dag(dagname):
-    if dagname.split('.')[-1] == 'p':
+    last_suffix = dagname.split('.')[-1]
+    if last_suffix == 'p':
         with open(dagname, 'rb') as fh:
             dag, refseqtuple = pickle.load(fh)
             dag.refseq = refseqtuple
             return dag
-    elif dagname.split('.')[-1] == 'json':
+    elif last_suffix == 'json':
         with open(dagname, 'r') as fh:
             json_dict = json.load(fh)
         return unflatten(json_dict)
-    elif dagname.split('.')[-1] == 'pb':
-        with open(dagname, 'rb') as fh:
-            pb_data = dpb.data()
-            pb_data.ParseFromString(fh.read())
-        return pb_to_dag(pb_data)
+    elif last_suffix == 'pb':
+        return pb_to_dag(load_MAD_pbdata(dagname))
     else:
-        raise ValueError("Unrecognized file format. Provide either pickled dag (*.p), or json serialized dags (*.json).")
+        raise ValueError("Unrecognized file format. Provide either pickled dag (*.p), or json serialized dags (*.json), or protobuf (*.pb).")
 
 class Encoder(json.JSONEncoder):
     def default(self, obj):
@@ -118,9 +123,9 @@ class Encoder(json.JSONEncoder):
             return list(obj)
         return json.JSONEncoder.default(self, obj)
 
-def write_dag(dag, dagpath, sort=False):
+def write_dag(dag, dagpath, sort=False, **kwargs):
     """Write to pickle file, json, or MAD protobuf (`pb`)"""
-    extension = dagpath.split('.')[-1].lower()
+    extension = str(dagpath).split('.')[-1].lower()
     if extension == 'p':
         with open(dagpath, 'wb') as fh:
             fh.write(pickle.dumps((dag, dag.refseq)))
@@ -129,22 +134,43 @@ def write_dag(dag, dagpath, sort=False):
             fh.write(json.dumps(flatten(dag, sort_compact_genomes=sort), cls=Encoder))
     elif extension == 'pb':
         with open(dagpath, 'wb') as fh:
-            fh.write(dag_to_mad_pb(dag).SerializeToString())
+            fh.write(dag_to_mad_pb(dag, **kwargs).SerializeToString())
     else:
         raise ValueError("unrecognized output file extension. Supported extensions are .p and .json.")
 
 def sequence_to_cg(sequence, ref_seq):
-    cg = {idx: (old_base, new_base) for idx, (old_base, new_base) in zip(ref_seq, sequence) if old_base != new_base}
+    cg = {zero_idx + 1: (old_base, new_base)
+          for zero_idx, (old_base, new_base) in enumerate(zip(ref_seq, sequence))
+          if old_base != new_base}
     return frozendict(cg)
 
 def cg_to_sequence(cg, ref_seq):
     newseq = []
-    for idx, ref_nuc in enumerate(ref_seq):
-        if idx in cg:
-            newseq.append(cg[idx][1])
-        else:
-            newseq.append(ref_nuc)
+    newseq = list(ref_seq)
+    for idx, (ref_base, newbase) in cg.items():
+        if ref_base != newseq[idx - 1]:
+            print("cg_to_sequence warning: reference base doesn't match cg reference base")
+        newseq[idx - 1] = newbase
     return ''.join(newseq)
+
+def _test_sequence_cg_convert():
+    seqs = [
+        'AAAA',
+        'TAAT',
+        'CTGA',
+        'TGCA',
+    ]
+    for refseq in seqs:
+        for seq in seqs:
+            cg = sequence_to_cg(seq, refseq)
+            reseq = cg_to_sequence(cg, refseq)
+            if reseq != seq:
+                print("\nUnmatched reconstructed sequence:")
+                print("ref sequence:", refseq)
+                print("sequence:", seq)
+                print("cg:", cg)
+                print("reconstructed sequence:", reseq)
+                assert False
 
 def cg_diff(parent_cg, child_cg):
     """Yields mutations in the format (parent_nuc, child_nuc, sequence_index)
@@ -160,37 +186,83 @@ def cg_diff(parent_cg, child_cg):
             new_base = child_cg[key][1]
         else:
             new_base = parent_cg[key][0]
-        yield (parent_base, new_base, key)
+        if parent_base != new_base:
+            yield (parent_base, new_base, key)
 
-def dag_to_mad_pb(dag, add_leaf_seqs=False):
+def str_mut_from_tups(tup_muts):
+    for tup_mut in tup_muts:
+        par_nuc, child_nuc, idx = tup_mut
+        yield par_nuc + str(idx) + child_nuc
+
+def _test_cg_diff():
+    cgs = [
+        frozendict({287: ('C', 'G')}),
+        frozendict({287: ('C', 'G'), 318: ('C', 'A'), 495: ('C', 'T')}),
+        frozendict({287: ('C', 'G'), 80: ('A', 'C'), 257: ('C', 'G'), 591: ('G', 'A')}),
+        frozendict({287: ('C', 'G'), 191: ('A', 'G'), 492: ('C', 'G'), 612: ('C', 'G'), 654: ('A', 'G')}),
+        frozendict({287: ('C', 'G'), 318: ('C', 'A'), 495: ('C', 'T')}),
+    ]
+    for parent_cg in cgs:
+        for child_cg in cgs:
+            assert apply_muts(parent_cg, str_mut_from_tups(cg_diff(parent_cg, child_cg))) == child_cg
+            assert all(par_nuc != child_nuc for par_nuc, child_nuc, idx in cg_diff(parent_cg, child_cg))
+
+def string_seq_diff(parent_seq, child_seq):
+    return ((par_nuc, child_nuc, zero_idx + 1)
+            for zero_idx, (par_nuc, child_nuc) in enumerate(zip(parent_seq, child_seq))
+            if par_nuc != child_nuc)
+
+
+
+def dag_to_mad_pb(dag, leaf_data_func=None, from_mutseqs=True):
     """convert a DAG with compact genome data on each node, to a MAD protobuf with mutation
     information on edges.
+
+    Args:
+        dag: the history DAG to be converted
+        leaf_data_func: a function taking a DAG node and returning a string to store
+            in the protobuf node_name field `condensed_leaves` of leaf nodes
+        from_mutseqs: if True, passed DAG must contain compact genomes in mutseq label
+            attributes. Otherwise, DAG must contain string sequences in sequence label attributes.
     """
-    refseqid, refseq = dag.refseq
+    if from_mutseqs:
+        refseqid, refseq = dag.refseq
+        def mut_func(pnode, cnode):
+            if pnode.is_root():
+                parent_seq = frozendict()
+            else:
+                parent_seq = pnode.label.mutseq
+            return cg_diff(parent_seq, child.label.mutseq)
+    else:
+        refseq = next(dag.preorder(skip_root=True)).label.sequence
+        refseqid = 'unknown_seq_id'
+        def mut_func(pnode, cnode):
+            if pnode.is_root():
+                parent_seq = refseq
+            else:
+                parent_seq = pnode.label.sequence
+            return string_seq_diff(parent_seq, cnode.label.sequence)
+
     node_dict = {}
     data = dpb.data()
     for idx, node in enumerate(dag.postorder()):
         node_dict[node] = idx
         node_name = data.node_names.add()
         node_name.node_id = idx
-        if add_leaf_seqs:
+        if leaf_data_func is not None:
             if node.is_leaf():
-                node_name.condensed_leaves.append(cg_to_sequence(node.label.mutseq, refseq))
+                node_name.condensed_leaves.append(leaf_data_func(node))
 
     for node in dag.postorder():
-        if node.is_root():
-            parent_seq = frozendict()
-        else:
-            parent_seq = node.label.mutseq
         for cladeidx, (clade, edgeset) in enumerate(node.clades.items()):
             for child in edgeset.targets:
                 edge = data.edges.add()
                 edge.parent_node = node_dict[node]
                 edge.parent_clade = cladeidx
                 edge.child_node = node_dict[child]
-                for par_nuc, child_nuc, idx in cg_diff(parent_seq, child.label.mutseq):
+                for par_nuc, child_nuc, idx in mut_func(node, child):
                     mut = edge.edge_mutations.add()
-                    mut.position = idx + 1
+                    mut.position = idx
                     mut.par_nuc = nuc_codes[par_nuc.upper()]
                     mut.mut_nuc.append(nuc_codes[child_nuc.upper()])
     data.reference_seq = refseq
@@ -266,7 +338,7 @@ def pb_to_dag(pbdata):
     node_index_d = {record.node_id: idx for idx, record in enumerate(pbdata.node_names)}
     node_list = [(label_dict[node_compact_genomes[node_record.node_id]],
                   child_clades[node_record.node_id],
-                  None)
+                  {"node_id": node_record.node_id})
                  for node_record in pbdata.node_names]
     
     edge_list = [(node_index_d[edge.parent_node], node_index_d[edge.child_node], 0, 1)
@@ -521,14 +593,14 @@ def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_fi
             oldbase = mut[0]
             newbase = mut[-1]
             # muts seem to be 1-indexed!
-            idx = int(mut[1:-1]) - 1
+            zero_idx = int(mut[1:-1]) - 1
             if reverse:
                 newbase, oldbase = oldbase, newbase
-            if idx > len(sequence):
-                print(idx, len(sequence))
-            if sequence[idx] != oldbase:
+            if zero_idx > len(sequence):
+                print(zero_idx, len(sequence))
+            if sequence[zero_idx] != oldbase:
                 print("warning: sequence does not have expected (old) base at site")
-            sequence = sequence[: idx] + newbase + sequence[idx + 1 :]
+            sequence = sequence[: zero_idx] + newbase + sequence[zero_idx + 1 :]
         return sequence
     fasta_data = load_fasta(reference_seq_fasta)
     ((_, refseq_constant), ) = fasta_data.items()
@@ -689,6 +761,97 @@ def unflatten(flat_dag):
     dag = HistoryDag(node_postorder[-1][0])
     dag.refseq = tuple(flat_dag["refseq"])
     return dag
+
+
+@cli.command("make-testcase")
+@click.argument("pickled_forest")
+@click.argument("outdir")
+@click.option("-n", "--num_trees")
+@click.option("-s", "--random_seed", default=1)
+def make_testcase(pickled_forest, outdir, num_trees, random_seed):
+    random.seed(random_seed)
+    outdir = Path(outdir)
+    outdir.mkdir(exist_ok=True)
+    with open(pickled_forest, 'rb') as fh:
+        forest = pickle.load(fh)
+    dag = forest._forest
+    trees = [dag.sample() for _ in range(int(num_trees))]
+    refseqs = [next(tree.preorder(skip_root=True)).label.sequence for tree in trees]
+    assert len(set(refseqs)) == 1
+    # These dags have full sequence strings instead of compact genomes, which
+    # is why we pass from_mutseqs to write_dag (which passes it on to
+    # dag_to_mad_pb)
+    for idx, tree in enumerate(trees):
+        write_dag(tree, outdir / f"tree_{str(idx)}.pb", from_mutseqs=False)
+    newdag = trees[0]
+    for tree in trees[1:]:
+        newdag.merge(tree)
+    write_dag(newdag, outdir / "full_dag.pb", from_mutseqs=False)
+    print(f"Test case dag contains {newdag.count_trees()} trees")
+
+@cli.command("change-ref")
+@click.argument("in_pb")
+@click.argument("out_dag")
+@click.argument("new_ref_fasta")
+def change_ref(in_pb, out_dag, new_ref_fasta):
+    """Change the reference sequence on the provided protobuf DAG, and output
+    to a new protobuf file"""""
+    pbdata = load_MAD_pbdata(in_pb)
+    oldref = pbdata.reference_seq
+    ((newrefid, newref),) = load_fasta(new_ref_fasta).items()
+    if len(newref) != len(oldref):
+        raise ValueError("New reference length does not match old reference length")
+    # use new ref as reference sequence
+    newstart_cg = sequence_to_cg(oldref, newref)
+    # find DAG UA node:
+    parent_edges = {}
+    child_edges = {}
+    for edge in pbdata.edges:
+        if edge.parent_node in child_edges:
+            child_edges[edge.parent_node].append(edge)
+        else:
+            child_edges[edge.parent_node] = [edge]
+        if edge.child_node in parent_edges:
+            parent_edges[edge.child_node].append(edge)
+        else:
+            parent_edges[edge.child_node] = [edge]
+    ua_node_set = set(child_edges.keys()) - set(parent_edges.keys())
+    (ua_node_id, ) = set(child_edges.keys()) - set(parent_edges.keys())
+    # add newmuts to all edges descending from DAG UA node:
+    for edge in child_edges[ua_node_id]:
+        child_cg = newstart_cg.copy()
+        for mut in edge.edge_mutations:
+            mutstring = nuc_lookup[mut.par_nuc] + str(mut.position) + nuc_lookup[mut.mut_nuc[0]]
+            sequence.mutate(child_cg, mutstring)
+        # clear edge mutations
+        while len(edge.edge_mutations) > 0:
+            edge.edge_mutations.pop()
+        for (old_base, new_base, idx) in cg_diff(frozendict(), child_cg):
+            mut = edge.edge_mutations.add()
+            mut.position = idx
+            mut.par_nuc = nuc_codes[old_base]
+            mut.mut_nuc.append(nuc_codes[new_base])
+    pbdata.reference_seq = newref
+    pbdata.reference_id = newrefid
+    # load and export modified pbdata to fix internal mutations' parent bases
+    dag = pb_to_dag(pbdata)
+    write_dag(dag, out_dag)
+    
+@cli.command('test')
+def _cli_test():
+    """Run all functions beginning with _test_ in this script
+    (They must take no arguments)"""
+    namespace = globals()
+    print("Running all test functions:")
+    for key, val in namespace.items():
+        if '_test_' in key and key[:6] == '_test_':
+            try:
+                print(key + '\t', end='')
+                val()
+                print("Passed")
+            except:
+                print("FAILED")
+                raise
 
 
 ## TODO this needs to be updated to apply recorded mutations at each node
