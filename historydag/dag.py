@@ -1146,7 +1146,7 @@ class HistoryDag:
         ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
-        max_weight: Weight = None,
+        # max_weight: Weight = None,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
     ) -> Weight:
         """Trims the DAG to only express trees with optimal weight. This is
@@ -1170,7 +1170,7 @@ class HistoryDag:
                 one, like min.
             eq_func: A function which tests equality, taking a pair of weights and returning a bool.
         """
-        print(max_weight)
+        # print(max_weight)
         opt_weight = self.optimal_weight_annotate(
             start_func=start_func,
             edge_weight_func=edge_weight_func,
@@ -1179,8 +1179,8 @@ class HistoryDag:
         )
         # It may not be okay to use preorder here. May need reverse postorder
         # instead?
-        if max_weight is not None:
-            curr_max_score = max_weight
+        # if max_weight is not None:
+        #     curr_max_score = max_weight
         for node in self.preorder():
             print("for loop over nodes")
             for clade, eset in node.clades.items():
@@ -1199,31 +1199,31 @@ class HistoryDag:
                 newtargets = []
                 newweights = []
 
-                if max_weight is not None:
-                    # get the minimum weight from the other clades
-                    weight_under_clade = []
-                    for weight, target, _ in weightlist:
-                        print("in for loop")
-                        print(weight)
-                        print(target._dp_data)
-                        weight_under_clade.append(weight)
-                    print("done")
-                    print(optimal_func(weight_under_clade))
-                    print(node._dp_data)
-                    min_score_other = node._dp_data - min(weight_under_clade)
-                    print("min_score_other: " + str(min_score_other))
+                # if max_weight is not None:
+                #     # get the minimum weight from the other clades
+                #     weight_under_clade = []
+                #     for weight, target, _ in weightlist:
+                #         print("in for loop")
+                #         print(weight)
+                #         print(target._dp_data)
+                #         weight_under_clade.append(weight)
+                #     print("done")
+                #     print(optimal_func(weight_under_clade))
+                #     print(node._dp_data)
+                #     min_score_other = node._dp_data - min(weight_under_clade)
+                #     print("min_score_other: " + str(min_score_other))
                 for weight, target, index in weightlist: # this is looping through all the edges under clade
-                    if max_weight is not None:
-                        print("max weight: "  +str(max_weight))
-                        if accum_func([weight, min_score_other]) <= curr_max_score:
-                            newtargets.append(target)
-                            newweights.append(eset.weights[index])
-                            curr_max_score = curr_max_score - min_score_other
-                    else:
-                        print(weight)
-                        if eq_func(weight, optimalweight):
-                            newtargets.append(target)
-                            newweights.append(eset.weights[index])
+                    # if max_weight is not None:
+                    #     print("max weight: "  +str(max_weight))
+                    #     if accum_func([weight, min_score_other]) <= curr_max_score:
+                    #         newtargets.append(target)
+                    #         newweights.append(eset.weights[index])
+                    #         curr_max_score = curr_max_score - min_score_other
+                    # else:
+                    # print(weight)
+                    if eq_func(weight, optimalweight):
+                        newtargets.append(target)
+                        newweights.append(eset.weights[index])
                 eset.targets = newtargets
                 eset.weights = newweights
                 n = len(eset.targets)

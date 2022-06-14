@@ -335,18 +335,19 @@ def test_indexing_comprehensive():
 
 def test_trim_weight():
     for history_dag in dags+cdags:
-        history_dag = (dags+cdags)[6]
+        history_dag = (dags+cdags)[6] 
         # print(history_dag.to_newicks())
         counter = history_dag.weight_count()
         max_weight_passed = list(counter.keys())[int(len(counter.keys()) / 2)]
-        # max_weight_passed = 75
+
         #  history_dag.render(filename='img/g1')
         # history_dag.to_graphviz().view("img.png")
-        print("before")
+        print("weight count before trimming:")
         print(history_dag.weight_count())
+        print("max weight passed in:")
         print(max_weight_passed)
         opt_weight = history_dag.trim_optimal_min_weight(max_weight = max_weight_passed)
-        print("after")
+        print("weight count after trimming:")
 
         print(history_dag.weight_count())
         all_subtrees = history_dag.get_trees()
@@ -357,12 +358,13 @@ def test_trim_weight():
             if list(tree.weight_count().keys())[0] <= max_weight_passed:
                 trees_to_merge.append(tree)
         final_subtree = hdag.history_dag_from_clade_trees(trees_to_merge)
+        print("weight count of tree made by merging subtrees with max weight:")
         print(final_subtree.weight_count())
-        print("^that")
+        # print("^that")
         difference = (set(history_dag.to_newicks()) - set(final_subtree.to_newicks()))
-        print(len(difference))
+        print("number of subtrees included in tree after trimming but not after merging: " +str(len(difference)))
         difference2 = (set(final_subtree.to_newicks()) - set(history_dag.to_newicks()))
-        print(len(difference2))
+        print("number of subtrees included in tree after mergeing but not trimming: " + str(len(difference2)))
         assert set(final_subtree.to_newicks()) == set(history_dag.to_newicks())
         print("passed!")
         # break
