@@ -854,10 +854,56 @@ class HistoryDag:
                         if cnode.label not in parent_dictionary:
                             parent_dictionary[cnode.label] = set()
                         # exclude self loops in label space
-                        # if node.label != cnode.label:
-                        parent_dictionary[cnode.label].add(node.label)
+                        if node.label != cnode.label:
+                            parent_dictionary[cnode.label].add(node.label)
 
         return parent_dictionary
+
+    def leaf_path_uncertainty_graphviz_collapse(self, leaf_label, edge2count, total_trees):
+        """send output of leaf_path_uncertainty_dag to graphviz for rendering.
+
+        Args:
+            leaf_label: The node label of the leaf of interest
+            edge2count: A map of edges in the form of node pairs (parent, child) to their count
+                in the history DAG
+            total_trees: The total number of trees contained in the history DAG
+
+        Returns:
+            The graphviz DAG object, and a dictionary mapping node names to labels
+        """
+        G = gv.Digraph("Path DAG to leaf", node_attr={})
+        parent_d = self.leaf_path_uncertainty_dag(leaf_label)
+        label_ids = {key: str(idnum) for idnum, key in enumerate(parent_d)}
+
+        for key in parent_d:
+            if key == leaf_label:
+                G.node(label_ids[key], shape="octagon")
+            elif len(parent_d[key]) == 0:
+                G.node(label_ids[key], shape="invtriangle")
+            else:
+                G.node(label_ids[key])
+        
+        for child_label, parentset in parent_d.items():
+            for parent_label in parentset:
+                if child_label == parent_label: # skip self-edges
+                    continue
+                support = 0
+                for parent, child in edge2count.keys():
+                    if parent.label == parent_label and child.label == child_label and \
+                        (leaf_label in child.under_clade() or (child.label == leaf_label and child.is_leaf())):
+                        support += edge2count[(parent, child)]
+                # Shifts color pallete to less extreme lower bouund
+                color = f"0.0000 {support/total_trees * 0.9 + 0.1} 1.000"
+                G.edge(
+                    label_ids[parent_label],
+                    label_ids[child_label],
+                    penwidth="5",
+                    color=color,
+                    label=f"{support/total_trees:.2}",
+                    weight=f"{support/total_trees}"
+               )
+        return G, {idnum: child_label for child_label, idnum in label_ids.items()}
+    
 
     def leaf_path_uncertainty_graphviz(self, leaf_label):
         """send output of leaf_path_uncertainty_dag to graphviz for rendering.
@@ -883,6 +929,73 @@ class HistoryDag:
                     label="",
                 )
         return G, {idnum: key for key, idnum in label_ids.items()}
+
+    def leaf_path_uncertainty_dag_no_collapse(self, leaf_label):
+        """Compute the DAG of possible paths leading to `leaf_label`.
+
+        Args:
+            leaf_label: The node label of the leaf of interest
+
+        Returns:
+            parent_dictionary: A dictionary keyed by hDAG nodes, with sets
+                of possible parent nodes.
+        """
+        parent_dictionary = {
+            node: set()
+            for node in self.dagroot.children()
+            if leaf_label in node.under_clade() or \
+                (node.is_leaf() and node.label == leaf_label)
+        }
+
+        for node in self.preorder(skip_root=True):
+            for clade, eset in node.clades.items():
+                if leaf_label in clade:
+                    for cnode in eset.targets:
+                        if cnode not in parent_dictionary:
+                            parent_dictionary[cnode] = set()
+                        if node != cnode:
+                            parent_dictionary[cnode].add(node)
+
+        return parent_dictionary
+
+    def leaf_path_uncertainty_graphviz_no_collapse(self, leaf_label, edge2count, total_trees):
+        """sends output of leaf_path_uncertainty_dag_no_collapse to graphviz for rendering.
+
+        Args:
+            leaf_label: The node label of the leaf of interest
+            edge2count: A map of edges in the form of node pairs (parent, child) to their count
+                in the history DAG
+            total_trees: The total number of trees contained in the history DAG
+
+        Returns:
+            The graphviz DAG object, and a dictionary mapping node names to labels
+        """
+        G = gv.Digraph("Path DAG to leaf", node_attr={})
+        parent_d = self.leaf_path_uncertainty_dag_no_collapse(leaf_label)
+        node_ids = {key: str(idnum) for idnum, key in enumerate(parent_d)}
+
+        for node in parent_d:
+            if node.is_leaf():
+                G.node(node_ids[node], shape="octagon")
+            elif len(parent_d[node]) == 0:
+                G.node(node_ids[node], shape="invtriangle")
+            else:
+                G.node(node_ids[node])
+        
+        for child, parentset in parent_d.items():
+            for parent in parentset:
+                support = edge2count[(parent, child)]
+                # Shifts color pallete to less extreme lower bouund
+                color = f"0.0000 {support/total_trees * 0.9 + 0.1} 1.000"
+                G.edge(
+                    node_ids[parent],
+                    node_ids[child],
+                    penwidth="5",
+                    color=color,
+                    label=f"{support/total_trees:.2}",
+                    weight=f"{support/total_trees}"
+               )
+        return G, {idnum: child_label for child_label, idnum in node_ids.items()}
 
     def summary(self):
         """Print nicely formatted summary about the history DAG."""
@@ -1048,7 +1161,7 @@ class HistoryDag:
         newicks = self.weight_count(**utils.make_newickcountfuncs(**kwargs)).elements()
         return [newick[1:-1] + ";" for newick in newicks]
 
-    def count_topologies(self, collapse_leaves: bool = False) -> int:
+    def count_topologies_with_newicks(self, collapse_leaves: bool = False) -> int:
         """Counts the number of unique topologies in the history DAG. This is
         achieved by counting the number of unique newick strings with only
         leaves labeled.
@@ -1116,53 +1229,9 @@ class HistoryDag:
             sum,
             prod,
         )
-    
-    def count_nodes(self) -> Dict[HistoryDagNode, int]:
-        """Counts the number of trees each node takes part in.
-        
-        Returns:
-            A dicitonary mapping each node in the DAG to the number of trees that it
-            takes part in.
-        """
-        node2count = {}
-        node2stats = {}
 
-        self.count_trees()  # Initializes node._dp_data to contain number of subtrees below
-        reverse_postorder = reversed(list(self.postorder()))    # TODO: Find a better way to visit parents first...
-        for node in reverse_postorder:
-            # print(node)
-            below = node._dp_data
-            if node.is_root():
-                above = 1
-            else:
-                curr_clade = set()
-                curr_clade = frozenset(curr_clade.union(*[set(clade) for clade in node.clades]))
-                # print(f"\tCurr_clade = {curr_clade}")
-
-                above = 0
-                for parent in node.parents:
-                    above_parent = node2stats[parent][0]
-                    below_parent = 1
-                    for clade in parent.clades:
-                        if clade == curr_clade or parent.is_root():     # Skip clade covered by node of interest
-                            # print("\t skipping current clade...")
-                            continue
-                        below_clade = 0
-                        for sib in parent.children(clade=clade):
-                            below_clade += sib._dp_data
-                        below_parent *= below_clade
-
-                    above += above_parent * below_parent
-            
-            node2count[node] = above * below
-            # print(f"\tabove: {above}")
-            # print(f"\tbelow: {below}")
-            node2stats[node] = (above, below)
-            # node._dp_data = {"above": above, "below": below} # NOTE: Don't want to overwrite _dp_data while alg is running...
-        
-        return node2count
-
-    # TODO: This could probably be re-written to use postorder_cladetree_accum...
+    # TODO: Rename to node_support() or something...
+    # TODO: Currently, the returned type is only correct when collapse is False
     def count_nodes(self, collapse=False) -> Dict[HistoryDagNode, int]:
         """Counts the number of trees each node takes part in.
 
@@ -1189,7 +1258,7 @@ class HistoryDag:
             else:
                 above = 0
                 for parent in node.parents:
-                    # above_parent = node2stats[parent][0]    # NOTE: Assumes that you're visiting parents before children
+                    above_parent = node2stats[parent][0]
                     below_parent = 1
                     for clade in parent.clades:
                         # Skip clade covered by node of interest
@@ -1200,17 +1269,7 @@ class HistoryDag:
                             below_clade += sib._dp_data
                         below_parent *= below_clade
 
-                    # TODO: The fact that we have to use this is BAD
-                    if parent not in node2stats:
-                        print("below parent:", below_parent)
-                        above_parent = 1
-                    else:
-                        above_parent = node2stats[parent][
-                            0
-                        ]  # NOTE: Assumes that you're visiting parents before children
                     above += above_parent * below_parent
-
-            # print(f"above: {above}\tbelow:{below}")
 
             node2count[node] = above * below
             node2stats[node] = [above, below]
@@ -1226,6 +1285,98 @@ class HistoryDag:
             return collapsed_n2c
         else:
             return node2count
+        return node2count
+
+    def count_nodes(self, collapse=False) -> Dict[HistoryDagNode, int]:
+        """Counts the number of trees each node takes part in.
+        Args:
+            collapse: A flag that when set to true, treats nodes as clade unions and
+                ignores label information. Then, the returned dictionary is keyed by
+                clade union sets.
+        Returns:
+            A dicitonary mapping each node in the DAG to the number of trees
+            that it takes part in.
+        """
+        node2count = {}
+        node2stats = {}
+
+        self.count_trees()
+        reverse_postorder = reversed(list(self.postorder()))
+        for node in reverse_postorder:
+            below = node._dp_data
+            curr_clade = node.under_clade()
+
+            if node.is_root():
+                above = 1
+            else:
+                above = 0
+                for parent in node.parents:
+                    above_parent = node2stats[parent][0]
+                    below_parent = 1
+                    for clade in parent.clades:
+                        # Skip clade covered by node of interest
+                        if clade == curr_clade or parent.is_root():
+                            continue
+                        below_clade = 0
+                        for sib in parent.children(clade=clade):
+                            below_clade += sib._dp_data
+                        below_parent *= below_clade
+
+                    above += above_parent * below_parent
+
+            node2count[node] = above * below
+            node2stats[node] = [above, below]
+
+        collapsed_n2c = {}
+        if collapse:
+            for node in node2count.keys():
+                clade = node.under_clade()
+                if clade not in collapsed_n2c:
+                    collapsed_n2c[clade] = 0
+
+                collapsed_n2c[clade] += node2count[node]
+            return collapsed_n2c
+        else:
+            return node2count
+
+    # TODO: Consider ways to reduce redundancy between this method and the one above
+    def count_edges(self) -> Dict[(HistoryDagNode, HistoryDagNode), int]:
+        """Counts the number of trees each edge takes part in.
+        Returns:
+            A dicitonary mapping each edge in the DAG to the number of trees
+            that it takes part in.
+        """
+        edge2count = {}
+        node2stats = {}
+
+        self.count_trees()
+        reverse_postorder = reversed(list(self.postorder()))
+        for node in reverse_postorder:
+            below = node._dp_data
+            curr_clade = node.under_clade()
+
+            if node.is_root():
+                above = 1
+            else:
+                above = 0
+                for parent in node.parents:
+                    above_parent = node2stats[parent][0]
+                    below_parent = 1
+                    for clade in parent.clades:
+                        # Skip clade covered by node of interest
+                        if clade == curr_clade or parent.is_root():
+                            continue
+                        below_clade = 0
+                        for sib in parent.children(clade=clade):
+                            below_clade += sib._dp_data
+                        below_parent *= below_clade
+
+                    above += above_parent * below_parent
+
+                    edge2count[(parent, node)] = (above_parent * below_parent) * below
+            node2stats[node] = [above, below]
+
+        return edge2count
 
     def count_paths_to_leaf(
         self,

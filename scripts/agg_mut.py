@@ -98,7 +98,6 @@ def process_from_mat(file, refseqid):
             break
         for node in to_delete:
             node.delete(prevent_nondicotomic=False)
-
     return tree
 
 def load_MAD_pbdata(filename):
@@ -340,6 +339,8 @@ def pb_to_dag(pbdata):
 
     def get_child_clades(node_id):
         return tuple(get_clade_union(child_edge.child_node) for child_edge in child_edges[node_id])
+        # maybe we need this??
+        # return frozenset({get_clade_union(child_edge.child_node) for child_edge in child_edges[node_id]})
 
     # order node_ids in postordering
     visited = set()
