@@ -1,4 +1,5 @@
 import ete3
+import functools
 import random
 import dag_pb2 as dpb
 from collections import Counter
@@ -281,35 +282,29 @@ def pb_to_dag(pbdata):
     child_edges = {node.node_id: [] for node in pbdata.node_names}
     for edge in pbdata.edges:
         parent_edges[edge.child_node].append(edge)
-
-        edge_list_list = child_edges[edge.parent_node]
-        while len(edge_list_list) <= edge.parent_clade:
-            edge_list_list.append([])
-        edge_list_list[edge.parent_clade].append(edge)
+        child_edges[edge.parent_node].append(edge)
 
 
     # now each node id is in parent_edges and child_edges as a key,
-    # except for the ua node id. node_names is a postordering, so UA node is last
-    # fix the UA node's compact genome
-    node_compact_genomes = {pbdata.node_names[-1].node_id: frozendict()}
-    for node in pbdata.node_names:
-        edge_queue = []
-        curr_id = node.node_id
-        while curr_id not in node_compact_genomes:
-            edge = parent_edges[curr_id][0]
-            edge_queue.append(edge)
-            curr_id = edge.parent_node
-        curr_seq = node_compact_genomes[curr_id]
-        for edge in reversed(edge_queue):
-            for mut in edge.edge_mutations:
-                curr_seq = mutate(curr_seq, pb_mut_to_str(mut))
-            node_compact_genomes[edge.child_node] = curr_seq
+    # fix the UA node's compact genome (could be done in function but this
+    # asserts only one node has no parent edges)
+    (ua_node_id, ) = [node_id for node_id, eset in parent_edges.items() if len(eset) == 0]
+    @functools.cache
+    def get_node_compact_genome(node_id):
+        if node_id == ua_node_id:
+            return frozendict()
+        else:
+            edge = parent_edges[node_id][0]
+            parent_seq = get_node_compact_genome(edge.parent_node)
+            str_mutations = tuple(pb_mut_to_str(mut) for mut in edge.edge_mutations)
+            return apply_muts(parent_seq, str_mutations)
+
 
     label_list = []
     label_dict = {}
 
     for node_record in pbdata.node_names:
-        cg = node_compact_genomes[node_record.node_id]
+        cg = get_node_compact_genome(node_record.node_id)
         if cg in label_dict:
             cg_idx = label_dict[cg]
         else:
@@ -317,29 +312,39 @@ def pb_to_dag(pbdata):
             label_dict[cg] = cg_idx
             label_list.append(cg)
 
-    # compute leaf node child clades
-    child_clades = {node_name.node_id: frozenset({frozenset({label_dict[node_compact_genomes[node_name.node_id]]})}) for node_name in pbdata.node_names if len(child_edges[node_name.node_id]) == 0}
-    # now build child clade sets in postorder
-    def union(nestedset):
-        return frozenset(item for items in nestedset for item in items)
+    # now build clade unions by dynamic programming:
+    @functools.cache
+    def get_clade_union(node_id):
+        if len(child_edges[node_id]) == 0:
+            # it's a leaf node
+            return frozenset({label_dict[get_node_compact_genome(node_id)]})
+        else:
+            return frozenset({label
+                              for child_edge in child_edges[node_id]
+                              for label in get_clade_union(child_edge.child_node)})
 
-    for node in pbdata.node_names:
-        if node.node_id not in child_clades:
-            clades = set()
-            for edges in child_edges[node.node_id]:
-                clades.add(union(child_clades[edges[0].child_node]))
-            child_clades[node.node_id] = frozenset(clades)
+    def get_child_clades(node_id):
+        return frozenset({get_clade_union(child_edge.child_node) for child_edge in child_edges[node_id]})
 
-    # fix child clades of leaves
-    for node_name in pbdata.node_names:
-        if len(child_edges[node_name.node_id]) == 0:
-            child_clades[node_name.node_id] = frozenset()
+    # order node_ids in postordering
+    visited = set()
 
-    node_index_d = {record.node_id: idx for idx, record in enumerate(pbdata.node_names)}
-    node_list = [(label_dict[node_compact_genomes[node_record.node_id]],
-                  child_clades[node_record.node_id],
-                  {"node_id": node_record.node_id})
-                 for node_record in pbdata.node_names]
+    def traverse(node_id):
+        visited.add(node_id)
+        child_ids = [edge.child_node for edge in child_edges[node_id]]
+        if len(child_ids) > 0:
+            for child_id in child_ids:
+                if not child_id in visited:
+                    yield from traverse(child_id)
+        yield node_id
+
+    id_postorder = list(traverse(ua_node_id))
+    # Start building DAG data
+    node_index_d = {node_id: idx for idx, node_id in enumerate(id_postorder)}
+    node_list = [(label_dict[get_node_compact_genome(node_id)],
+                  get_child_clades(node_id),
+                  {"node_id": node_id})
+                 for node_id in id_postorder]
     
     edge_list = [(node_index_d[edge.parent_node], node_index_d[edge.child_node], 0, 1)
                  for edge in pbdata.edges]
