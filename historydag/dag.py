@@ -305,18 +305,18 @@ class HistoryDag:
 
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the sub-history below the current history dag corresponding to the given index."""
+        length = self.count_trees()
         if key < 0:
-            key = len(self) + key
+            key = length + key
         if isinstance(key, slice) or not type(key) == int:
             raise TypeError(f"History DAG indices must be integers, not {type(key)}")
-        if not (key >= 0 and key < len(self)):
+        if not (key >= 0 and key < length):
             raise IndexError
         self.count_trees()
         return HistoryDag(self.dagroot._get_subtree_by_subid(key))
 
     def __len__(self) -> int:
-        self.count_trees()
-        return self.dagroot._dp_data
+        return self.count_trees()
 
     def __or__(self, other) -> "HistoryDag":
         newdag = self.copy()
@@ -438,6 +438,25 @@ class HistoryDag:
         (A clade tree is a sub-history DAG containing the root and all
         leaf nodes). Returns a new HistoryDagNode object."""
         return HistoryDag(self.dagroot._sample())
+
+    def unlabel(self) -> "HistoryDag":
+        """Sets all internal node labels to be identical, and merges nodes so
+        that all histories in the DAG have unique topologies."""
+
+        newdag = self.copy()
+        model_label = next(self.preorder(skip_root=True)).label
+        # initialize empty/default value for each item in model_label
+        field_values = tuple(type(item)() for item in model_label)
+        internal_label = type(model_label)(*field_values)
+        for node in newdag.preorder(skip_root=True):
+            if not node.is_leaf():
+                node.label = internal_label
+
+        # Use merging method to eliminate duplicate nodes, by starting with
+        # a subdag with no duplicate nodes.
+        ret = newdag.sample()
+        ret.merge(newdag)
+        return ret
 
     def is_clade_tree(self) -> bool:
         """Returns whether history DAG is a clade tree.
@@ -781,11 +800,84 @@ class HistoryDag:
                 node.remove_node(nodedict=nodedict)
         return len(new_nodes)
 
+    def leaf_path_uncertainty_dag(self, leaf_label):
+        """Compute the DAG of possible paths leading to `leaf_label`.
+
+        Args:
+            leaf_label: The node label of the leaf of interest
+
+        Returns:
+            parent_dictionary: A dictionary keyed by node labels, with sets
+                of possible parent node labels.
+        """
+        parent_dictionary = {
+            node.label: set()
+            for node in self.dagroot.children()
+            if leaf_label in node.under_clade()
+        }
+
+        for node in self.preorder(skip_root=True):
+            for clade, eset in node.clades.items():
+                if leaf_label in clade:
+                    for cnode in eset.targets:
+                        if cnode.label not in parent_dictionary:
+                            parent_dictionary[cnode.label] = set()
+                        # exclude self loops in label space
+                        # if node.label != cnode.label:
+                        parent_dictionary[cnode.label].add(node.label)
+
+        return parent_dictionary
+
+    def leaf_path_uncertainty_graphviz(self, leaf_label):
+        """send output of leaf_path_uncertainty_dag to graphviz for rendering.
+
+        Returns:
+            The graphviz DAG object, and a dictionary mapping node names to labels
+        """
+        G = gv.Digraph("Path DAG to leaf", node_attr={})
+        parent_d = self.leaf_path_uncertainty_dag(leaf_label)
+        label_ids = {key: str(idnum) for idnum, key in enumerate(parent_d)}
+        for key in parent_d:
+            if key == leaf_label:
+                G.node(label_ids[key], shape="octagon")
+            elif len(parent_d[key]) == 0:
+                G.node(label_ids[key], shape="invtriangle")
+            else:
+                G.node(label_ids[key])
+        for key, parentset in parent_d.items():
+            for parent in parentset:
+                G.edge(
+                    label_ids[parent],
+                    label_ids[key],
+                    label="",
+                )
+        return G, {idnum: key for key, idnum in label_ids.items()}
+
     def summary(self):
         """Print nicely formatted summary about the history DAG."""
         print(f"Nodes:\t{sum(1 for _ in self.postorder())}")
         print(f"Trees:\t{self.count_trees()}")
         utils.hist(self.weight_counts_with_ambiguities())
+
+    def label_uncertainty_summary(self):
+        """Print information about internal nodes which have the same child
+        clades but different labels."""
+        duplicates = list(
+            Counter(
+                node.partitions()
+                for node in self.preorder(skip_root=True)
+                if not node.is_leaf()
+            ).values()
+        )
+        print(
+            "Mean unique labels per unique child clade set:",
+            sum(duplicates) / len(duplicates),
+        )
+        print("Maximum duplication:", max(duplicates))
+        print(
+            "Counts of duplication numbers by unique child clade set:",
+            Counter(duplicates),
+        )
 
     # ######## Abstract dp method and derivatives: ########
 
@@ -925,13 +1017,15 @@ class HistoryDag:
         newicks = self.weight_count(**utils.make_newickcountfuncs(**kwargs)).elements()
         return [newick[1:-1] + ";" for newick in newicks]
 
-    def count_topologies(self, collapse_leaves: bool = False) -> int:
+    def count_topologies_with_newicks(self, collapse_leaves: bool = False) -> int:
         """Counts the number of unique topologies in the history DAG. This is
         achieved by counting the number of unique newick strings with only
         leaves labeled.
 
         :meth:`count_trees` gives the total number of unique trees in the DAG, taking
         into account internal node labels.
+
+        For large DAGs, this method is prohibitively slow. Use :meth:``count_topologies`` instead.
 
         Args:
             collapse_leaves: By default, topologies are counted as-is in the DAG. However,
@@ -947,6 +1041,14 @@ class HistoryDag:
             internal_labels=False, collapse_leaves=collapse_leaves
         )
         return len(self.weight_count(**kwargs))
+
+    def count_topologies(self) -> int:
+        """Counts the number of unique topologies in the history DAG.
+
+        This is achieved by creating a new history DAG in which all
+        internal nodes have matching labels.
+        """
+        return self.unlabel().count_trees()
 
     def count_trees(
         self,
@@ -979,6 +1081,41 @@ class HistoryDag:
             lambda parent, child: expand_count_func(child.label),
             sum,
             prod,
+        )
+
+    def count_paths_to_leaf(
+        self,
+        leaf_label,
+        expand_func: Optional[Callable[[Label], List[Label]]] = None,
+        expand_count_func: Callable[[Label], int] = lambda ls: 1,
+    ):
+        r"""Annotates each node in the DAG with the number of paths to ``leaf_label`` underneath.
+
+        Args:
+            leaf_label: The label of the leaf node of interest
+            expand_func: A function which takes a label and returns a list of labels, for
+                example disambiguations of an ambiguous sequence. If provided, this method
+                will count at least the number of clade trees that would be in the DAG,
+                if :meth:`explode_nodes` were called with the same `expand_func`.
+            expand_count_func: A function which takes a label and returns an integer value
+                corresponding to the number of 'disambiguations' of that label. If provided,
+                `expand_func` will be used to find this value.
+
+        Returns:
+            The total number of unique paths to the leaf node of interest. If `expand_func`
+            or `expand_count_func` is provided, the paths being counted are not guaranteed
+            to be unique.
+        """
+        if expand_func is not None:
+
+            def expand_count_func(label):
+                return len(list(expand_func(label)))
+
+        return self.postorder_cladetree_accum(
+            lambda n: 1 if n.label == leaf_label else 0,
+            lambda parent, child: 0,
+            sum,
+            sum,
         )
 
     def weight_counts_with_ambiguities(

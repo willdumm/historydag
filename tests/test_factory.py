@@ -127,6 +127,11 @@ def test_count_topologies():
         assert dag.count_topologies() == len(checkset)
 
 
+def test_count_topologies_equals_newicks():
+    for dag in dags:
+        assert dag.count_topologies() == dag.count_topologies_with_newicks()
+
+
 def test_parsimony():
     # test parsimony counts without ete
     def parsimony(tree):
@@ -288,7 +293,7 @@ def test_topology_count_collapse():
             )
         )
     )
-    assert dag.count_topologies(collapse_leaves=True) == 2
+    assert dag.count_topologies_with_newicks(collapse_leaves=True) == 2
 
 
 # this tests is each of the trees indexed are valid subtrees
@@ -324,10 +329,10 @@ def test_indexing_comprehensive():
         assert all_dags_true == all_dags_indexed
 
         # verify the lengths match
-        assert (
-            len(history_dag) == len(all_dags_indexed)
-        )
+        assert len(history_dag) == len(all_dags_indexed)
         assert len(all_dags_indexed) == len(all_dags_true)
 
         # test the for each loop
-        assert set(history_dag.to_newicks()) == set({tree.to_newick() for tree in history_dag})
+        assert set(history_dag.to_newicks()) == set(
+            {tree.to_newick() for tree in history_dag}
+        )
