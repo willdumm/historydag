@@ -802,7 +802,7 @@ class HistoryDag:
 
     def leaf_path_uncertainty_dag(self, leaf_label):
         """Compute the DAG of possible paths leading to `leaf_label`.
-        
+
         Args:
             leaf_label: The node label of the leaf of interest
 
@@ -810,8 +810,11 @@ class HistoryDag:
             parent_dictionary: A dictionary keyed by node labels, with sets
                 of possible parent node labels.
         """
-        parent_dictionary = {node.label: set() for node in self.dagroot.children()
-                             if leaf_label in node.under_clade()}
+        parent_dictionary = {
+            node.label: set()
+            for node in self.dagroot.children()
+            if leaf_label in node.under_clade()
+        }
 
         for node in self.preorder(skip_root=True):
             for clade, eset in node.clades.items():
@@ -826,18 +829,19 @@ class HistoryDag:
         return parent_dictionary
 
     def leaf_path_uncertainty_graphviz(self, leaf_label):
-        """send output of leaf_path_uncertainty_dag to graphviz for rendering
+        """send output of leaf_path_uncertainty_dag to graphviz for rendering.
 
         Returns:
-            The graphviz DAG object, and a dictionary mapping node names to labels"""
+            The graphviz DAG object, and a dictionary mapping node names to labels
+        """
         G = gv.Digraph("Path DAG to leaf", node_attr={})
         parent_d = self.leaf_path_uncertainty_dag(leaf_label)
         label_ids = {key: str(idnum) for idnum, key in enumerate(parent_d)}
         for key in parent_d:
             if key == leaf_label:
-                G.node(label_ids[key], shape='octagon')
+                G.node(label_ids[key], shape="octagon")
             elif len(parent_d[key]) == 0:
-                G.node(label_ids[key], shape='invtriangle')
+                G.node(label_ids[key], shape="invtriangle")
             else:
                 G.node(label_ids[key])
         for key, parentset in parent_d.items():
@@ -856,11 +860,13 @@ class HistoryDag:
         utils.hist(self.weight_counts_with_ambiguities())
 
     def label_uncertainty_summary(self):
-        """Print information about internal nodes which have the same child clades but
-        different labels."""
+        """Print information about internal nodes which have the same child
+        clades but different labels."""
         duplicates = list(
             Counter(
-                node.partitions() for node in self.preorder(skip_root=True) if not node.is_leaf()
+                node.partitions()
+                for node in self.preorder(skip_root=True)
+                if not node.is_leaf()
             ).values()
         )
         print(
@@ -1038,8 +1044,10 @@ class HistoryDag:
 
     def count_topologies(self) -> int:
         """Counts the number of unique topologies in the history DAG.
-        This is achieved by creating a new history DAG in which all internal nodes have
-        matching labels."""
+
+        This is achieved by creating a new history DAG in which all
+        internal nodes have matching labels.
+        """
         return self.unlabel().count_trees()
 
     def count_trees(
