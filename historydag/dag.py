@@ -350,7 +350,7 @@ class HistoryDag:
         node_list: List[Tuple] = []
         edge_list: List[Tuple] = []
         label_indices: Dict[Label, int] = {}
-        node_indices = {id(node): idx for idx, node in enumerate(self.postorder())}
+        node_indices = {node: idx for idx, node in enumerate(self.postorder())}
 
         def cladesets(node):
             clades = {
@@ -374,7 +374,7 @@ class HistoryDag:
                     edge_list.append(
                         (
                             node_idx,
-                            node_indices[id(target)],
+                            node_indices[target],
                             eset.weights[idx],
                             eset.probs[idx],
                         )
