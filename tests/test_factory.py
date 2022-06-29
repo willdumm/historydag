@@ -165,12 +165,6 @@ def test_copy():
         lambda tree: tree.to_newick(),
     )
 
-def test_deterministic_order():
-    with open('refdag.p', 'wb') as fh:
-        fh.write(pickle.dumps(dags[-1]))
-    with open('refdag.p', 'rb') as fh:
-        refdag = pickle.load(fh)
-    assert tuple(refdag.preorder()) == tuple(dags[-1].preorder())
 
 def test_newicks():
     # See that the to_newicks method agrees with to_newick applied to all trees in DAG.

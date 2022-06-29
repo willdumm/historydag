@@ -66,6 +66,24 @@ class HistoryDagNode:
         else:
             raise NotImplementedError
 
+    def __le__(self, other: object) -> bool:
+        if isinstance(other, HistoryDagNode):
+            return (self.label, self.sorted_partitions()) <= (other.label, other.sorted_partitions())
+        else:
+            raise NotImplementedError
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, HistoryDagNode):
+            return (self.label, self.sorted_partitions()) < (other.label, other.sorted_partitions())
+        else:
+            raise NotImplementedError
+
+    def __gt__(self, other: object) -> bool:
+        return not self.__le__(other)
+
+    def __ge__(self, other: object) -> bool:
+        return not self.__lt__(other)
+
     def node_self(self) -> "HistoryDagNode":
         """Returns a HistoryDagNode object with the same clades and label, but
         no descendant edges."""
@@ -93,6 +111,14 @@ class HistoryDagNode:
         """Returns the node's child clades, or a frozenset containing a
         frozenset if this node is a UANode."""
         return frozenset(self.clades.keys())
+
+    def sorted_partitions(self) -> tuple:
+        """Returns the node's child clades as a sorted tuple containing
+        leaf labels in sorted tuples."""
+        return tuple(sorted([
+            tuple(sorted(clade))
+            for clade in self.clades.keys()
+        ]))
 
     def children(
         self, clade: Set[Label] = None
@@ -342,7 +368,7 @@ class HistoryDag:
             * label_list: labels used in nodes, without duplicates. Indices are
                 mapped to nodes in node_list
             * node_list: node tuples containing
-                (node label index in label_list, frozenset of frozensets of leaf label indices, node.attr).
+                (node label index in label_list, tuple of frozensets of leaf label indices, node.attr).
             * edge_list: a tuple for each edge:
                     (origin node index, target node index, edge weight, edge probability)"""
         label_fields = list(self.dagroot.children())[0].label._fields
@@ -353,11 +379,10 @@ class HistoryDag:
         node_indices = {node: idx for idx, node in enumerate(self.postorder())}
 
         def cladesets(node):
-            clades = {
+            return tuple(
                 frozenset({label_indices[label] for label in clade})
                 for clade in node.clades
-            }
-            return frozenset(clades)
+            )
 
         for node in self.postorder():
             if node.label not in label_indices:
@@ -434,9 +459,12 @@ class HistoryDag:
             yield HistoryDag(cladetree)
 
     def sample(self) -> "HistoryDag":
-        r"""Samples a clade tree from the history DAG.
-        (A clade tree is a sub-history DAG containing the root and all
-        leaf nodes). Returns a new HistoryDagNode object."""
+        r"""Samples a history from the history DAG.
+        (A history is a sub-history DAG containing the root and all
+        leaf nodes)
+        For reproducibility, set ``random.seed`` before sampling.
+
+        Returns a new HistoryDag object."""
         return HistoryDag(self.dagroot._sample())
 
     def unlabel(self) -> "HistoryDag":
@@ -794,7 +822,7 @@ class HistoryDag:
                     # Add all edges into and out of node to newnode
                     for target in node.children():
                         newnode.add_edge(target)
-                    for parent in node.parents:
+                    for parent in sorted(node.parents):
                         parent.add_edge(newnode)
                 # Delete old node
                 node.remove_node(nodedict=nodedict)
@@ -1383,7 +1411,7 @@ class HistoryDag:
                     # no need for recursion here, all of its parents had
                     # edges added to new parent from the same clade.
                     upclade = parent.under_clade()
-                    for grandparent in parent.parents:
+                    for grandparent in sorted(parent.parents):
                         grandparent.remove_edge_by_clade_and_id(parent, upclade)
                     for child2 in parent.children():
                         child2.parents.remove(parent)
@@ -1633,7 +1661,6 @@ def from_tree(
 
     dag = _unrooted_from_tree(tree)
     dagroot = UANode(EdgeSet([dag], weights=[tree.dist]))
-    dagroot.add_edge(dag, weight=0)
     return HistoryDag(dagroot)
 
 

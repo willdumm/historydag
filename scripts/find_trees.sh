@@ -1,16 +1,26 @@
 #!/bin/bash
 set -eu
 
+OUTDIR=output_trees
+FASTA=""
+MAX_ALTERNATE_PLACEMENTS=200
+DRIFTING_MOVES=4
+DRIFTING_TIMES=4
+NRUNS=1
+VCF=""
+REFSEQID=""
+
 print_help()
 {
     echo "DESCRIPTION:"
-    echo "This script takes a fasta file as input, and uses Usher and matOptimize to \
-search for maximally parsimonious trees on those sequences. The output is \
-a directory containing many MAT protobufs, each a tree on the same set of \
-sequences. The first line of the fasta is expected to contain the name of the \
-sequence that will be used as a reference (the sequence of the root node of \
-the trees output). \
-
+    echo "This script takes a fasta file as input (or a vcf file, and a file \
+    containing the reference sequence), and uses Usher and matOptimize to \
+    search for maximally parsimonious trees on those sequences. The output is \
+    a directory containing many MAT protobufs, each a tree on the same set of \
+    sequences. The first line of the fasta is expected to contain the name of \
+    the sequence that will be used as a reference (the sequence of the root \
+    node of the trees output). \
+\
 The total number of trees found will be, at maximum, the value passed to '-M' times the value passed to '-D' \
 times the value passed to -n."
     echo
@@ -19,26 +29,23 @@ times the value passed to -n."
     echo "SYNTAX:    find_trees.sh -f INPUT_FASTA [-h|o|M|d]"
     echo
     echo "OPTIONS:"
-    echo "-f    Provide an input fasta file (required)"
-    echo "-n    Specify the number of times to start from scratch rebuilding the tree (default 1)"
+    echo "-f    Provide an input fasta file (-f or -v REQUIRED)"
+    echo "-v    Provide an input vcf file (-f or -v REQUIRED)"
+    echo "-r    Provide a fasta file containing a single record: the reference sequence ID and reference sequence (REQUIRED with -v) "
+    echo "-n    Specify the number of times to start from scratch rebuilding the tree (default $NRUNS)"
     echo "-o    Specify an output directory for created trees"
-    echo "          (default a directory called 'output_trees' in the current directory)"
+    echo "          (default a directory called '$OUTDIR' in the current directory)"
     echo "-M    Specify the maximum number of alternative placements"
-    echo "          to be kept when building initial trees. (default 200)"
-    echo "-d    Specify the number of tree moves to apply when drifting (default 4)"
-    echo "-D    Specify the number of times to drift (default 4)"
+    echo "          to be kept when building initial trees. (default $MAX_ALTERNATE_PLACEMENTS)"
+    echo "-d    Specify the number of tree moves to apply when drifting (default $DRIFTING_MOVES)"
+    echo "-D    Specify the number of times to drift (default $DRIFTING_TIMES)"
     echo "-h    Print this help message and exit"
     echo
 }
 
-OUTDIR=output_trees
-FASTA=""
-MAX_ALTERNATE_PLACEMENTS=200
-DRIFTING_MOVES=4
-DRIFTING_TIMES=4
-NRUNS=1
 
-while getopts "n:f:ho:M:D:d:" option; do
+# getopts expects ':' after options that expect an argument
+while getopts "n:f:ho:M:D:d:v:r:" option; do
     case $option in
         n)
             NRUNS=$OPTARG;;
@@ -55,20 +62,35 @@ while getopts "n:f:ho:M:D:d:" option; do
             DRIFTING_TIMES=$OPTARG;;
         d)
             DRIFTING_MOVES=$OPTARG;;
+        v)
+            VCF=$OPTARG;;
+        r)
+            REFSEQID=$OPTARG;;
     esac
 done
 
-[ ! -n "${FASTA}" ] && { echo "You must provide an input fasta with '-f'"; exit 0; }
 [ -e $OUTDIR ] && { echo "$OUTDIR already exists! Exiting."; exit 0; }
-REFID=$(head -1 $FASTA)
-REFID=$(echo "${REFID:1}" | xargs)
+
 
 mkdir $OUTDIR
 TMPDIR=$OUTDIR/tmp
 mkdir $TMPDIR
-VCF=$OUTDIR/out.vcf
 
-faToVcf $FASTA $VCF -ref=$REFID
+if [-n "${FASTA}"]
+then
+    # Sequences are provided in a fasta file:
+    REFID=$(head -1 $FASTA)
+    REFID=$(echo "${REFID:1}" | xargs)
+    VCF=$OUTDIR/out.vcf
+    faToVcf $FASTA $VCF -ref=$REFID
+else
+    # sequences are provided in a vcf file and a reference sequence file:
+    [ ! -n "${VCF}" ] && { echo "You must provide an input fasta with '-f' or a vcf with '-v'."; exit 0; }
+    [ ! -n "${REFSEQID}" ] && { echo "When using input vcf, you must provide reference sequence ID with '-r'."; exit 0; }
+    REFID=$REFSEQID
+fi
+
+
 echo "($REFID)1;" > $TMPDIR/starttree.nh
 for ((run=1;run<=NRUNS;run++)); do
     echo optimize $run
