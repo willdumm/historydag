@@ -587,6 +587,8 @@ def find_closest_leaf(infile, outfile):
 @click.option('-i', '--leaf-id', default=None)
 @click.option('-f', '--leaf-id-file', default=None)
 def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_file):
+    """given a MAT protobuf, its reference sequence, and a sequence ID of interest (or a file containing many sequence IDs)
+    output a fasta file containing all of the sequences for the given sequence IDs."""
     if leaf_id is not None:
         leaf_ids = {leaf_id}
     else:
@@ -858,21 +860,47 @@ def _cli_test():
                 print("FAILED")
                 raise
 
+@cli.command('get-leaf-ids')
+@click.option('-t', '--treepath')
+@click.option('-o', '--outfile')
+def get_leaf_seqs(treepath, outfile):
+    """Write list of leaf sequences to a file"""
+    mattree = mat.MATree(treepath)
+    with open(outfile, 'w') as fh:
+        for node in mattree.depth_first_expansion():
+            if node.is_leaf():
+                print(node.id, file=fh)
 
-## TODO this needs to be updated to apply recorded mutations at each node
-## to the given reference sequence
-# @cli.command('extract-fasta')
-# @click.option('-t', '--treepath')
-# @click.option('--refseqid')
-# @click.option('--refseqpath')
-# @click.option('-o', '--fasta_path', default='out.fasta')
-# def extract_fasta(treepath, refseqid, refseqpath, fasta_path):
-#     refseq = open_refseqpath(refseqpath)
-#     tree = process_from_mat(treepath, refseqid, refseq)
-#     towrite = ['>' + n.name + '\n' + n.sequence for n in tree.iter_leaves()]
-#     with open(fasta_path, 'w') as fh:
-#         for line in towrite:
-#             print(line, file=fh)
+
+# This duplicates find-leaf-seq I think?
+@cli.command('extract-fasta')
+@click.option('-t', '--treepath')
+@click.option('--refseqfasta')
+@click.option('--selected-leaves', default=None)
+@click.option('-o', '--fasta-path', default='out.fasta')
+@click.option('-u', '--filter-unique', is_flag=True)
+def extract_fasta(treepath, refseqfasta, selected_leaves, fasta_path, filter_unique):
+    """Extract a fasta alignment for the leaves of a given MAT protobuf"""
+    if selected_leaves is not None:
+        with open('selected_leaves', 'r') as fh:
+            leaves_to_write = {line.strip() for line in fh}
+    else:
+        leaves_to_write = set()
+    ((refseqid, refseq), ) = load_fasta(refseqfasta).items()
+    tree = process_from_mat(treepath, refseqid)
+    towrite = []
+    visited_seqs = {}
+    for node in tree.iter_leaves():
+        if node.mutseq:
+            if node.mutseq in visited_seqs:
+                continue
+            visited_seqs.add(node.mutseq)
+        if selected_leaves is None or node.name in leaves_to_write:
+            towrite.append('>' + node.name + '\n' + cg_to_sequence(n.mutseq, refseq))
+
+    with open(fasta_path, 'w') as fh:
+        for line in towrite:
+            print(line, file=fh)
 
 if __name__ == '__main__':
     cli()

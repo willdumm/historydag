@@ -14,19 +14,19 @@ print_help()
 {
     echo "DESCRIPTION:"
     echo "This script takes a fasta file as input (or a vcf file, and a file \
-    containing the reference sequence), and uses Usher and matOptimize to \
-    search for maximally parsimonious trees on those sequences. The output is \
-    a directory containing many MAT protobufs, each a tree on the same set of \
-    sequences. The first line of the fasta is expected to contain the name of \
-    the sequence that will be used as a reference (the sequence of the root \
-    node of the trees output). \
+containing the reference sequence), and uses Usher and matOptimize to \
+search for maximally parsimonious trees on those sequences. The output is \
+a directory containing many MAT protobufs, each a tree on the same set of \
+sequences. The first line of the fasta is expected to contain the name of \
+the sequence that will be used as a reference (the sequence of the root \
+node of the trees output). \
 \
 The total number of trees found will be, at maximum, the value passed to '-M' times the value passed to '-D' \
 times the value passed to -n."
     echo
     echo "Script requires Usher, matOptimize, and faToVcf."
     echo
-    echo "SYNTAX:    find_trees.sh -f INPUT_FASTA [-h|o|M|d]"
+    echo "SYNTAX:    find_trees.sh -f INPUT_FASTA [-h|o|M|d|D|v|r]"
     echo
     echo "OPTIONS:"
     echo "-f    Provide an input fasta file (-f or -v REQUIRED)"
@@ -76,7 +76,7 @@ mkdir $OUTDIR
 TMPDIR=$OUTDIR/tmp
 mkdir $TMPDIR
 
-if [-n "${FASTA}"]
+if [ -n "${FASTA}" ]
 then
     # Sequences are provided in a fasta file:
     REFID=$(head -1 $FASTA)
@@ -93,16 +93,16 @@ fi
 
 echo "($REFID)1;" > $TMPDIR/starttree.nh
 for ((run=1;run<=NRUNS;run++)); do
-    echo optimize $run
+    echo Building alternative initial trees: iteration $run / $NRUNS ...
     # place samples in the tree in up to MAX_ALTERNATE_PLACEMENTS different
     # ways
-    usher -t $TMPDIR/starttree.nh -v $VCF -o $TMPDIR/mat.pb -d $TMPDIR/ushertree/ -M $MAX_ALTERNATE_PLACEMENTS
+    usher -t $TMPDIR/starttree.nh -v $VCF -o $TMPDIR/mat.pb -d $TMPDIR/ushertree/ -M $MAX_ALTERNATE_PLACEMENTS >& $TMPDIR/usher.log
     for intree in $TMPDIR/ushertree/*.nh; do
-        # Optimize each resulting tree DRIFTING_MOVES times
+        echo \t\tOptimizing each resulting tree $DRIFTING_MOVES times ...
         usher -t $intree -v $VCF -o $TMPDIR/mat.pb
         for ((optrun=1;optrun<=DRIFTING_TIMES;optrun++)); do
-            echo optimize $run
-            matOptimize -i $TMPDIR/mat.pb -o $TMPDIR/opt_mat.pb -d $DRIFTING_MOVES
+            echo optimize $optrun / $DRIFTING_TIMES
+            matOptimize -i $TMPDIR/mat.pb -o $TMPDIR/opt_mat.pb -d $DRIFTING_MOVES >> $TMPDIR/matoptimize.log 2>&1
             mv $TMPDIR/opt_mat.pb $TMPDIR/mat.pb
             cp $TMPDIR/mat.pb $OUTDIR/${run}$(basename $intree)${optrun}.pb
         done
