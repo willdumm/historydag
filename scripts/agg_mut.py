@@ -326,7 +326,7 @@ def pb_to_dag(pbdata):
                               for label in get_clade_union(child_edge.child_node)})
 
     def get_child_clades(node_id):
-        return frozenset({get_clade_union(child_edge.child_node) for child_edge in child_edges[node_id]})
+        return tuple(get_clade_union(child_edge.child_node) for child_edge in child_edges[node_id])
 
     # order node_ids in postordering
     visited = set()
@@ -356,7 +356,7 @@ def pb_to_dag(pbdata):
     ua_node = list(node_list[-1])
     ua_node[0] = len(label_list) - 1
     node_list[-1] = tuple(ua_node)
-    dag = hdag.HistoryDag(None)
+    dag = hdag.HistoryDag(hdag.dag.UANode(hdag.dag.EdgeSet()))
     dag.__setstate__({"label_fields": ("mutseq",),
                       "label_list": label_list,
                       "node_list": node_list,
@@ -779,7 +779,10 @@ def unflatten(flat_dag):
             label = hdag.utils.UALabel()
         else:
             label = Label(compact_genome_list[cg_idx])
-        node = HistoryDagNode(label, dict(clade_eset_list), attr=None)
+        try:
+            node = HistoryDagNode(label, dict(clade_eset_list), attr=None)
+        except ValueError:
+            node = hdag.dag.UANode(clade_eset_list[0][1])
         node_postorder.append((node, clade_eset_list))
 
     # adjust UA node label
