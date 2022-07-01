@@ -68,13 +68,19 @@ class HistoryDagNode:
 
     def __le__(self, other: object) -> bool:
         if isinstance(other, HistoryDagNode):
-            return (self.label, self.sorted_partitions()) <= (other.label, other.sorted_partitions())
+            return (self.label, self.sorted_partitions()) <= (
+                other.label,
+                other.sorted_partitions(),
+            )
         else:
             raise NotImplementedError
 
     def __lt__(self, other: object) -> bool:
         if isinstance(other, HistoryDagNode):
-            return (self.label, self.sorted_partitions()) < (other.label, other.sorted_partitions())
+            return (self.label, self.sorted_partitions()) < (
+                other.label,
+                other.sorted_partitions(),
+            )
         else:
             raise NotImplementedError
 
@@ -113,12 +119,9 @@ class HistoryDagNode:
         return frozenset(self.clades.keys())
 
     def sorted_partitions(self) -> tuple:
-        """Returns the node's child clades as a sorted tuple containing
-        leaf labels in sorted tuples."""
-        return tuple(sorted([
-            tuple(sorted(clade))
-            for clade in self.clades.keys()
-        ]))
+        """Returns the node's child clades as a sorted tuple containing leaf
+        labels in sorted tuples."""
+        return tuple(sorted([tuple(sorted(clade)) for clade in self.clades.keys()]))
 
     def children(
         self, clade: Set[Label] = None
