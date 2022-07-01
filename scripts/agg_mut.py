@@ -72,7 +72,9 @@ def process_from_mat(file, refseqid):
     try:
         known_node = tree & refseqid
     except:
-        raise RuntimeError(f"{refseqid} not found in loaded MAT")
+        warnings.warn(f"{refseqid} not found in loaded MAT, assuming this sequence is for the root node")
+        known_node = tree
+        
     known_node.add_feature("mutseq", frozendict())
     while not known_node.is_root():
         known_node.up.add_feature("mutseq", apply_muts(known_node.mutseq, known_node.mutations, reverse=True))
@@ -586,9 +588,12 @@ def find_closest_leaf(infile, outfile):
 @click.option('-o', '--outfile', default=None)
 @click.option('-i', '--leaf-id', default=None)
 @click.option('-f', '--leaf-id-file', default=None)
-def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_file):
+@click.option('-u', '--filter-unique', is_flag=True)
+def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_file, filter_unique):
     """given a MAT protobuf, its reference sequence, and a sequence ID of interest (or a file containing many sequence IDs)
-    output a fasta file containing all of the sequences for the given sequence IDs."""
+    output a fasta file containing all of the sequences for the given sequence IDs.
+
+    if filter-unique is True, some sequence IDs may be omitted so that the fasta will not contain duplicate sequences"""
     if leaf_id is not None:
         leaf_ids = {leaf_id}
     else:
@@ -614,20 +619,40 @@ def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_fi
 
     mattree = mat.MATree(infile)
     nl = mattree.depth_first_expansion()
+    seqdict = {nl[0].id: refseq_constant}
     focus_leaves = [node for node in nl if node.id in leaf_ids]
-    print(len(leaf_ids))
-    print(len(focus_leaves))
+
+    def compute_node_sequence(treenode):
+        if treenode.id in seqdict:
+            return seqdict[treenode.id]
+        else:
+            refseq = compute_node_sequence(treenode.parent)
+            this_seq = apply_muts_to_string(refseq, treenode.mutations)
+            seqdict[treenode.id] = this_seq
+            return this_seq
+
+    outfasta = {}
+    visited_set = set()
     for current_node in focus_leaves:
         leaf_id = current_node.id
-        refseq = refseq_constant
-        mutslist = []
-        while current_node.id != "node_1":
-            mutslist.append(current_node.mutations)
-            current_node = current_node.parent
-        for muts in mutslist:
-            refseq = apply_muts_to_string(refseq, muts)
-        with open(outfile, 'a') as fh:
-            print('>' + leaf_id + '\n' + refseq, file=fh)
+        node_seq = compute_node_sequence(current_node)
+        if filter_unique and node_seq in visited_set:
+            continue
+        else:
+            visited_set.add(node_seq)
+            outfasta[leaf_id] = node_seq
+    with open(outfile, 'w') as fh:
+        for seqid, seq in outfasta.items():
+            print('>' + seqid + '\n' + seq, file=fh)
+
+
+@cli.command('lookup-in-fasta')
+@click.argument('fasta')
+@click.argument('seqid')
+def lookup_in_fasta(fasta, seqid):
+    fasta_data = load_fasta(fasta)
+    print(fasta_data[seqid])
+    return fasta_data[seqid]
 
 
 @cli.command('test-equal')
@@ -882,7 +907,7 @@ def get_leaf_seqs(treepath, outfile):
 def extract_fasta(treepath, refseqfasta, selected_leaves, fasta_path, filter_unique):
     """Extract a fasta alignment for the leaves of a given MAT protobuf"""
     if selected_leaves is not None:
-        with open('selected_leaves', 'r') as fh:
+        with open(selected_leaves, 'r') as fh:
             leaves_to_write = {line.strip() for line in fh}
     else:
         leaves_to_write = set()

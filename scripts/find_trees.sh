@@ -92,16 +92,16 @@ fi
 
 
 echo "($REFID)1;" > $TMPDIR/starttree.nh
+echo $REFID > $OUTDIR/refid.txt
 for ((run=1;run<=NRUNS;run++)); do
     echo Building alternative initial trees: iteration $run / $NRUNS ...
     # place samples in the tree in up to MAX_ALTERNATE_PLACEMENTS different
     # ways
+    echo "\tOptimizing each resulting tree $DRIFTING_MOVES times ..."
     usher -t $TMPDIR/starttree.nh -v $VCF -o $TMPDIR/mat.pb -d $TMPDIR/ushertree/ -M $MAX_ALTERNATE_PLACEMENTS >& $TMPDIR/usher.log
     for intree in $TMPDIR/ushertree/*.nh; do
-        echo \t\tOptimizing each resulting tree $DRIFTING_MOVES times ...
-        usher -t $intree -v $VCF -o $TMPDIR/mat.pb
+        usher -t $intree -v $VCF -o $TMPDIR/mat.pb >> $TMPDIR/usher-optimize.log 2>&1
         for ((optrun=1;optrun<=DRIFTING_TIMES;optrun++)); do
-            echo optimize $optrun / $DRIFTING_TIMES
             matOptimize -i $TMPDIR/mat.pb -o $TMPDIR/opt_mat.pb -d $DRIFTING_MOVES >> $TMPDIR/matoptimize.log 2>&1
             mv $TMPDIR/opt_mat.pb $TMPDIR/mat.pb
             cp $TMPDIR/mat.pb $OUTDIR/${run}$(basename $intree)${optrun}.pb
