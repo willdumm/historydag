@@ -1048,7 +1048,7 @@ class HistoryDag:
         newicks = self.weight_count(**utils.make_newickcountfuncs(**kwargs)).elements()
         return [newick[1:-1] + ";" for newick in newicks]
 
-    def count_topologies_with_newicks(self, collapse_leaves: bool = False) -> int:
+    def count_topologies(self, collapse_leaves: bool = False) -> int:
         """Counts the number of unique topologies in the history DAG. This is
         achieved by counting the number of unique newick strings with only
         leaves labeled.
@@ -1073,7 +1073,7 @@ class HistoryDag:
         )
         return len(self.weight_count(**kwargs))
 
-    def count_topologies(self) -> int:
+    def count_topologies_fast(self) -> int:
         """Counts the number of unique topologies in the history DAG.
 
         This is achieved by creating a new history DAG in which all
