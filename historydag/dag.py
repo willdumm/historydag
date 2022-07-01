@@ -1075,6 +1075,9 @@ class HistoryDag:
 
         This is achieved by creating a new history DAG in which all
         internal nodes have matching labels.
+
+        This is only guaranteed to match the output of ``count_topologies_with_newicks``
+        if the DAG has all allowed edges added.
         """
         return self.unlabel().count_trees()
 
