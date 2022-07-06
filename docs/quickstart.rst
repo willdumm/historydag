@@ -11,11 +11,12 @@ A history DAG is a way to represent a collection of trees whose nodes
 sequence.
 
 In its simplest form, a history DAG may represent a single tree. To construct
-such a history DAG from a tree, we annotate each node in the tree with its child clades.
-The **clade** beneath a tree node is the set of leaf node labels
+such a history DAG from a tree, we annotate each node in the tree with its
+child clades.  The **clade** beneath a tree node is the set of leaf node labels
 reachable from that node, or the set containing the node's own label if it is
-itself a leaf. The **child clades** of a node are the set of clades
-beneath that node's children.
+itself a leaf. We also refer to this set as a node's **clade union**, since it
+is the union of the node's child clades. The **child clades** of a node are the
+set of clades beneath that node's children.
 
 After annotating each node with its child clades, a **UA (universal ancestor)
 node** is added as a parent of the original tree's root node. The resulting

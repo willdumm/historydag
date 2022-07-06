@@ -96,7 +96,9 @@ def _testfactory(resultfunc, verify_func, collapse_invariant=False, accum_func=C
 
         # check cdags
         cresult = resultfunc(cdag)
-        cverify_result = accum_func([verify_func(tree) for tree in cdag.get_histories()])
+        cverify_result = accum_func(
+            [verify_func(tree) for tree in cdag.get_histories()]
+        )
         assert cresult == cverify_result
 
         # check they agree, if collapse_invariant.
