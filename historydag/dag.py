@@ -68,28 +68,28 @@ class HistoryDagNode:
         return str((self.label, set(self.clades.keys())))
 
     def __hash__(self) -> int:
-        return hash((self.label, self.partitions()))
+        return hash((self.label, self.child_clades()))
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, HistoryDagNode):
-            return (self.label, self.partitions()) == (other.label, other.partitions())
+            return (self.label, self.child_clades()) == (other.label, other.child_clades())
         else:
             raise NotImplementedError
 
     def __le__(self, other: object) -> bool:
         if isinstance(other, HistoryDagNode):
-            return (self.label, self.sorted_partitions()) <= (
+            return (self.label, self.sorted_child_clades()) <= (
                 other.label,
-                other.sorted_partitions(),
+                other.sorted_child_clades(),
             )
         else:
             raise NotImplementedError
 
     def __lt__(self, other: object) -> bool:
         if isinstance(other, HistoryDagNode):
-            return (self.label, self.sorted_partitions()) < (
+            return (self.label, self.sorted_child_clades()) < (
                 other.label,
-                other.sorted_partitions(),
+                other.sorted_child_clades(),
             )
         else:
             raise NotImplementedError
@@ -100,38 +100,63 @@ class HistoryDagNode:
     def __ge__(self, other: object) -> bool:
         return not self.__lt__(other)
 
-    def node_self(self) -> "HistoryDagNode":
-        """Returns a HistoryDagNode object with the same clades and label, but
+    def empty_copy(self) -> "HistoryDagNode":
+        """Returns a HistoryDagNode object with the same clades, label, and attr dictionary, but
         no descendant edges."""
         return HistoryDagNode(
             self.label, {clade: EdgeSet() for clade in self.clades}, deepcopy(self.attr)
         )
 
-    def under_clade(self) -> FrozenSet[Label]:
-        r"""Returns the union of this node's child clades"""
+    # def node_self(self) -> "HistoryDagNode":
+    #     """Deprecated name for :meth:`empty_copy`"""
+    #     return self.empty_copy()
+    # [Walrus]
+
+    def clade_union(self) -> FrozenSet[Label]:
+        r"""Returns the union of this node's child clades
+        (or a set containing only the node label, for leaf nodes.)"""
         if self.is_leaf():
             return frozenset([self.label])
         else:
             return frozenset().union(*self.clades.keys())
 
+    # def under_clade(self) -> FrozenSet[Label]:
+    #     """Deprecated name for :meth:`clade_union`"""
+    #     return self.clade_union()
+    # [Walrus]
+
     def is_leaf(self) -> bool:
         """Returns whether this is a leaf node."""
         return not bool(self.clades)
 
-    def is_root(self) -> bool:
-        """Returns whether this is a DAG root node, or UA (universal ancestor)
-        node."""
+    def is_ua_node(self) -> bool:
+        """Returns whether this is the source node in the DAG, from which all others are reachable."""
         return False
 
-    def partitions(self) -> frozenset:
+    # def is_root(self) -> bool:
+    #     """Deprecated name for :meth:`is_ua_node`"""
+    #     return self.is_ua_node()
+    # [Walrus]
+
+    def child_clades(self) -> frozenset:
         """Returns the node's child clades, or a frozenset containing a
         frozenset if this node is a UANode."""
         return frozenset(self.clades.keys())
 
-    def sorted_partitions(self) -> tuple:
+    # def partitions(self) -> frozenset:
+    #     """Deprecated name for :meth:`child_clades`"""
+    #     return self.child_clades()
+    # # [Walrus]
+
+    def sorted_child_clades(self) -> tuple:
         """Returns the node's child clades as a sorted tuple containing leaf
         labels in sorted tuples."""
         return tuple(sorted([tuple(sorted(clade)) for clade in self.clades.keys()]))
+
+    # def sorted_partitions(self) -> frozenset:
+    #     """Deprecated name for :meth:`sorted_child_clades`"""
+    #     return self.sorted_child_clades()
+    # # [Walrus]
 
     def children(
         self, clade: Set[Label] = None
@@ -158,7 +183,7 @@ class HistoryDagNode:
     ) -> bool:
         r"""Adds edge, if allowed and not already present. Returns whether edge was added."""
         # target clades must union to a clade of self
-        key = frozenset() if self.is_root() else target.under_clade()
+        key = frozenset() if self.is_ua_node() else target.clade_union()
         if key not in self.clades:
             raise KeyError("Target clades' union is not a clade of this parent node: ")
         else:
@@ -170,12 +195,12 @@ class HistoryDagNode:
                 prob_norm=prob_norm,
             )
 
-    def _get_subtree_by_subid(self, subid: int) -> "HistoryDagNode":
+    def _get_subhistory_by_subid(self, subid: int) -> "HistoryDagNode":
         r"""Returns the subtree below the current HistoryDagNode corresponding to the given index"""
         if self.is_leaf():  # base case - the node is a leaf
             return self
         else:
-            history = self.node_self()
+            history = self.empty_copy()
 
             # get the subtree for each of the clades
             for clade, eset in self.clades.items():
@@ -192,7 +217,7 @@ class HistoryDagNode:
                     else:
                         # add this edge to the tree somehow
                         history.clades[clade].add_to_edgeset(
-                            child._get_subtree_by_subid(curr_index)
+                            child._get_subhistory_by_subid(curr_index)
                         )
                         break
 
@@ -201,7 +226,7 @@ class HistoryDagNode:
 
     def remove_edge_by_clade_and_id(self, target: "HistoryDagNode", clade: frozenset):
         key: frozenset
-        if self.is_root():
+        if self.is_ua_node():
             key = frozenset()
         else:
             key = clade
@@ -219,13 +244,13 @@ class HistoryDagNode:
             if not child.parents:
                 child.remove_node(nodedict=nodedict)
         for parent in self.parents:
-            parent.remove_edge_by_clade_and_id(self, self.under_clade())
+            parent.remove_edge_by_clade_and_id(self, self.clade_union())
         self.removed = True
 
     def _sample(self, edge_selector=lambda n: True) -> "HistoryDagNode":
-        r"""Samples a clade tree (a sub-history DAG containing the root and all
+        r"""Samples a history (a sub-history DAG containing the root and all
         leaf nodes). Returns a new HistoryDagNode object."""
-        sample = self.node_self()
+        sample = self.empty_copy()
         for clade, eset in self.clades.items():
             mask = [edge_selector((self, target)) for target in eset.targets]
             sampled_target, target_weight = eset.sample(mask=mask)
@@ -239,7 +264,7 @@ class HistoryDagNode:
             )
         return sample
 
-    def _get_trees(self) -> Generator["HistoryDagNode", None, None]:
+    def _get_subhistories(self) -> Generator["HistoryDagNode", None, None]:
         r"""Return a generator to iterate through all trees expressed by the DAG."""
 
         def genexp_func(clade):
@@ -250,7 +275,7 @@ class HistoryDagNode:
                 return (
                     (clade, targettree, i)
                     for i, target in enumerate(eset.targets)
-                    for targettree in target._get_trees()
+                    for targettree in target._get_subhistories()
                 )
 
             return f
@@ -259,7 +284,7 @@ class HistoryDagNode:
 
         # TODO is this duplicated code?
         for option in utils.cartesian_product(optionlist):
-            tree = self.node_self()
+            tree = self.empty_copy()
             for clade, targettree, index in option:
                 tree.clades[clade].add_to_edgeset(
                     targettree,
@@ -286,7 +311,7 @@ class HistoryDagNode:
             A string which can be used as a node name in a newick string.
             For example, `namefuncresult[&&NHX:feature1=val1:feature2=val2]`
         """
-        if self.is_root():
+        if self.is_ua_node():
             return self.label  # type: ignore
         else:
             if features is None:
@@ -315,14 +340,15 @@ class UANode(HistoryDagNode):
         for child in self.children():
             child.parents.add(self)
 
-    def node_self(self) -> "UANode":
+    def empty_copy(self) -> "UANode":
         """Returns a UANode object with the same clades and label, but no
         descendant edges."""
         newnode = UANode(EdgeSet())
         newnode.attr = deepcopy(self.attr)
         return newnode
 
-    def is_root(self):
+    def is_ua_node(self) -> bool:
+        """Returns whether this is the source node in the DAG, from which all others are reachable."""
         return True
 
 
@@ -349,18 +375,18 @@ class HistoryDag:
 
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the sub-history below the current history dag corresponding to the given index."""
-        length = self.count_trees()
+        length = self.count_histories()
         if key < 0:
             key = length + key
         if isinstance(key, slice) or not type(key) == int:
             raise TypeError(f"History DAG indices must be integers, not {type(key)}")
         if not (key >= 0 and key < length):
             raise IndexError
-        self.count_trees()
-        return HistoryDag(self.dagroot._get_subtree_by_subid(key))
+        self.count_histories()
+        return HistoryDag(self.dagroot._get_subhistory_by_subid(key))
 
     def __len__(self) -> int:
-        return self.count_trees()
+        return self.count_histories()
 
     def __or__(self, other) -> "HistoryDag":
         newdag = self.copy()
@@ -405,10 +431,10 @@ class HistoryDag:
         for node in self.postorder():
             if node.label not in label_indices:
                 label_indices[node.label] = len(label_list)
-                label_list.append(None if node.is_root() else tuple(node.label))
+                label_list.append(None if node.is_ua_node() else tuple(node.label))
                 assert (
                     label_list[label_indices[node.label]] == node.label
-                    or node.is_root()
+                    or node.is_ua_node()
                 )
             node_list.append((label_indices[node.label], cladesets(node), node.attr))
             node_idx = len(node_list) - 1
@@ -520,16 +546,23 @@ class HistoryDag:
     def serialize(self) -> bytes:
         return pickle.dumps(self.__getstate__())
 
-    def get_trees(self) -> Generator["HistoryDag", None, None]:
-        """Return a generator containing all trees in the history DAG.
+    def get_histories(self) -> Generator["HistoryDag", None, None]:
+        """Return a generator containing all internally labeled trees in the history DAG.
 
-        The order of these trees does not necessarily match the order of
-        indexing. That is, ``dag.get_trees()`` and ``tree for tree in
-        dag`` will result in different orderings. ``get_trees`` should
+        Note that each history is a history DAG, containing a UA node.
+
+        The order of these histories does not necessarily match the order of
+        indexing. That is, ``dag.get_histories()`` and ``history for history in
+        dag`` will result in different orderings. ``get_histories`` should
         be slightly faster, but possibly more memory intensive.
         """
-        for cladetree in self.dagroot._get_trees():
-            yield HistoryDag(cladetree)
+        for history in self.dagroot._get_subhistories():
+            yield HistoryDag(history)
+
+    # def get_trees(self) -> frozenset:
+    #     """Deprecated name for :meth:`get_histories`"""
+    #     return self.get_histories()
+    # # [Walrus]
 
     def get_leaves(self) -> Generator["HistoryDag", None, None]:
         """Return a generator containing all leaf nodes in the history DAG."""
@@ -710,8 +743,8 @@ class HistoryDag:
         newdag = newdag.sample() | newdag
         return newdag
 
-    def is_clade_tree(self) -> bool:
-        """Returns whether history DAG is a clade tree.
+    def is_history(self) -> bool:
+        """Returns whether history DAG is a history.
 
         That is, each node-clade pair has exactly one descendant edge.
         """
@@ -720,6 +753,11 @@ class HistoryDag:
                 if len(eset.targets) != 1:
                     return False
         return True
+
+    # def is_clade_tree(self) -> bool:
+    #     """Deprecated name for :meth:`is_history`"""
+    #     return self.is_history()
+    # # [Walrus]
 
     def copy(self) -> "HistoryDag":
         """Uses bytestring serialization, and is guaranteed to copy:
@@ -753,7 +791,7 @@ class HistoryDag:
                 if n in nodedict:
                     pnode = nodedict[n]
                 else:
-                    pnode = n.node_self()
+                    pnode = n.empty_copy()
                     nodedict[n] = pnode
 
                 for _, edgeset in n.clades.items():
@@ -793,7 +831,7 @@ class HistoryDag:
         clade_dict[self.dagroot.under_clade()] = []
 
         for node in self.postorder():
-            if new_from_root is False and node.is_root():
+            if new_from_root is False and node.is_ua_node():
                 continue
             else:
                 for clade in node.clades:
@@ -809,16 +847,16 @@ class HistoryDag:
                             n_added += node.add_edge(target)
         return n_added
 
-    @utils._cladetree_method
+    @utils._history_method
     def to_newick(
         self,
         name_func: Callable[[HistoryDagNode], str] = lambda n: "unnamed",
         features: Optional[List[str]] = None,
         feature_funcs: Mapping[str, Callable[[HistoryDagNode], str]] = {},
     ) -> str:
-        r"""Converts clade tree to extended newick format.
+        r"""Converts a history to extended newick format.
         Supports arbitrary node names and a
-        sequence feature. For use on a history DAG which is a clade tree.
+        sequence feature. For use on a history DAG which is a history.
 
         For extracting newick representations of trees in a general history DAG, see
         :meth:`HistoryDag.to_newicks`.
@@ -855,14 +893,14 @@ class HistoryDag:
 
         return newick(next(self.dagroot.children())) + ";"
 
-    @utils._cladetree_method
+    @utils._history_method
     def to_ete(
         self,
         name_func: Callable[[HistoryDagNode], str] = lambda n: "unnamed",
         features: Optional[List[str]] = None,
         feature_funcs: Mapping[str, Callable[[HistoryDagNode], str]] = {},
     ) -> ete3.TreeNode:
-        """Convert a history DAG which is a clade tree to an ete tree.
+        """Convert a history DAG which is a history to an ete tree.
 
         Args:
             name_func: A map from nodes to newick node names
@@ -906,7 +944,8 @@ class HistoryDag:
         self,
         labelfunc: Optional[Callable[[HistoryDagNode], str]] = None,
         namedict: Mapping[Label, str] = {},
-        show_partitions: bool = True,
+        show_child_clades: bool = True,
+        show_partitions: bool = None,
     ) -> gv.Digraph:
         r"""Converts history DAG to graphviz (dot format) Digraph object.
 
@@ -915,8 +954,11 @@ class HistoryDag:
                 their DAG node labels, or their label hash if label data is too large.
             namedict: A dictionary from node labels to label strings. Labelfunc will be
                 used instead, if both are provided.
-            show_partitions: Whether to include child clades in output.
+            show_child_clades: Whether to include child clades in output.
+            show_partitions: Deprecated alias for show_child_clades.
         """
+        if show_partitions is not None:
+            show_child_clades = show_partitions
 
         def labeller(label):
             if label in namedict:
@@ -936,7 +978,7 @@ class HistoryDag:
 
         G = gv.Digraph("labeled partition DAG", node_attr={"shape": "record"})
         for node in self.postorder():
-            if node.is_leaf() or show_partitions is False:
+            if node.is_leaf() or show_child_clades is False:
                 G.node(str(id(node)), f"<label> {labelfunc(node)}")
             else:
                 splits = "|".join(
@@ -951,7 +993,7 @@ class HistoryDag:
                     if weight > 0.0:
                         label += f"w:{weight}"
                     G.edge(
-                        f"{id(node)}:{taxa(clade) if show_partitions else 'label'}:s",
+                        f"{id(node)}:{taxa(clade) if show_child_clades else 'label'}:s",
                         f"{id(target)}:n",
                         label=label,
                     )
@@ -978,7 +1020,7 @@ class HistoryDag:
         The probability assigned to each edge below a clade is
         proportional to the number of subtrees possible below that edge.
         """
-        self.count_trees()
+        self.count_histories()
         for node in self.postorder():
             for clade, eset in node.clades.items():
                 for i, target in enumerate(eset.targets):
@@ -1022,14 +1064,14 @@ class HistoryDag:
         nodeorder = list(self.postorder())
         new_nodes = set()
         for node in nodeorder:
-            if not node.is_root() and is_ambiguous(node.label):
+            if not node.is_ua_node() and is_ambiguous(node.label):
                 if node.is_leaf():
                     raise ValueError(
                         "Passed expand_func would explode a leaf node. "
                         "Leaf nodes may not be exploded."
                     )
                 for resolution in expand_func(node.label):
-                    newnodetemp = node.node_self()
+                    newnodetemp = node.empty_copy()
                     newnodetemp.label = resolution
                     if newnodetemp in nodedict:
                         newnode = nodedict[newnodetemp]
@@ -1059,7 +1101,7 @@ class HistoryDag:
         parent_dictionary = {
             node.label: set()
             for node in self.dagroot.children()
-            if leaf_label in node.under_clade()
+            if leaf_label in node.clade_union()
         }
 
         for node in self.preorder(skip_root=True):
@@ -1225,7 +1267,7 @@ class HistoryDag:
     def summary(self):
         """Print nicely formatted summary about the history DAG."""
         print(f"Nodes:\t{sum(1 for _ in self.postorder())}")
-        print(f"Trees:\t{self.count_trees()}")
+        print(f"Trees:\t{self.count_histories()}")
         utils.hist(self.weight_counts_with_ambiguities())
 
     def label_uncertainty_summary(self):
@@ -1233,7 +1275,7 @@ class HistoryDag:
         clades but different labels."""
         duplicates = list(
             Counter(
-                node.partitions()
+                node.child_clades()
                 for node in self.preorder(skip_root=True)
                 if not node.is_leaf()
             ).values()
@@ -1250,7 +1292,7 @@ class HistoryDag:
 
     # ######## Abstract dp method and derivatives: ########
 
-    def postorder_cladetree_accum(
+    def postorder_history_accum(
         self,
         leaf_func: Callable[["HistoryDagNode"], Weight],
         edge_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight],
@@ -1307,6 +1349,11 @@ class HistoryDag:
                 )
         return self.dagroot._dp_data
 
+    # def postorder_cladetree_accum(*args, **kwargs) -> Weight:
+    #     """Deprecated name for :meth:`postorder_history_accum`"""
+    #     return self.postorder_history_accum(*args, **kwargs)
+    # # [Walrus]
+
     def optimal_weight_annotate(
         self,
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
@@ -1319,7 +1366,7 @@ class HistoryDag:
         r"""A template method for finding the optimal tree weight in the DAG.
         Dynamically annotates each node in the DAG with the optimal weight of a clade
         sub-tree beneath it, so that the DAG root node is annotated with the optimal
-        weight of a clade tree in the DAG.
+        weight of a history in the DAG.
 
         Args:
             start_func: A function which assigns starting weights to leaves.
@@ -1333,7 +1380,7 @@ class HistoryDag:
         Returns:
             The optimal weight of a tree under the DAG UA node.
         """
-        return self.postorder_cladetree_accum(
+        return self.postorder_history_accum(
             start_func,
             edge_weight_func,
             optimal_func,
@@ -1361,7 +1408,7 @@ class HistoryDag:
         Returns:
             A Counter keyed by weights.
         """
-        return self.postorder_cladetree_accum(
+        return self.postorder_history_accum(
             lambda n: Counter([start_func(n)]),
             lambda n1, n2: Counter([edge_weight_func(n1, n2)]),
             counter_sum,
@@ -1391,7 +1438,7 @@ class HistoryDag:
         achieved by counting the number of unique newick strings with only
         leaves labeled.
 
-        :meth:`count_trees` gives the total number of unique trees in the DAG, taking
+        :meth:`count_histories` gives the total number of unique trees in the DAG, taking
         into account internal node labels.
 
         For large DAGs, this method is prohibitively slow. Use :meth:``count_topologies_fast`` instead.
@@ -1420,9 +1467,14 @@ class HistoryDag:
         This is only guaranteed to match the output of ``count_topologies``
         if the DAG has all allowed edges added.
         """
-        return self.unlabel().count_trees()
+        return self.unlabel().count_histories()
 
-    def count_trees(
+    # def count_trees(self):
+    #     """Deprecated name for :meth:`count_histories`"""
+    #     return self.count_histories()
+    # # [Walrus]
+
+    def count_histories(
         self,
         expand_func: Optional[Callable[[Label], List[Label]]] = None,
         expand_count_func: Callable[[Label], int] = lambda ls: 1,
@@ -1432,7 +1484,7 @@ class HistoryDag:
         Args:
             expand_func: A function which takes a label and returns a list of labels, for
                 example disambiguations of an ambiguous sequence. If provided, this method
-                will count at least the number of clade trees that would be in the DAG,
+                will count at least the number of histories that would be in the DAG,
                 if :meth:`explode_nodes` were called with the same `expand_func`.
             expand_count_func: A function which takes a label and returns an integer value
                 corresponding to the number of 'disambiguations' of that label. If provided,
@@ -1448,7 +1500,7 @@ class HistoryDag:
             def expand_count_func(label):
                 return len(list(expand_func(label)))
 
-        return self.postorder_cladetree_accum(
+        return self.postorder_history_accum(
             lambda n: 1,
             lambda parent, child: expand_count_func(child.label),
             sum,
@@ -1583,6 +1635,7 @@ class HistoryDag:
 
         return self.dagroot._dp_data
 
+
     def count_paths_to_leaf(
         self,
         leaf_label,
@@ -1595,7 +1648,7 @@ class HistoryDag:
             leaf_label: The label of the leaf node of interest
             expand_func: A function which takes a label and returns a list of labels, for
                 example disambiguations of an ambiguous sequence. If provided, this method
-                will count at least the number of clade trees that would be in the DAG,
+                will count at least the number of histories that would be in the DAG,
                 if :meth:`explode_nodes` were called with the same `expand_func`.
             expand_count_func: A function which takes a label and returns an integer value
                 corresponding to the number of 'disambiguations' of that label. If provided,
@@ -1611,7 +1664,7 @@ class HistoryDag:
             def expand_count_func(label):
                 return len(list(expand_func(label)))
 
-        return self.postorder_cladetree_accum(
+        return self.postorder_history_accum(
             lambda n: 1 if n.label == leaf_label else 0,
             lambda parent, child: 0,
             sum,
@@ -1629,7 +1682,7 @@ class HistoryDag:
     ):
         r"""Template method for counting tree weights in the DAG, with exploded labels.
         Like :meth:`weight_counts`, but creates dictionaries of Counter objects at each
-        node, keyed by possible sequences at that node. Analogous to :meth:`count_trees`
+        node, keyed by possible sequences at that node. Analogous to :meth:`count_histories`
         with `expand_func` provided.
 
         Weights must be hashable.
@@ -1645,18 +1698,18 @@ class HistoryDag:
 
         Returns:
             A Counter keyed by weights.
-            The total number of trees will be greater than count_trees(), as these are
+            The total number of trees will be greater than count_histories(), as these are
             possible disambiguations of trees. These disambiguations may not be unique,
             but if two are the same, they come from different subtrees of the DAG.
         """
 
-        def wrapped_expand_func(label, is_root):
-            if is_root:
+        def wrapped_expand_func(label, is_ua_node):
+            if is_ua_node:
                 return [label]
             else:
                 return expand_func(label)
 
-        # The old direct implementation not using postorder_cladetree_accum was
+        # The old direct implementation not using postorder_history_accum was
         # more straightforward, and may be significantly faster.
         def leaf_func(node):
             return {
@@ -1678,7 +1731,7 @@ class HistoryDag:
                     ]
                 )
                 for childlabel, target_wc in child._dp_data.items()
-                for label in wrapped_expand_func(parent.label, parent.is_root())
+                for label in wrapped_expand_func(parent.label, parent.is_ua_node())
             }
 
         def accum_within_clade(dictlist):
@@ -1693,7 +1746,7 @@ class HistoryDag:
             }
 
         return list(
-            self.postorder_cladetree_accum(
+            self.postorder_history_accum(
                 leaf_func,
                 edge_weight_func,
                 accum_within_clade,
@@ -1827,7 +1880,7 @@ class HistoryDag:
         r"""Rebuilds the DAG so that no edge connects two nodes with the same label,
         unless one is a leaf node.
 
-        The resulting DAG should express at least the collapsed clade trees present
+        The resulting DAG should express at least the collapsed histories present
         in the original.
         """
 
@@ -1840,7 +1893,7 @@ class HistoryDag:
 
         while edgequeue:
             parent, child = edgequeue.pop()
-            clade = child.under_clade()
+            clade = child.clade_union()
             if (
                 parent.label == child.label
                 and parent in nodedict
@@ -1881,7 +1934,7 @@ class HistoryDag:
                     # Remove old parent as child of all of its parents
                     # no need for recursion here, all of its parents had
                     # edges added to new parent from the same clade.
-                    upclade = parent.under_clade()
+                    upclade = parent.clade_union()
                     for grandparent in sorted(parent.parents):
                         grandparent.remove_edge_by_clade_and_id(parent, upclade)
                     for child2 in parent.children():
@@ -2060,7 +2113,7 @@ class EdgeSet:
         Returns:
             Whether an edge was added
         """
-        if target.is_root():
+        if target.is_ua_node():
             raise ValueError(
                 "Edges that target UA nodes are not allowed. "
                 f"Target node has label {target.label} and therefore "
@@ -2103,7 +2156,7 @@ def from_tree(
     """Build a full tree from an ete3 TreeNode.
 
     Args:
-        tree: ete3 tree to be converted to HistoryDag clade tree
+        tree: ete3 tree to be converted to HistoryDag history
         label_features: node attribute names to be used to distinguish nodes. Field names
             provided in `label_functions` will take precedence.
         label_functions: dictionary keyed by additional label field names, containing
@@ -2208,7 +2261,7 @@ def history_dag_from_newicks(
 
     See :meth:`from_newick` for argument details.
     """
-    return history_dag_from_clade_trees(
+    return history_dag_from_histories(
         [
             from_newick(
                 tree,
@@ -2232,7 +2285,7 @@ def history_dag_from_etes(
 
     See :meth:`from_tree` for argument details.
     """
-    return history_dag_from_clade_trees(
+    return history_dag_from_histories(
         [
             from_tree(
                 tree,
@@ -2245,12 +2298,16 @@ def history_dag_from_etes(
     )
 
 
-def history_dag_from_clade_trees(treelist: Sequence[HistoryDag]) -> HistoryDag:
-    """Build a history DAG from a list of history DAGs which are clade
-    trees."""
+def history_dag_from_histories(treelist: Sequence[HistoryDag]) -> HistoryDag:
+    """Build a history DAG from a list of history DAGs which are histories."""
     dag = next(iter(treelist))
     dag.merge(treelist)
     return dag
+
+# def history_dag_from_clade_trees(*args, **kwargs) -> HistoryDag:
+#     """Deprecated name for :meth:`history_dag_from_histories`"""
+#     return history_dag_from_histories(*args, **kwargs)
+# # [Walrus]
 
 
 def history_dag_from_nodes(nodes: Sequence[HistoryDagNode]) -> HistoryDag:

@@ -33,7 +33,7 @@ def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
 etetree = list(
     hdag.history_dag_from_etes(
         [ete3.TreeNode(newick=newickstring3, format=1)], ["sequence"]
-    ).get_trees()
+    ).get_histories()
 )[0].to_ete(features=["sequence"])
 etetree2 = utils.collapse_adjacent_sequences(etetree.copy())
 
@@ -56,7 +56,7 @@ def test_fulltree():
     dag = hdag.history_dag_from_etes([etetree], ["sequence"])
     dag.convert_to_collapsed()
     dag._check_valid()
-    assert set(deterministic_newick(tree.to_ete()) for tree in dag.get_trees()) == set(
+    assert set(deterministic_newick(tree.to_ete()) for tree in dag.get_histories()) == set(
         {deterministic_newick(etetree2)}
     )
 
@@ -65,8 +65,8 @@ def test_twotrees():
     dag = hdag.history_dag_from_etes([etetree, etetree2], ["sequence"])
     dag.convert_to_collapsed()
     dag._check_valid()
-    assert dag.count_trees() == 1
-    assert {deterministic_newick(tree.to_ete()) for tree in dag.get_trees()} == {
+    assert dag.count_histories() == 1
+    assert {deterministic_newick(tree.to_ete()) for tree in dag.get_histories()} == {
         deterministic_newick(etetree2)
     }
 
@@ -78,12 +78,12 @@ def test_collapse():
     allcollapsedtrees = [utils.collapse_adjacent_sequences(tree) for tree in trees]
     collapsed_dag = hdag.history_dag_from_etes(allcollapsedtrees, ["sequence"])
     collapsed_dag._check_valid()
-    maybecollapsedtrees = [tree.to_ete() for tree in uncollapsed_dag.get_trees()]
+    maybecollapsedtrees = [tree.to_ete() for tree in uncollapsed_dag.get_histories()]
     assert all(utils.is_collapsed(tree) for tree in maybecollapsedtrees)
-    n_before = uncollapsed_dag.count_trees()
+    n_before = uncollapsed_dag.count_histories()
     uncollapsed_dag.merge(collapsed_dag)
     uncollapsed_dag._check_valid()
-    assert n_before == uncollapsed_dag.count_trees()
+    assert n_before == uncollapsed_dag.count_histories()
 
 
 def test_add_allowed_edges():

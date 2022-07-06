@@ -193,20 +193,20 @@ def test_expand_ambiguities():
 
     for dag in dags:
         cdag = dag.copy()
-        print(cdag.count_trees())
+        print(cdag.count_histories())
         cdag.explode_nodes()
-        print(cdag.count_trees())
+        print(cdag.count_histories())
         cdag.trim_optimal_weight()
         cdag._check_valid()
-        print(cdag.count_trees())
+        print(cdag.count_histories())
         print(cdag.weight_count())
         checkset = {
             hdag.from_tree(tree, ["sequence"]).to_newick()
-            for cladetree in dag.get_trees()
+            for cladetree in dag.get_histories()
             for tree in disambiguate(cladetree.to_ete(features=["sequence"]))
         }
         print(len(checkset))
-        assert checkset == {cladetree.to_newick() for cladetree in cdag.get_trees()}
+        assert checkset == {cladetree.to_newick() for cladetree in cdag.get_histories()}
 
 
 #     newickset = {treeprint(tree) for tree in utils.disambiguate(tree2)}

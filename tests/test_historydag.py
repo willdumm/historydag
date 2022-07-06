@@ -95,12 +95,12 @@ def test_from_tree():
     return G
 
 
-def test_is_clade_tree():
+def test_is_history():
     tree = ete3.Tree(newickstring2, format=1)
     print(tree.sequence)
     dag = from_tree(tree, ["sequence"])
     dag._check_valid()
-    assert dag.is_clade_tree()
+    assert dag.is_history()
 
 
 def test_from_tree_label():
@@ -161,9 +161,9 @@ def test_ete_newick_agree():
     }
     viaetes = {
         from_tree(tree.to_ete(**outkwargs), **inkwargs).to_newick(**outkwargs)
-        for tree in dag.get_trees()
+        for tree in dag.get_histories()
     }
-    vianewicks = {tree.to_newick(**outkwargs) for tree in dag.get_trees()}
+    vianewicks = {tree.to_newick(**outkwargs) for tree in dag.get_histories()}
     assert viaetes == vianewicks
 
 
@@ -236,7 +236,7 @@ def test_sample():
     namedict = {(str(x),): x for x in range(5)}
     dag = history_dag_from_newicks(newicks, ["name"])
     for i in range(10):
-        assert dag.sample().is_clade_tree()
+        assert dag.sample().is_history()
     sample = dag.sample()
     sample._check_valid()
     return sample.to_graphviz(namedict=namedict)

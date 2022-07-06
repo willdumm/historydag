@@ -21,10 +21,10 @@ with open('sample_data/toy_trees.p', 'rb') as fh:
 	ete_trees = pickle.load(fh)
 
 dag = hdag.history_dag_from_etes(ete_trees, ['sequence'])
-dag.count_trees()  # 1041
+dag.count_histories()  # 1041
 
 dag.add_all_allowed_edges()
-dag.count_trees()  # 3431531
+dag.count_histories()  # 3431531
 
 dag.hamming_parsimony_count()  # Shows counts of trees of different parsimony scores
 dag.trim_optimal_weight()
@@ -59,7 +59,7 @@ trees = [tree for tree in dag]
 
 # Another method for fetching all trees in the dag is provided, but the order
 # will not match index order:
-scrambled_trees = list(dag.get_trees())
+scrambled_trees = list(dag.get_histories())
 
 
 # Union is implemented as dag merging, including with sequences of dags
@@ -74,7 +74,7 @@ newdag = dag[0] | (dag[i] for i in range(3,5))
     * `history_dag_from_newicks`
     * `history_dag_from_etes`
 * Trees can be extracted from the history DAG with methods like
-    * `HistoryDag.get_trees`
+    * `HistoryDag.get_histories`
     * `HistoryDag.sample`
     * `HistoryDag.to_ete`
     * `HistoryDag.to_newick` and `HistoryDag.to_newicks`
