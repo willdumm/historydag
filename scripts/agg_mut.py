@@ -13,6 +13,7 @@ from sequence import mutate, distance
 from frozendict import frozendict
 import json
 from typing import NamedTuple
+import warnings
 nuc_lookup = {0: "A", 1: "C", 2: "G", 3: "T"}
 nuc_codes = {nuc: code for code, nuc in nuc_lookup.items()}
 
@@ -70,10 +71,11 @@ def process_from_mat(file, refseqid):
     tree = build_tree_from_mat(file)
     # reconstruct root sequence:
     try:
-        known_node = tree & refseqid
+        known_node = tree & refseqid    # tree contains node with refseqid?
     except:
-        warnings.warn(f"{refseqid} not found in loaded MAT, assuming this sequence is for the root node")
+        warnings.warn(f"{refseqid} not found in loaded MAT, assuming this sequence is for the root node using {tree.name}")
         known_node = tree
+
         
     known_node.add_feature("mutseq", frozendict())
     while not known_node.is_root():
@@ -94,6 +96,7 @@ def process_from_mat(file, refseqid):
             break
         for node in to_delete:
             node.delete(prevent_nondicotomic=False)
+
     return tree
 
 def load_MAD_pbdata(filename):
@@ -465,6 +468,22 @@ def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseq):
     treecounter = []
 
     def singledag(etetree):
+        #################################################################################
+        # Re-root ete tree
+        node = etetree.search_nodes(name=refseqid)[0]
+        etetree.set_outgroup(node)
+
+        # Delete outgroup
+        node.delete()
+        to_delete = []
+        for node in etetree.traverse():
+            if len(node.children) == 1:
+                to_delete.append(node.children[0])
+        for node in to_delete:
+            node.delete(prevent_nondicotomic=False)
+
+        #################################################################################
+
         parsimony_counter.update({parsimony(etetree): 1})
         treecounter.append(1)
         print(len(treecounter))
@@ -484,16 +503,13 @@ def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseq):
         print("opening old DAG...")
         olddag = load_dag(dagpath)
     else:
-        etetree = next(ushertrees)
+        etetree = next(ushertrees)        
         print("Creating DAG from first tree...")
         olddag = singledag(etetree)
-    print("Adding trees to history DAG...")
+
+    print(f"Adding {len(trees)} trees to history DAG...")
     merge(olddag, (singledag(etetree) for etetree in ushertrees))
-    # for idx, etetree in enumerate(ushertrees):
-    #     print(idx)
-    #     parsimony_counter.update({parsimony(etetree): 1})
-    #     newdag = singledag(etetree)
-    #     olddag.merge(newdag)
+    
     print("\nParsimony scores of added trees:")
     print(parsimony_counter)
     print("writing new DAG...")
@@ -619,8 +635,42 @@ def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_fi
 
     mattree = mat.MATree(infile)
     nl = mattree.depth_first_expansion()
-    seqdict = {nl[0].id: refseq_constant}
+    seqdict = {nl[0].id: refseq_constant}   # Assign root it's seq from reference file
     focus_leaves = [node for node in nl if node.id in leaf_ids]
+
+    node2path = {}
+    min_len = 99999999
+    for node in focus_leaves:
+        curr = node
+        path = []
+        while not curr.id == mattree.root.id:
+            path.append(curr)
+            curr = curr.parent
+        path.append(mattree.root)
+        min_len = min(min_len, len(path))
+        path.reverse()
+        node2path[node] = path
+
+    # TODO: Maybe we want the second MRCA because the MRCA should be part of the tree itself and NOT removed
+    finished = False
+    for i in range(min_len):
+        first = None
+        for node, path in node2path.items():
+            if first is None:
+                first = path[i]
+            else:
+                if first.id != path[i].id:
+                    finished = True
+                    break
+        
+        if finished:
+            ancestral_node = path[i-1]
+            break
+
+    # Testing that this indeed is the MRCA
+    assert ancestral_node is not None
+    assert set([node.id for node in mattree.get_leaves(nid=ancestral_node.id)]) == set([node.id for node in focus_leaves])
+    # focus_leaves.insert(0, ancestral_node)
 
     def compute_node_sequence(treenode):
         if treenode.id in seqdict:
@@ -630,6 +680,12 @@ def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_fi
             this_seq = apply_muts_to_string(refseq, treenode.mutations)
             seqdict[treenode.id] = this_seq
             return this_seq
+
+    # Write ancestral node to outfile
+    with open(outfile, 'w') as fh:
+        seqid = ancestral_node.id
+        seq = compute_node_sequence(ancestral_node)
+        print('>' + seqid + '\n' + seq, file=fh)
 
     outfasta = {}
     visited_set = set()
@@ -641,7 +697,7 @@ def find_leaf_sequence(infile, reference_seq_fasta, outfile, leaf_id, leaf_id_fi
         else:
             visited_set.add(node_seq)
             outfasta[leaf_id] = node_seq
-    with open(outfile, 'w') as fh:
+    with open(outfile, 'a') as fh:
         for seqid, seq in outfasta.items():
             print('>' + seqid + '\n' + seq, file=fh)
 
@@ -929,6 +985,852 @@ def extract_fasta(treepath, refseqfasta, selected_leaves, fasta_path, filter_uni
     with open(fasta_path, 'w') as fh:
         for line in towrite:
             print(line, file=fh)
+
+# TODO: I think you can just youse `distance(...)` here
+def distance_between_mutations(n1, n2):
+    if n1.is_root() or n2.is_root():
+        return 0
+    else:
+        dist = 0
+        for pos2, mut2 in n2.label.mutseq.items():
+            if pos2 not in n1.label.mutseq:
+                dist += 1
+            elif mut2 != n1.label.mutseq[pos2]:
+                dist += 1
+        for pos1, mut1 in n1.label.mutseq.items():
+            if pos1 not in n2.label.mutseq:
+                dist += 1
+            # elif mut1 != n2.label.mutseq[pos1]:   # NOTE: We already counted these in the above pass
+            #     dist += 1
+
+    # TODO: Convert this to a sum(list) method
+    return dist
+
+
+# NOTE: First pass at this method
+# @cli.command("annotate-support")
+# @click.argument("subset_mat_file")
+# @click.argument("reference_file")
+# @click.argument("clade_dir")
+# @click.argument("unique_seqs_file")
+# def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_file):
+#     with open(reference_file, "r") as f:
+#         seq_id = f.readline()                           # first line of fasta file
+
+#     print("Processing MAT into ete tree...")
+#     tree = process_from_mat(subset_mat_file, seq_id)    # Get ete tree from subset_mat
+
+#     print("=> Clade tree has parsimony score", parsimony(tree))
+
+#     seq2count = {node.mutseq: 0 for node in tree.traverse()}
+
+#     # Delete duplicate leaf nodes
+#     with open(unique_seqs_file) as f:
+#         unique_seqs = set()
+#         for line in f.readlines():
+#             if line.startswith(">"):
+#                 unique_seqs.add(line[1:])
+#         print(f"Using {len(unique_seqs)} unique seqs")
+#     to_delete = []
+#     for node in tree.traverse():
+#         seq2count[node.mutseq] += 1
+#         if node.is_leaf() and node.name not in unique_seqs:
+#             to_delete.append(node)
+    
+#     print(f"Deleting {len(to_delete)} nodes")
+#     for node in to_delete:
+#         if seq2count[node.mutseq] <= 1:
+#             print("\t", seq2count[node.mutseq])#, "\t", node.mutseq)
+#         node.delete(prevent_nondicotomic=False)
+
+#     # Remove unifurcations
+#     to_delete = []
+#     for node in tree.traverse():
+#         if len(node.children) == 1:
+#             to_delete.append(node)
+#     print(f"Deleting {len(to_delete)} nodes")
+#     for node in to_delete:
+#         if seq2count[node.mutseq] <= 1:
+#             print("\t", seq2count[node.mutseq])#, "\t", node.mutseq)
+#         node.delete(prevent_nondicotomic=False)
+
+#     print("Converting ete to hdag...")
+#     treedag = hdag.history_dag_from_etes(
+#         [tree],
+#         ["mutseq"],
+#         attr_func=lambda n: {
+#             "name": n.name,
+#         }
+#     )
+
+#     hist = treedag.weight_count(edge_weight_func=distance_between_mutations)
+#     print("=> Clade tree (hdag) has parsimony score", hist)
+
+#     dag_path = f"{clade_dir}/full_dag.p"
+#     with open(dag_path, 'rb') as fh:
+#         dag  = pickle.load(fh)[0]
+
+#     # TODO: Turn these into a list of newicks...(theres a trillion of them) and get parsiomny there?
+
+#     print("Merging tree dag into hdag...")
+#     print(f"\t{dag.count_trees()} trees before merge")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+
+#     dag.merge([treedag])
+#     print(f"\t{dag.count_trees()} trees after merge")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+
+#     dag.add_all_allowed_edges()
+#     print(f"\t{dag.count_trees()} after adding edges")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+    
+#     dag.trim_optimal_weight(edge_weight_func=distance_between_mutations)
+#     print(f"\t{dag.count_trees()} trees after trim")
+
+#     root = process_from_mat(subset_mat_file, seq_id) # Reload root so that we have a freash copy
+#     annotate_ete(dag, root)
+
+# NOTE: Second pass at this method
+# @cli.command("annotate-support")
+# @click.argument("subset_mat_file")
+# @click.argument("reference_file")
+# @click.argument("clade_dir")
+# @click.argument("unique_seqs_file")
+# def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_file):
+#     with open(reference_file, "r") as f:
+#         seq_id = f.readline()[1:-1]                     # first line of fasta file
+
+#     print("Processing MAT into ete tree...")
+#     print("id of reference sequence:\t", seq_id)
+#     # TODO: Trying to replace this with manual procedure
+#     # tree = process_from_mat(subset_mat_file, seq_id)    # Get ete tree from subset_mat
+
+#     tree = build_tree_from_mat(subset_mat_file)
+#     id2mut = {}
+#     names = set()
+#     for node in tree.traverse():
+#         names.add(node.name) #DEBUG
+#         if node.name == '':
+#             node.name = 'weird_node'
+#             print("==> FOUND WEIRD NODE")
+#         id2mut[node.name] = node.mutations
+    
+#     known_node = tree & seq_id
+#     tree.set_outgroup(known_node)
+
+#     names_after_outgroup = set()
+#     for node in tree.traverse():
+#         names_after_outgroup.add(node.name)
+        
+#     known_node.add_feature("mutseq", frozendict())
+#     while not known_node.is_root():
+#         known_node.up.add_feature("mutseq", apply_muts(known_node.mutseq, id2mut[known_node.name], reverse=True))
+#         known_node = known_node.up
+
+#     names_after_mutseq = set()
+#     for node in tree.traverse():
+#         names_after_mutseq.add(node.name)
+
+#     known_node.delete()
+
+#     names_after_del = set()
+#     for node in tree.traverse():
+#         names_after_del.add(node.name)
+
+#     print('' in names, len(names))
+#     print('' in names_after_outgroup, len(names_after_outgroup))    # NOTE node.name='' is introduced after outgrouping!
+#     print('' in names_after_mutseq, len(names_after_mutseq))
+#     print('' in names_after_del, len(names_after_del))
+
+#     to_delete = []
+#     for node in tree.traverse():
+#         if len(node.children) == 1:
+#             to_delete.append(node.children[0])
+#     for node in to_delete:
+#         node.delete(prevent_nondicotomic=False)
+    
+#     # reconstruct all sequences from root sequence:
+#     with open('testree.p', 'wb') as fh:
+#         fh.write(pickle.dumps(tree))
+    
+#     weird_node = tree & ''  # NOTE: For some reason a node with an empty string as a name is generated from outgrouping + delete.
+#     print("==> DELETING WEIRD NODE")
+#     weird_node.delete()
+
+#     for node in tree.iter_descendants(strategy='preorder'):
+#         # print(f"name: {node.name}, root: {node.is_root()}, leaf: {node.is_leaf()}, child_len: {len(node.children)}")
+#         node.add_feature("mutseq", apply_muts(node.up.mutseq, id2mut[node.name]))
+
+#     # remove root unifurcations
+#     while len(tree.children) == 1:
+#         tree.children[0].delete(prevent_nondicotomic=False)
+#     # remove unifurcations
+#     while True:
+#         to_delete = [node for node in tree.traverse() if len(node.children) == 1]
+#         if len(to_delete) == 0:
+#             break
+#         for node in to_delete:
+#             node.delete(prevent_nondicotomic=False)
+
+#     for n in tree.iter_descendants():
+#         print(n.is_leaf(), n.is_root())
+#         print(n.mutseq)
+
+#     print("=> Clade tree has parsimony score", parsimony(tree))
+
+#     print(f"Tree contains {sum([1 for node in tree.traverse()])} nodes")
+
+#     # Find all unique leaf nodes
+#     # with open(unique_seqs_file) as f:
+#     #     unique_seqs = set()
+#     #     for line in f.readlines():
+#     #         if line.startswith(">"):
+#     #             unique_seqs.add(line[1:-1]) # Remove '>' and '\n'
+#     #     print(f"Using {len(unique_seqs)} unique seqs")
+
+#     while True:
+#         # Gather all duplicate sequences
+#         mutseqs = set()
+#         unique_seqs = set()
+#         for node in tree.traverse():
+#             if node.is_leaf() and node.mutseq not in mutseqs:
+#                 unique_seqs.add(node.name)
+#                 mutseqs.add(node.mutseq)
+#         print(f"There are {len(unique_seqs)} unique seqs")
+        
+#         # Delete non-unique leaf nodes
+#         to_delete = []
+#         for node in tree.traverse():
+#             if node.is_leaf() and node.name not in unique_seqs:
+#                 to_delete.append(node)
+#         if len(to_delete) == 0:
+#             break
+#         print(f"\tDeleting {len(to_delete)} duplicate nodes")
+#         for node in to_delete:
+#             node.delete(prevent_nondicotomic=False)
+        
+
+#     # Remove unifurcations
+#     to_delete = []
+#     for node in tree.traverse():
+#         if len(node.children) == 1:
+#             to_delete.append(node)
+#     print(f"\tDeleting {len(to_delete)} unifurcacious nodes")
+#     for node in to_delete:
+#         node.delete(prevent_nondicotomic=False)
+        
+#     print(f"\tTree contains {sum([node.is_leaf() for node in tree.traverse()])} leaves")
+
+#     print("Converting ete to hdag...")
+#     treedag = hdag.history_dag_from_etes(
+#         [tree],
+#         ["mutseq"],
+#         attr_func=lambda n: {
+#             "name": n.name,
+#         }
+#     )
+
+#     hist = treedag.weight_count(edge_weight_func=distance_between_mutations)
+#     print("=> Clade tree (hdag) has parsimony score", hist)
+
+#     dag_path = f"{clade_dir}/full_dag.p"
+#     with open(dag_path, 'rb') as fh:
+#         dag_stuff = pickle.load(fh)
+#         refseqid, refsequence = dag_stuff[1]
+#         dag  = dag_stuff[0]
+
+#     # Ensure all trees are on the same leaves
+#     treedag_leaves = set()
+#     for node in treedag.preorder():
+#         if node.is_leaf():
+#             treedag_leaves.add(node.label.mutseq)
+#     dag_leaves = set()
+#     for node in dag.preorder():
+#         if node.is_leaf():
+#             dag_leaves.add(node.label.mutseq)
+#     print("single tree dag:\t", len(treedag_leaves))
+#     print("many tree dag:\t", len(dag_leaves))
+#     print("Tree (?) reference id", seq_id)
+#     print("Dag reference id", refseqid)
+#     # print("Tree reference id", treedag.refseq[0]) # NOTE: Tree uses node_1 and not the refseqid
+
+#     for node1 in treedag_leaves:
+#         max_matches = -1
+#         max_pair = None
+#         max_unmatch = None
+#         for node2 in dag_leaves:
+#             matches = 0
+#             unmatch = None
+#             for k1, v1 in node1.items():
+#                 if k1 in node2 and node2[k1] == v1:
+#                     matches += 1
+#                 else:
+#                     # unmatch = (k1, v1), (k1, node2[k1])
+#                     if k1 in node2:
+#                         unmatch = (k1, v1), (k1, node2[k1])
+#                     else:
+#                         unmatch = k1, "not in node2"
+#             if matches > max_matches:
+#                 max_matches = matches
+#                 max_pair = node2
+#                 max_unmatch = unmatch
+#         print(f"tree_dag {max_matches} / {len(node1)}:\t\t", node1)
+#         print(f"  |__.-> dag w/ {len(node2)}:    \t\t", max_pair)
+#         print("\t\t w/ unmatch = ", max_unmatch)
+
+
+#     # for node1, node2 in zip(treedag_leaves, dag_leaves):
+#     #     if node not in dag_leaves:
+#     #         print("tree_dag:\t", node1)
+#     #         print("dag:     \t", node2)
+#     assert treedag_leaves == dag_leaves
+
+#     # TODO: Test where hdag.count_nodes() breaks (i.e., visits child before parent) by calling it before each change below
+#     dag.add_all_allowed_edges() # TODO: Remove this
+#     print("Merging tree dag into hdag...")
+#     print(f"\t{dag.count_trees()} trees before merge")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+
+#     dag.merge([treedag])
+#     print(f"\t{dag.count_trees()} trees after merge")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+
+#     dag.add_all_allowed_edges()
+#     print(f"\t{dag.count_trees()} after adding edges")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+    
+#     # dag.trim_optimal_weight(edge_weight_func=distance_between_mutations)
+#     print(f"\t{dag.count_trees()} trees after trim")
+
+#     tree = process_from_mat(subset_mat_file, seq_id)
+
+#     print("Annotating...")
+#     annotate_ete(dag, tree)
+    
+#     # TODO: Save annotated tree somewhere
+#     # print(tree.write())
+
+#     return tree
+
+# @cli.command("annotate-support")
+# @click.argument("subset_mat_file")
+# @click.argument("reference_file")
+# @click.argument("clade_dir")
+# @click.argument("unique_seqs_file")
+# def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_file):
+#     with open(reference_file, "r") as f:
+#         seq_id = "node_1867" #f.readline()[1:-1]                     # first line of fasta file
+
+#     print("Processing MAT into ete tree...")
+#     print("id of reference sequence:\t", seq_id)
+#     # TODO: Trying to replace this with manual procedure
+#     # tree = process_from_mat(subset_mat_file, seq_id)    # Get ete tree from subset_mat
+
+#     tree = build_tree_from_mat(subset_mat_file)
+
+#     id2mut = {}
+#     for node in tree.traverse():
+#         id2mut[node.name] = node.mutations
+    
+#     print(tree.name)
+#     known_node = tree & seq_id  # TODO: Figure out why 'ancestral' is not in our tree
+#     tree.set_outgroup(known_node)
+
+#     known_node.add_feature("mutseq", frozendict())
+#     while not known_node.is_root():
+#         known_node.up.add_feature("mutseq", apply_muts(known_node.mutseq, id2mut[known_node.name], reverse=True))
+#         known_node = known_node.up
+
+#     known_node.delete()
+#     to_delete = []
+#     for node in tree.traverse():
+#         if len(node.children) == 1:
+#             to_delete.append(node.children[0])
+#     for node in to_delete:
+#         node.delete(prevent_nondicotomic=False)
+    
+#     # reconstruct all sequences from root sequence:
+#     with open('testree.p', 'wb') as fh:
+#         fh.write(pickle.dumps(tree))
+#     try:
+#         weird_node = tree & ''  # NOTE: For some reason a node with an empty string as a name is generated from outgrouping + delete.
+#         print("==> DELETING WEIRD NODE")
+#         weird_node.delete()
+#     except:
+#         print("NO WEIRD NODE")
+
+#     for node in tree.iter_descendants(strategy='preorder'):
+#         # print(f"name: {node.name}, root: {node.is_root()}, leaf: {node.is_leaf()}, child_len: {len(node.children)}")
+#         node.add_feature("mutseq", apply_muts(node.up.mutseq, id2mut[node.name]))
+
+#     # remove root unifurcations
+#     while len(tree.children) == 1:
+#         tree.children[0].delete(prevent_nondicotomic=False)
+#     # remove unifurcations
+#     while True:
+#         to_delete = [node for node in tree.traverse() if len(node.children) == 1]
+#         if len(to_delete) == 0:
+#             break
+#         for node in to_delete:
+#             node.delete(prevent_nondicotomic=False)
+
+#     for n in tree.iter_descendants():
+#         print(n.is_leaf(), n.is_root())
+#         print(n.mutseq)
+
+#     print("=> Clade tree has parsimony score", parsimony(tree))
+
+#     print(f"Tree contains {sum([1 for node in tree.traverse()])} nodes")
+
+#     # Find all unique leaf nodes
+#     # with open(unique_seqs_file) as f:
+#     #     unique_seqs = set()
+#     #     for line in f.readlines():
+#     #         if line.startswith(">"):
+#     #             unique_seqs.add(line[1:-1]) # Remove '>' and '\n'
+#     #     print(f"Using {len(unique_seqs)} unique seqs")
+
+#     # TODO: We don't want to be using this method. We'd prefer to get the unique seqs from the file above
+#     while True:
+#         # Gather all duplicate sequences
+#         mutseqs = set()
+#         unique_seqs = set()
+#         for node in tree.traverse():
+#             if node.is_leaf() and node.mutseq not in mutseqs:
+#                 unique_seqs.add(node.name)
+#                 mutseqs.add(node.mutseq)
+#         print(f"There are {len(unique_seqs)} unique seqs")
+        
+#         # Delete non-unique leaf nodes
+#         to_delete = []
+#         for node in tree.traverse():
+#             if node.is_leaf() and node.name not in unique_seqs:
+#                 to_delete.append(node)
+#         if len(to_delete) == 0:
+#             break
+#         print(f"\tDeleting {len(to_delete)} duplicate nodes")
+#         for node in to_delete:
+#             node.delete(prevent_nondicotomic=False)
+        
+
+#     # Remove unifurcations
+#     to_delete = []
+#     for node in tree.traverse():
+#         if len(node.children) == 1:
+#             to_delete.append(node)
+#     print(f"\tDeleting {len(to_delete)} unifurcacious nodes")
+#     for node in to_delete:
+#         node.delete(prevent_nondicotomic=False)
+        
+#     print(f"\tTree contains {sum([node.is_leaf() for node in tree.traverse()])} leaves")
+
+#     print("Converting ete to hdag...")
+#     treedag = hdag.history_dag_from_etes(
+#         [tree],
+#         ["mutseq"],
+#         attr_func=lambda n: {
+#             "name": n.name,
+#         }
+#     )
+
+#     hist = treedag.weight_count(edge_weight_func=distance_between_mutations)
+#     print("=> Clade tree (hdag) has parsimony score", hist)
+
+#     dag_path = f"{clade_dir}/full_dag.p"
+#     with open(dag_path, 'rb') as fh:
+#         dag_stuff = pickle.load(fh)
+#         refseqid, refsequence = dag_stuff[1]
+#         dag  = dag_stuff[0]
+
+#     # Ensure all trees are on the same leaves
+#     treedag_leaves = set()
+#     for node in treedag.preorder():
+#         if node.is_leaf():
+#             treedag_leaves.add(node.label.mutseq)
+#     dag_leaves = set()
+#     for node in dag.preorder():
+#         if node.is_leaf():
+#             dag_leaves.add(node.label.mutseq)
+#     print("single tree dag:\t", len(treedag_leaves))
+#     print("many tree dag:\t", len(dag_leaves))
+#     print("Tree (?) reference id", seq_id)
+#     print("Dag reference id", refseqid)
+#     # print("Tree reference id", treedag.refseq[0]) # NOTE: Tree uses node_1 and not the refseqid
+
+#     for node1 in treedag_leaves:
+#         if node1 not in dag_leaves:
+#             print("==>", node1)
+
+#     for node1 in treedag_leaves:
+#         max_matches = -1
+#         max_pair = None
+#         max_unmatch = None
+#         for node2 in dag_leaves:
+#             matches = 0
+#             unmatch = None
+#             for k1, v1 in node1.items():
+#                 if k1 in node2 and node2[k1] == v1:
+#                     matches += 1
+#                 else:
+#                     # unmatch = (k1, v1), (k1, node2[k1])
+#                     if k1 in node2:
+#                         unmatch = (k1, v1), (k1, node2[k1])
+#                     else:
+#                         unmatch = k1, "not in node2"
+#             if matches > max_matches:
+#                 max_matches = matches
+#                 max_pair = node2
+#                 max_unmatch = unmatch
+#         if max_unmatch is not None:
+#             print(f"tree_dag {max_matches} / {len(node1)}:\t\t", node1)
+#             print(f"  |__.-> dag w/ {len(node2)}:    \t\t", max_pair)
+#             print("\t\t w/ unmatch = ", max_unmatch)
+
+
+#     # for node1, node2 in zip(treedag_leaves, dag_leaves):
+#     #     if node not in dag_leaves:
+#     #         print("tree_dag:\t", node1)
+#     #         print("dag:     \t", node2)
+#     assert treedag_leaves == dag_leaves
+
+#     # TODO: Test where hdag.count_nodes() breaks (i.e., visits child before parent) by calling it before each change below
+#     dag.add_all_allowed_edges() # TODO: Remove this
+#     print("Merging tree dag into hdag...")
+#     print(f"\t{dag.count_trees()} trees before merge")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+
+#     dag.merge([treedag])
+#     print(f"\t{dag.count_trees()} trees after merge")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+
+#     dag.add_all_allowed_edges()
+#     print(f"\t{dag.count_trees()} after adding edges")
+#     hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+#     for k, v in hist.items():
+#         print(k, "\t", v)
+#     print()
+    
+#     # dag.trim_optimal_weight(edge_weight_func=distance_between_mutations)
+#     print(f"\t{dag.count_trees()} trees after trim")
+
+#     tree = process_from_mat(subset_mat_file, seq_id)
+
+#     print("Annotating...")
+#     annotate_ete(dag, tree)
+    
+#     # TODO: Save annotated tree somewhere
+#     # print(tree.write())
+
+#     return tree
+
+@cli.command("annotate-support")
+@click.argument("subset_mat_file")
+@click.argument("reference_file")
+@click.argument("clade_dir")
+@click.argument("unique_seqs_file")
+def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_file):
+    with open(reference_file, "r") as f:
+        seq_id = f.readline()[1:-1]                     # first line of fasta file
+
+    print("Processing MAT into ete tree...")
+    print("id of reference sequence:\t", seq_id)
+
+    tree = process_from_mat(subset_mat_file, seq_id)
+    seq_id = tree.name
+
+    known_node = tree & seq_id  # TODO: Figure out why 'ancestral' is not in our tree
+    # tree.set_outgroup(known_node)
+
+    # known_node.delete()
+    # to_delete = []
+    # for node in tree.traverse():
+    #     if len(node.children) == 1:
+    #         to_delete.append(node.children[0])
+    # for node in to_delete:
+    #     node.delete(prevent_nondicotomic=False)
+    
+    # try:
+    #     weird_node = tree & ''  # NOTE: For some reason a node with an empty string as a name is generated from outgrouping + delete.
+    #     print("==> DELETING WEIRD NODE")
+    #     weird_node.delete()
+    # except:
+    #     print("NO WEIRD NODE")
+
+    # # remove root unifurcations
+    # while len(tree.children) == 1:
+    #     tree.children[0].delete(prevent_nondicotomic=False)
+    # # remove unifurcations
+    # while True:
+    #     to_delete = [node for node in tree.traverse() if len(node.children) == 1]
+    #     if len(to_delete) == 0:
+    #         break
+    #     for node in to_delete:
+    #         node.delete(prevent_nondicotomic=False)
+
+    # for n in tree.iter_descendants():
+    #     print(n.is_leaf(), n.is_root())
+    #     print(n.mutseq)
+
+    print("=> Clade tree has parsimony score", parsimony(tree))
+
+    print(f"Tree contains {sum([1 for node in tree.traverse()])} nodes")
+
+    # Find all unique leaf nodes
+    # with open(unique_seqs_file) as f:
+    #     unique_seqs = set()
+    #     for line in f.readlines():
+    #         if line.startswith(">"):
+    #             unique_seqs.add(line[1:-1]) # Remove '>' and '\n'
+    #     print(f"Using {len(unique_seqs)} unique seqs")
+
+    # TODO: We don't want to be using this method. We'd prefer to get the unique seqs from the file above
+    while True:
+        # Gather all duplicate sequences
+        mutseqs = set()
+        unique_seqs = set()
+        for node in tree.traverse():
+            if node.is_leaf() and node.mutseq not in mutseqs:
+                unique_seqs.add(node.name)
+                mutseqs.add(node.mutseq)
+        print(f"There are {len(unique_seqs)} unique seqs")
+        
+        # Delete non-unique leaf nodes
+        to_delete = []
+        for node in tree.traverse():
+            if node.is_leaf() and node.name not in unique_seqs:
+                to_delete.append(node)
+        if len(to_delete) == 0:
+            break
+        print(f"\tDeleting {len(to_delete)} duplicate nodes")
+        for node in to_delete:
+            node.delete(prevent_nondicotomic=False)
+        
+
+    # Remove unifurcations
+    to_delete = []
+    for node in tree.traverse():
+        if len(node.children) == 1:
+            to_delete.append(node)
+    print(f"\tDeleting {len(to_delete)} unifurcacious nodes")
+    for node in to_delete:
+        node.delete(prevent_nondicotomic=False)
+        
+    print(f"\tTree contains {sum([node.is_leaf() for node in tree.traverse()])} leaves")
+
+    print("Converting ete to hdag...")
+    treedag = hdag.history_dag_from_etes(
+        [tree],
+        ["mutseq"],
+        attr_func=lambda n: {
+            "name": n.name,
+        }
+    )
+
+    hist = treedag.weight_count(edge_weight_func=distance_between_mutations)
+    print("=> Clade tree (hdag) has parsimony score", hist)
+
+    dag_path = f"{clade_dir}/full_dag.p"
+    with open(dag_path, 'rb') as fh:
+        dag_stuff = pickle.load(fh)
+        refseqid, refsequence = dag_stuff[1]
+        dag  = dag_stuff[0]
+
+    # Ensure all trees are on the same leaves
+    treedag_leaves = set()
+    for node in treedag.preorder():
+        if node.is_leaf():
+            treedag_leaves.add(node.label.mutseq)
+    dag_leaves = set()
+    for node in dag.preorder():
+        if node.is_leaf():
+            dag_leaves.add(node.label.mutseq)
+    print("single tree dag:\t", len(treedag_leaves))
+    print("many tree dag:\t", len(dag_leaves))
+    print("Tree (?) reference id", seq_id)
+    print("Dag reference id", refseqid)
+    # print("Tree reference id", treedag.refseq[0]) # NOTE: Tree uses node_1 and not the refseqid
+
+    # for node1 in treedag_leaves:
+    #     if node1 not in dag_leaves:
+    #         print("==>", node1)
+
+    # for node1 in treedag_leaves:
+    #     max_matches = -1
+    #     max_pair = None
+    #     max_unmatch = None
+    #     for node2 in dag_leaves:
+    #         matches = 0
+    #         unmatch = None
+    #         for k1, v1 in node1.items():
+    #             if k1 in node2 and node2[k1] == v1:
+    #                 matches += 1
+    #             else:
+    #                 # unmatch = (k1, v1), (k1, node2[k1])
+    #                 if k1 in node2:
+    #                     unmatch = (k1, v1), (k1, node2[k1])
+    #                 else:
+    #                     unmatch = k1, "not in node2"
+    #         if matches > max_matches:
+    #             max_matches = matches
+    #             max_pair = node2
+    #             max_unmatch = unmatch
+    #     if max_unmatch is not None:
+    #         print(f"tree_dag {max_matches} / {len(node1)}:\t\t", node1)
+    #         print(f"  |__.-> dag w/ {len(node2)}:    \t\t", max_pair)
+    #         print("\t\t w/ unmatch = ", max_unmatch)
+
+
+    # for node1, node2 in zip(treedag_leaves, dag_leaves):
+    #     if node not in dag_leaves:
+    #         print("tree_dag:\t", node1)
+    #         print("dag:     \t", node2)
+    assert treedag_leaves == dag_leaves
+
+    # TODO: Test where hdag.count_nodes() breaks (i.e., visits child before parent) by calling it before each change below
+    dag.add_all_allowed_edges() # TODO: Remove this
+    print("Merging tree dag into hdag...")
+    print(f"\t{dag.count_trees()} trees before merge")
+    hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+    for k, v in hist.items():
+        print(k, "\t", v)
+    print()
+
+    dag.merge([treedag])
+    print(f"\t{dag.count_trees()} trees after merge")
+    hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+    for k, v in hist.items():
+        print(k, "\t", v)
+    print()
+
+    dag.add_all_allowed_edges()
+    print(f"\t{dag.count_trees()} after adding edges")
+    hist = dag.weight_count(edge_weight_func=distance_between_mutations)
+    for k, v in hist.items():
+        print(k, "\t", v)
+    print()
+    
+    dag.trim_optimal_weight(edge_weight_func=distance_between_mutations)
+    print(f"\t{dag.count_trees()} trees after trim")
+
+    tree = process_from_mat(subset_mat_file, seq_id)
+
+    print("Annotating...")
+    annotate_ete(dag, tree)
+    
+    # TODO: Save annotated tree somewhere
+    # print(tree.write())
+
+    return tree
+
+
+# TODO: Put this above cli stuff
+def annotate_ete(dag, tree):
+    node2count = dag.count_nodes() # TODO: Fix KeyError here
+    total_trees = dag.count_trees()
+    
+    print(f"hDAG contains {total_trees} trees")
+
+    # Set of mutation dicts -> support
+    clade2support = {}
+
+    # Collapse hdag node counts by clade union
+    for node, count in node2count.items():
+        if node.is_leaf():
+            clade_union = frozenset([node.label.mutseq])
+        else:
+            clade_union = frozenset([label.mutseq for label in node.under_clade()])
+
+        if clade_union not in clade2support:
+            clade2support[clade_union] = 0
+        # print(f"{clade2support[clade_union]} + {count / total_trees:.2f} \t= {clade2support[clade_union] + count / total_trees}")
+        # NOTE: This^ indicates that there are VERY few nodes with the same clade union... bc it alsmot always sstarts with 0 + ...
+        clade2support[clade_union] += count / total_trees
+
+    # for k, v in clade2support.items():
+    #     if len(k) == 1:
+    #         print(v, k)
+    # print("end of clade supp")
+
+    # Annotate ete tree nodes with their support values
+    node2clade = {}
+    skipped = 0
+    total = 0
+    for ete_node in tree.traverse("postorder"):    # Vist children first
+        if ete_node.is_leaf():
+            clade_union = frozenset([ete_node.mutseq])
+            node2clade[ete_node] = clade_union
+        else:
+            clade_union = frozenset().union(*[node2clade[child] for child in ete_node.children])
+            node2clade[ete_node] = clade_union
+
+        total += 1
+        if clade_union not in clade2support:    # NOTE: This should never happen because the hDAG contains the tree of interest
+            ete_node.support = -1 #1.0 / total_trees
+            skipped += 1
+            # print(len(clade_union), ete_node.is_leaf(), ete_node.is_root()) # NOTE Always leaf nodes because clade is of len 1
+            # print(clade_union)
+            # print()
+            # print()
+        else:
+            ete_node.support = clade2support[clade_union]
+
+    # NOTE: Debug
+    # CHeckign to see if nodes in dag have a support of 1
+    # print("ETE nodes (as clades) -> support")
+    # for ete_node in tree.traverse("postorder"):
+    #     clade_union = node2clade[ete_node]
+
+    #     if clade_union not in clade2support:
+    #         print(f"Missing length {len(clade_union)} node\t is_leaf={ete_node.is_leaf()}\t is_root={ete_node.is_root()}")
+    #     elif clade2support[clade_union] == 1.0:
+    #         print(f"length {len(clade_union)} node appears in every tree\t is_leaf={ete_node.is_leaf()}\t is_root={ete_node.is_root()}\t sup: {clade2support[clade_union]}")
+    #     else:
+    #         print(f"is_leaf={ete_node.is_leaf()}\t is_root={ete_node.is_root()}\t sup: {clade2support[clade_union]}")
+
+    # print()
+    # print()
+    # print("Dag nodes (as clades) -> support")
+    # for node in dag.postorder():
+    #     if node.is_leaf():
+    #         clade_union = frozenset([node.label.mutseq])
+    #     else:
+    #         clade_union = frozenset([label.mutseq for label in node.under_clade()])
+
+    #     if clade_union not in clade2support:
+    #         print(f"Missing length {len(clade_union)} node\t is_leaf={node.is_leaf()}\t is_root={node.is_root()}")
+    #     elif clade2support[clade_union] == 1.0:
+    #         print(f"length {len(clade_union)} node appears in every tree\t is_leaf={node.is_leaf()}\t is_root={node.is_root()}\t sup: {clade2support[clade_union]}") # TODO: why does "length 0 node appears in 884737 trees"
+    #     else:
+    #         print(f"is_leaf={node.is_leaf()}\t is_root={node.is_root()}\t sup: {clade2support[clade_union]}")
+
+    print(f"skipped {skipped} / {total}")
+
+    for node in tree.traverse():
+        print(node.support, node.is_leaf(), node.is_root())
 
 if __name__ == '__main__':
     cli()

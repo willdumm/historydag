@@ -69,10 +69,10 @@ while getopts "n:f:ho:M:D:d:v:r:" option; do
     esac
 done
 
-[ -e $OUTDIR ] && { echo "$OUTDIR already exists! Exiting."; exit 0; }
+# TODO: Uncomment this stuff
+# [ -e $OUTDIR ] && { echo "$OUTDIR already exists! Exiting."; exit 0; }
+mkdir -p $OUTDIR
 
-
-mkdir $OUTDIR
 TMPDIR=$OUTDIR/tmp
 mkdir $TMPDIR
 
@@ -90,14 +90,13 @@ else
     REFID=$REFSEQID
 fi
 
-
 echo "($REFID)1;" > $TMPDIR/starttree.nh
 echo $REFID > $OUTDIR/refid.txt
 for ((run=1;run<=NRUNS;run++)); do
     echo Building alternative initial trees: iteration $run / $NRUNS ...
     # place samples in the tree in up to MAX_ALTERNATE_PLACEMENTS different
     # ways
-    echo "\tOptimizing each resulting tree $DRIFTING_MOVES times ..."
+    echo "    Optimizing each resulting tree $DRIFTING_MOVES times ..."
     usher -t $TMPDIR/starttree.nh -v $VCF -o $TMPDIR/mat.pb -d $TMPDIR/ushertree/ -M $MAX_ALTERNATE_PLACEMENTS >& $TMPDIR/usher.log
     for intree in $TMPDIR/ushertree/*.nh; do
         usher -t $intree -v $VCF -o $TMPDIR/mat.pb >> $TMPDIR/usher-optimize.log 2>&1
@@ -114,4 +113,4 @@ for ((run=1;run<=NRUNS;run++)); do
     rm -f $TMPDIR/ushertree/*.txt
     rm -f $TMPDIR/ushertree/*.tsv
 done
-rm -rf $TMPDIR
+rm -r $TMPDIR

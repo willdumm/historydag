@@ -1082,6 +1082,69 @@ class HistoryDag:
             sum,
             prod,
         )
+    
+    # TODO: This could probably be re-written to use postorder_cladetree_accum...
+    def count_nodes(self, collapse=False) -> Dict[HistoryDagNode, int]:
+        """Counts the number of trees each node takes part in.
+
+        Args:
+            collapse: A flag that when set to true, treats nodes as clade unions and
+                ignores label information. Then, the returned dictionary is keyed by
+                clade union sets.
+
+        Returns:
+            A dicitonary mapping each node in the DAG to the number of trees
+            that it takes part in.
+        """
+        node2count = {}
+        node2stats = {}
+
+        self.count_trees()
+        reverse_postorder = reversed(list(self.postorder()))
+        for node in reverse_postorder:
+            below = node._dp_data
+            curr_clade = node.under_clade()
+
+            if node.is_root():
+                above = 1
+            else:
+                above = 0
+                for parent in node.parents:
+                    # above_parent = node2stats[parent][0]    # NOTE: Assumes that you're visiting parents before children
+                    below_parent = 1
+                    for clade in parent.clades:
+                        # Skip clade covered by node of interest
+                        if clade == curr_clade or parent.is_root():
+                            continue
+                        below_clade = 0
+                        for sib in parent.children(clade=clade):
+                            below_clade += sib._dp_data
+                        below_parent *= below_clade
+
+                    # TODO: The fact that we have to use this is BAD
+                    if parent not in node2stats:
+                        print("below parent:", below_parent)
+                        above_parent = 1
+                    else:
+                        above_parent = node2stats[parent][0]    # NOTE: Assumes that you're visiting parents before children
+                    above += above_parent * below_parent
+
+            # print(f"above: {above}\tbelow:{below}")
+
+            node2count[node] = above * below
+            node2stats[node] = [above, below]
+
+        collapsed_n2c = {}
+        if collapse:
+            for node in node2count.keys():
+                clade = node.under_clade()
+                if clade not in collapsed_n2c:
+                    collapsed_n2c[clade] = 0
+
+                collapsed_n2c[clade] += node2count[node]
+            return collapsed_n2c
+        else:
+            return node2count
 
     def count_paths_to_leaf(
         self,
