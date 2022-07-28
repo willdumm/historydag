@@ -1116,7 +1116,7 @@ class HistoryDag:
             sum,
             prod,
         )
-    
+
     # TODO: This could probably be re-written to use postorder_cladetree_accum...
     def count_nodes(self, collapse=False) -> Dict[HistoryDagNode, int]:
         """Counts the number of trees each node takes part in.
@@ -1160,7 +1160,9 @@ class HistoryDag:
                         print("below parent:", below_parent)
                         above_parent = 1
                     else:
-                        above_parent = node2stats[parent][0]    # NOTE: Assumes that you're visiting parents before children
+                        above_parent = node2stats[parent][
+                            0
+                        ]  # NOTE: Assumes that you're visiting parents before children
                     above += above_parent * below_parent
 
             # print(f"above: {above}\tbelow:{below}")
@@ -1338,8 +1340,6 @@ class HistoryDag:
             accum_func=accum_func,
             optimal_func=optimal_func,
         )
-        # It may not be okay to use preorder here. May need reverse postorder
-        # instead?
         for node in self.preorder():
             for clade, eset in node.clades.items():
                 weightlist = [
@@ -1361,6 +1361,7 @@ class HistoryDag:
                 eset.weights = newweights
                 n = len(eset.targets)
                 eset.probs = [1.0 / n] * n
+        self.recompute_parents()
         return opt_weight
 
     def get_topologies(self, collapse_leaves: bool = False) -> List[str]:
