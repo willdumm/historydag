@@ -1144,7 +1144,6 @@ class HistoryDag:
             else:
                 above = 0
                 for parent in node.parents:
-                    # above_parent = node2stats[parent][0]    # NOTE: Assumes that you're visiting parents before children
                     below_parent = 1
                     for clade in parent.clades:
                         # Skip clade covered by node of interest
@@ -1155,14 +1154,7 @@ class HistoryDag:
                             below_clade += sib._dp_data
                         below_parent *= below_clade
 
-                    # TODO: The fact that we have to use this is BAD
-                    if parent not in node2stats:
-                        print("below parent:", below_parent)
-                        above_parent = 1
-                    else:
-                        above_parent = node2stats[parent][
-                            0
-                        ]  # NOTE: Assumes that you're visiting parents before children
+                    above_parent = node2stats[parent][0]    # NOTE: Assumes that you're visiting parents before children
                     above += above_parent * below_parent
 
             # print(f"above: {above}\tbelow:{below}")
