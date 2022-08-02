@@ -14,6 +14,7 @@ from frozendict import frozendict
 import json
 from typing import NamedTuple
 import warnings
+
 nuc_lookup = {0: "A", 1: "C", 2: "G", 3: "T"}
 nuc_codes = {nuc: code for code, nuc in nuc_lookup.items()}
 
@@ -68,6 +69,7 @@ def build_tree_from_mat(infile):
     return build_tree_from_lists(node_info, edges)
 
 def process_from_mat(file, refseqid):
+    print("loading", str(file))
     tree = build_tree_from_mat(file)
     # reconstruct root sequence:
     try:
@@ -239,6 +241,10 @@ def dag_to_mad_pb(dag, leaf_data_func=None, from_mutseqs=True):
             else:
                 parent_seq = pnode.label.mutseq
             return cg_diff(parent_seq, child.label.mutseq)
+
+        def key_func(cladeitem):
+            clade, _ = cladeitem
+            return sorted(sorted(idx for idx in label.mutseq) for label in clade)
     else:
         refseq = next(dag.preorder(skip_root=True)).label.sequence
         refseqid = 'unknown_seq_id'
@@ -248,6 +254,10 @@ def dag_to_mad_pb(dag, leaf_data_func=None, from_mutseqs=True):
             else:
                 parent_seq = pnode.label.sequence
             return string_seq_diff(parent_seq, cnode.label.sequence)
+
+        def key_func(cladeitem):
+            clade, _ = cladeitem
+            return sorted(sorted(idx for idx in sequence_to_cg(label.sequence, refseq)) for label in clade)
 
     node_dict = {}
     data = dpb.data()
@@ -260,7 +270,7 @@ def dag_to_mad_pb(dag, leaf_data_func=None, from_mutseqs=True):
                 node_name.condensed_leaves.append(leaf_data_func(node))
 
     for node in dag.postorder():
-        for cladeidx, (clade, edgeset) in enumerate(node.clades.items()):
+        for cladeidx, (clade, edgeset) in enumerate(sorted(node.clades.items(), key=key_func)):
             for child in edgeset.targets:
                 edge = data.edges.add()
                 edge.parent_node = node_dict[node]
@@ -371,9 +381,10 @@ def pb_to_dag(pbdata):
 @cli.command('summarize')
 @click.argument('dagpath')
 @click.option('-t', '--treedir', help='include parsimony counts for .pb trees in the given directory')
+@click.option('-o', '--outfile', help='print output to the provided file')
 @click.option('-c', '--csv_data', nargs=1, help='print information as csv row, with passed identifier')
 @click.option('-p', '--print_header', is_flag=True, help='also print csv header row')
-def summarize(dagpath, treedir, csv_data, print_header):
+def summarize(dagpath, treedir, outfile, csv_data, print_header):
     """output summary information about the provided input file(s)"""
     @hdag.utils.access_nodefield_default("mutseq", default=0)
     def dist(seq1, seq2):
@@ -398,21 +409,29 @@ def summarize(dagpath, treedir, csv_data, print_header):
     node_counts = dag.weight_count(edge_weight_func=lambda n1, n2: 1)
     data.append(("tree_min_n_nodes", min(node_counts.keys())))
     data.append(("tree_max_n_nodes", max(node_counts.keys())))
+    data.append(("n_nodes_unlabeled", len(list(dag.unlabel().preorder()))))
     data.append(("n_tree_roots", len(list(dag.dagroot.children()))))
     if treedir:
         treepath = Path(treedir)
         treefiles = list(treepath.glob('*.pb'))
         wc = count_parsimony(treefiles)
         data.append(("n_input_trees", len(treefiles)))
+        data.append(("n_unique_inputs", count_unique(treefiles)))
         data.append(("input_min_pars", min(wc.keys())))
         data.append(("input_max_pars", max(wc.keys())))
+    outstring = ''
     if csv_data:
         if print_header:
-            print(','.join(['Identifier'] + [str(stat[0]) for stat in data]))
-        print(','.join([csv_data] + [str(stat[1]) for stat in data]))
+            outstring += ','.join(['Identifier'] + [str(stat[0]) for stat in data]) + '\n'
+        outstring += ','.join([csv_data] + [str(stat[1]) for stat in data]) + '\n'
     else:
         for stat in data:
-            print(stat[0], stat[1])
+            outstring += str(stat[0]) + str(stat[1]) + '\n'
+    if outfile is not None:
+        with open(outfile, 'w') as fh:
+            print(outstring, file=fh)
+    else:
+        print(outstring)
 
 
 @cli.command('merge')
@@ -547,12 +566,16 @@ class TreeComparer:
     def __hash__(self):
         return hash(self.tree)
 
-@cli.command('count-unique')
-@click.argument('trees', nargs=-1, type=click.Path(exists=True))
 def count_unique(trees):
     """Count the number of unique trees represented by MAT protobufs passed to this function"""
     ushertrees = {TreeComparer(process_from_mat(str(file), 'node_1')) for file in trees}
-    print(len(ushertrees))
+    return len(ushertrees)
+
+@cli.command('count-unique')
+@click.argument('trees', nargs=-1, type=click.Path(exists=True))
+def cli_count_unique(trees):
+    """Count the number of unique trees represented by MAT protobufs passed to this function"""
+    print(count_unique(trees))
 
 @cli.command('find-duplicates')
 @click.option('-t', '--tree', help='tree in which to search for duplicate samples')
