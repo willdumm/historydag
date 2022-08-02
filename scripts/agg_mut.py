@@ -1,3 +1,4 @@
+from genericpath import isdir
 import ete3
 import functools
 import random
@@ -1382,8 +1383,11 @@ def load_toi(subset_mat_file, reference_file, unique_seqs_file, annotated_ete_fi
 def explore_annotation(subset_mat_file, reference_file, clade_dir, unique_seqs_file):
     """ Tests that the file outputs for `annotate_support` are correct.
     """
-
-    print(clade_dir)
+    import os
+    import matplotlib.pyplot as plt
+    plots_path = clade_dir + "/plots"
+    if not os.path.isdir(plots_path):
+        os.makedirs(plots_path)
 
     annotated_ete_file = clade_dir + "/annotated_toi.nh"
     print("Loading annotated TOI as ete...")
@@ -1407,59 +1411,75 @@ def explore_annotation(subset_mat_file, reference_file, clade_dir, unique_seqs_f
     for sup, count in support_vals.items():
         print(f"{sup:4g}\t{count}")
 
-
-    dag_path = f"{clade_dir}/full_dag.p"
-    with open(dag_path, 'rb') as fh:
-        dag_stuff = pickle.load(fh)
-        dag = dag_stuff[0]
-
-    print("Sampling from DAG...")
-    dag_samples = []
-    for i in range(100):
-        if i % 10 == 0:
-            print(i)
-        sample_history = dag.sample()
-        sample_tree = sample_history.to_ete()
-        dag_samples.append(sample_tree)
-    print()
-
-    def parsimony(etetree):
-        return sum(distance(n.up.mutseq, n.mutseq) for n in etetree.iter_descendants())
-
-    toi_parsiomny = parsimony(tree)
-    toi_leaves = set()
+    # TODO: Create uncertainty histogram here
+    sups = []
     for node in tree.traverse():
-        if node.is_leaf():
-            toi_leaves.add(node.mutseq)
+        if not node.is_leaf():
+            if node.support < 1:
+                sups.append(node.support)
+    
+    plt.hist(sups)
+    plt.yscale("log")
+    plt.ylabel("count")
+    plt.xlabel("support")
+    plt.title(f"Support Values for {num_uncertain} / {total_non_leaves} Uncertain Nodes")
+    plt.savefig(plots_path + "/support_hist.png")
+    plt.clf()
+
+
+
+    # dag_path = f"{clade_dir}/full_dag.p"
+    # with open(dag_path, 'rb') as fh:
+    #     dag_stuff = pickle.load(fh)
+    #     dag = dag_stuff[0]
+
+    # print("Sampling from DAG...")
+    # dag_samples = []
+    # for i in range(100):
+    #     if i % 10 == 0:
+    #         print(i)
+    #     sample_history = dag.sample()
+    #     sample_tree = sample_history.to_ete()
+    #     dag_samples.append(sample_tree)
+    # print()
+
+    # def parsimony(etetree):
+    #     return sum(distance(n.up.mutseq, n.mutseq) for n in etetree.iter_descendants())
+
+    # toi_parsiomny = parsimony(tree)
+    # toi_leaves = set()
+    # for node in tree.traverse():
+    #     if node.is_leaf():
+    #         toi_leaves.add(node.mutseq)
 
     
-    print("Verifying TOI against each sample...")
-    hist = {}
-    for i, sample_tree in enumerate(dag_samples):
-        pars = parsimony(sample_tree)
-        if pars not in hist:
-            hist[pars] = 0
-        hist[pars] += 1
+    # print("Verifying TOI against each sample...")
+    # hist = {}
+    # for i, sample_tree in enumerate(dag_samples):
+    #     pars = parsimony(sample_tree)
+    #     if pars not in hist:
+    #         hist[pars] = 0
+    #     hist[pars] += 1
 
-        sample_leaves = set()
-        for node in sample_tree.traverse():
-            if node.is_leaf():
-                sample_leaves.add(node.mutseq)
-        if sample_leaves != toi_leaves:
-            print("Wrong:", len(sample_leaves.intersection(toi_leaves)), "/", len(sample_leaves), len(toi_leaves))
-            for leaf in toi_leaves:
-                if leaf not in sample_leaves:
-                    print("\tin toi but not sample:", print(leaf))
-            for leaf in sample_leaves:
-                if leaf not in toi_leaves:
-                    print("\tin sample but not toi:", print(leaf))
+    #     sample_leaves = set()
+    #     for node in sample_tree.traverse():
+    #         if node.is_leaf():
+    #             sample_leaves.add(node.mutseq)
+    #     if sample_leaves != toi_leaves:
+    #         print("Wrong:", len(sample_leaves.intersection(toi_leaves)), "/", len(sample_leaves), len(toi_leaves))
+    #         for leaf in toi_leaves:
+    #             if leaf not in sample_leaves:
+    #                 print("\tin toi but not sample:", print(leaf))
+    #         for leaf in sample_leaves:
+    #             if leaf not in toi_leaves:
+    #                 print("\tin sample but not toi:", print(leaf))
             
 
     
-    print("TOI parsimony:\t", toi_parsiomny)
-    print("hDAG parsimony:")
-    for pars, count in sorted(list(hist.items())):
-        print(f"\t{pars}\t{count}")
+    # print("TOI parsimony:\t", toi_parsiomny)
+    # print("hDAG parsimony:")
+    # for pars, count in sorted(list(hist.items())):
+    #     print(f"\t{pars}\t{count}")
 
 
 @cli.command("annotate-with-plots")
@@ -1473,18 +1493,11 @@ def annotate_with_plots(subset_mat_file, reference_file, clade_dir, unique_seqs_
     plot creation.
     """
     import os
+    import matplotlib.pyplot as plt
     plots_path = clade_dir + "/plots"
     os.makedirs(plots_path)
-    
+
     tree = load_toi(subset_mat_file, reference_file, unique_seqs_file)
-
-    print("Summary of ToI (ete) info before edits:")
-    print("\tparsimony score", parsimony(tree))
-    print(f"\tcontains {sum([1 for _ in tree.traverse()])} nodes")
-    print()
-
-    # TODO: Plot this stuff!!
-
 
     mutseqs = set()
     unique_seqs = set()
@@ -1492,14 +1505,12 @@ def annotate_with_plots(subset_mat_file, reference_file, clade_dir, unique_seqs_
         if node.is_leaf() and node.mutseq not in mutseqs:
             unique_seqs.add(node.name)
             mutseqs.add(node.mutseq)
-    print(f"There are {len(unique_seqs)} unique seqs for leaves")
     
     # Delete non-unique leaf nodes
     to_delete = []
     for node in tree.traverse():
         if node.is_leaf() and node.name not in unique_seqs:
             to_delete.append(node)
-    print(f"\tDeleting {len(to_delete)} duplicate leaves")
     for node in to_delete:
         node.delete(prevent_nondicotomic=False)
 
@@ -1508,10 +1519,8 @@ def annotate_with_plots(subset_mat_file, reference_file, clade_dir, unique_seqs_
     for node in tree.traverse():
         if len(node.children) == 1:
             to_delete.append(node)
-    print(f"\tDeleting {len(to_delete)} unifurcacious nodes")
     for node in to_delete:
-        node.delete(prevent_nondicotomic=False)        
-    print()
+        node.delete(prevent_nondicotomic=False)
 
     toidag = hdag.history_dag_from_etes(
         [tree],
