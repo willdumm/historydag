@@ -69,12 +69,12 @@ while getopts "n:f:ho:M:D:d:v:r:" option; do
     esac
 done
 
-# TODO: Uncomment this stuff
-# [ -e $OUTDIR ] && { echo "$OUTDIR already exists! Exiting."; exit 0; }
+# TODO: Uncomment this stuff after you've regenerated the repos
+[ -e $OUTDIR ] && { echo "$OUTDIR already exists! Exiting."; exit 0; }
 mkdir -p $OUTDIR
 
 TMPDIR=$OUTDIR/tmp
-mkdir $TMPDIR
+mkdir -p $TMPDIR
 
 if [ -n "${FASTA}" ]
 then
@@ -111,6 +111,6 @@ for ((run=1;run<=NRUNS;run++)); do
     rm -f *intermediate*
     rm -f $TMPDIR/ushertree/*.nh
     rm -f $TMPDIR/ushertree/*.txt
-    rm -f $TMPDIR/ushertree/*.tsv
+    # rm -f $TMPDIR/ushertree/*.tsv # NOTE: I dont think we need this
 done
 rm -r $TMPDIR
