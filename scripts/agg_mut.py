@@ -16,6 +16,8 @@ import json
 from typing import NamedTuple
 import warnings
 import time
+import os
+import matplotlib.pyplot as plt
 nuc_lookup = {0: "A", 1: "C", 2: "G", 3: "T"}
 nuc_codes = {nuc: code for code, nuc in nuc_lookup.items()}
 
@@ -1135,26 +1137,6 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
         node.delete(prevent_nondicotomic=False)        
     print()
 
-    
-    # NOTE: DEBUG ###########################################################
-    # This issue has largely been resolved I guess...
-    # For clade AY.127, the tree's leaves are not uniquely labeled
-    # This is occurring because there are two leaves that have the same seq as the ancestral sequence.
-    # -----> one of them was artificially created by you, the other is naturally in the tree...
-    # seq2count = {}
-    # for node in tree:
-    #     if node.mutseq not in seq2count:
-    #         seq2count[node.mutseq] = 0
-    #     seq2count[node.mutseq] += 1
-    #     if seq2count[node.mutseq] > 1:
-    #         print("-- ", seq2count[node.mutseq], node.mutseq, )
-
-    # for node in tree:
-    #     if seq2count[node.mutseq] > 1:
-    #         node.name = f"NOI_{node.name}"
-
-    ####################    ^ ^ ^ INVESTIGATION ^ ^ ^    ####################
-
     toidag = hdag.history_dag_from_etes(
         [tree],
         ["mutseq"],
@@ -1185,38 +1167,6 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
         if node.is_leaf():
             dag_leaves.add(node.label.mutseq)
 
-    # NOTE: DEBUG... very helpful for figuring out why leaf sets aren't matching tho
-    # for node1 in treedag_leaves:
-    #     max_matches = -1
-    #     max_pair = None
-    #     max_unmatch = None
-    #     for node2 in dag_leaves:
-    #         matches = 0
-    #         unmatch = None
-    #         for k1, v1 in node1.items():
-    #             if k1 in node2 and node2[k1] == v1:
-    #                 matches += 1
-    #             else:
-    #                 # unmatch = (k1, v1), (k1, node2[k1])
-    #                 if k1 in node2:
-    #                     unmatch = (k1, v1), (k1, node2[k1])
-    #                 else:
-    #                     unmatch = k1, "not in node2"
-    #         if matches > max_matches:
-    #             max_matches = matches
-    #             max_pair = node2
-    #             max_unmatch = unmatch
-    #     if max_unmatch is not None:
-    #         print(f"tree_dag {max_matches} / {len(node1)}:\t\t", node1)
-    #         print(f"  |__.-> dag w/ {len(max_pair)}:    \t\t", max_pair)
-    #         print("\t\t w/ unmatch = ", max_unmatch)
-
-    # if toidag_leaves != dag_leaves:
-    #     print(toidag_leaves.intersection(dag_leaves))
-    
-    # print("toidag_leaves has empty mutseq?  ", frozendict({}) in toidag_leaves)
-    # print("dag_leaves has empty mutseq?     ", frozendict({}) in dag_leaves)
-
     assert toidag_leaves == dag_leaves
 
     verbose = False # NOTE: Very slow to count all the trees!
@@ -1229,6 +1179,12 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
             print(k, "\t", v)
         print()
 
+        histogram_path = clade_dir + "/parsimony_hists"
+        if not os.path.isdir(histogram_path):
+            os.makedirs(histogram_path)
+        with open(clade_dir + "/parsimony_hists/before_merge.pkl", "wb") as f:
+            pickle.dump(hist, f)
+
     dag.merge([toidag])
     if verbose:
         print(f"\t{dag.count_trees()} trees after merge")
@@ -1236,23 +1192,31 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
         for k, v in hist.items():
             print(k, "\t", v)
         print()
+        with open(clade_dir + "/parsimony_hists/after_merge.pkl", "wb") as f:
+            pickle.dump(hist, f)
 
     dag.add_all_allowed_edges()
-    if verbose:
+    if False:   # NOTE: For many clades this is infeasible to compute
         print(f"\t{dag.count_trees()} after adding edges")
         hist = dag.weight_count(edge_weight_func=distance_between_nodes)
         for k, v in hist.items():
             print(k, "\t", v)
         print()
+        with open(clade_dir + "/parsimony_hists/after_all_edges.pkl", "wb") as f:
+            pickle.dump(hist, f)
     
-    # NOTE: Trimming to optimal weight often emoves ToI nodes
-    start_time = time.time()
+    # NOTE: Trimming to optimal weight often removes ToI nodes
     trim = True
     if trim:
         dag.trim_optimal_weight(edge_weight_func=distance_between_nodes)
         dag.recompute_parents()
+        with open(clade_dir + "/trimmed_dag.pkl", "wb") as f:
+            pickle.dump(dag, f)
+        hist = dag.weight_count(edge_weight_func=distance_between_nodes)
         print(f"\t{dag.count_trees()} trees after trim")
-        print(f"\t--- Trimming took {time.time() - start_time} seconds ---")
+        if verbose:
+            with open(clade_dir + "/parsimony_hists/after_trim.pkl", "wb") as f:
+                pickle.dump(hist, f)
 
 
     # Annotate the original version of the tree:
@@ -1381,10 +1345,17 @@ def load_toi(subset_mat_file, reference_file, unique_seqs_file, annotated_ete_fi
 @click.argument("clade_dir")
 @click.argument("unique_seqs_file")
 def explore_annotation(subset_mat_file, reference_file, clade_dir, unique_seqs_file):
-    """ Tests that the file outputs for `annotate_support` are correct.
+    """ Plots intra-clade statistics
     """
-    import os
-    import matplotlib.pyplot as plt
+    BIGGER_SIZE = 12
+    plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
+    plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
+    plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+    plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
+    plt.rc('legend', fontsize=BIGGER_SIZE)    # legend fontsize
+    plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
     plots_path = clade_dir + "/plots"
     if not os.path.isdir(plots_path):
         os.makedirs(plots_path)
@@ -1411,7 +1382,6 @@ def explore_annotation(subset_mat_file, reference_file, clade_dir, unique_seqs_f
     for sup, count in support_vals.items():
         print(f"{sup:4g}\t{count}")
 
-    # TODO: Create uncertainty histogram here
     sups = []
     for node in tree.traverse():
         if not node.is_leaf():
@@ -1419,15 +1389,57 @@ def explore_annotation(subset_mat_file, reference_file, clade_dir, unique_seqs_f
                 sups.append(node.support)
     
     plt.hist(sups)
-    plt.yscale("log")
-    plt.ylabel("count")
-    plt.xlabel("support")
+    plt.ylabel("Count")
+    plt.xlabel("Support")
     plt.title(f"Support Values for {num_uncertain} / {total_non_leaves} Uncertain Nodes")
     plt.savefig(plots_path + "/support_hist.png")
     plt.clf()
 
+    # NOTE: Ideally we'd have the same size figures for each of these plots
+    plt.rc('axes', titlesize= 15)     # fontsize of the axes title
+    plt.rc('xtick', labelsize= 15)    # fontsize of the tick labels
+    plt.rc('ytick', labelsize= 23)    # fontsize of the tick labels
+
+    # Plot the parsimony histograms
+    hist_dir = clade_dir + "/parsimony_hists"
+    if len(os.listdir(hist_dir)) < 4:
+        return
+    # Reorder the file paths
+    histograms = ['before_merge.pkl', 'after_merge.pkl', 'after_all_edges.pkl', 'after_trim.pkl']
+
+    fig, axes = plt.subplots(1,4, sharey=True, sharex=True)
+    fig.set_size_inches(14, 8)
+    largest_ymax = 0
+    for ax, file_name in zip(axes, histograms):
+        hist_path = hist_dir + "/" + file_name
+        print("Reading", hist_path)
+        with open(hist_path, "rb") as f:
+            pars2count = pickle.load(f)
+        
+        max_key = -1
+        min_key = 10**18
+        for key, val in pars2count.items():
+            max_key = max(max_key, key)
+            min_key = min(min_key, key)
+
+            largest_ymax = max(largest_ymax, val) 
+        
+        for i in range(min_key-1, max_key+1):
+            if i not in pars2count:
+                pars2count[i] = 0.01
+
+        ax.bar(list(pars2count.keys()), pars2count.values())
+        title = ' '.join(hist_path.split("/")[-1][:-4].split('_'))
+        ax.set_title(title)
+        ax.set_ylim(ymin = 0.1, ymax=float(largest_ymax*10))
+        ax.set_yscale("log")
+
+    plt.savefig(hist_dir + "/clade_reconstruction.png")
+    plt.clf()
+        
 
 
+    # NOTE: This code verifies correctness of annotated trees
     # dag_path = f"{clade_dir}/full_dag.p"
     # with open(dag_path, 'rb') as fh:
     #     dag_stuff = pickle.load(fh)
@@ -1482,150 +1494,277 @@ def explore_annotation(subset_mat_file, reference_file, clade_dir, unique_seqs_f
     #     print(f"\t{pars}\t{count}")
 
 
-@cli.command("annotate-with-plots")
-@click.argument("subset_mat_file")
-@click.argument("reference_file")
-@click.argument("clade_dir")
-@click.argument("unique_seqs_file")
-def annotate_with_plots(subset_mat_file, reference_file, clade_dir, unique_seqs_file):
-    """ Performs the exact same function as annotate_support, but creates plots and visualizations.
-    This is purely a matter of convenience, and ideally the plotting should be separate from the
-    plot creation.
+# @cli.command("annotate-with-plots")
+# @click.argument("subset_mat_file")
+# @click.argument("reference_file")
+# @click.argument("clade_dir")
+# @click.argument("unique_seqs_file")
+# def annotate_with_plots(subset_mat_file, reference_file, clade_dir, unique_seqs_file):
+#     """ Performs the exact same function as annotate_support, but creates plots and visualizations.
+#     This is purely a matter of convenience, and ideally the plotting should be separate from the
+#     plot creation.
+#     """
+#     import os
+#     import matplotlib.pyplot as plt
+#     plots_path = clade_dir + "/plots"
+#     if not os.path.isdir(plots_path):
+#         os.makedirs(plots_path)
+
+#     tree = load_toi(subset_mat_file, reference_file, unique_seqs_file)
+
+#     mutseqs = set()
+#     unique_seqs = set()
+#     for node in tree.traverse():
+#         if node.is_leaf() and node.mutseq not in mutseqs:
+#             unique_seqs.add(node.name)
+#             mutseqs.add(node.mutseq)
+    
+#     # Delete non-unique leaf nodes
+#     to_delete = []
+#     for node in tree.traverse():
+#         if node.is_leaf() and node.name not in unique_seqs:
+#             to_delete.append(node)
+#     for node in to_delete:
+#         node.delete(prevent_nondicotomic=False)
+
+#     # Remove unifurcations
+#     to_delete = []
+#     for node in tree.traverse():
+#         if len(node.children) == 1:
+#             to_delete.append(node)
+#     for node in to_delete:
+#         node.delete(prevent_nondicotomic=False)
+
+#     toidag = hdag.history_dag_from_etes(
+#         [tree],
+#         ["mutseq"],
+#         attr_func=lambda n: {
+#             "name": n.name,
+#         }
+#     )
+#     hist = toidag.weight_count(edge_weight_func=distance_between_nodes)
+#     print("=> TOI (hdag) has parsimony score", hist)
+
+#     dag_path = f"{clade_dir}/full_dag.p"
+#     with open(dag_path, 'rb') as fh:
+#         dag_stuff = pickle.load(fh)
+#         refseqid, refsequence = dag_stuff[1]
+#         dag = dag_stuff[0]
+
+#     hist = dag.weight_count(edge_weight_func=distance_between_nodes)
+#     print("=> Parsimony scores of trees in big hdag")
+#     print(hist)
+
+#     # Ensure all trees are on the same leaves
+#     toidag_leaves = set()
+#     for node in toidag.preorder():
+#         if node.is_leaf():
+#             toidag_leaves.add(node.label.mutseq)
+#     dag_leaves = set()
+#     for node in dag.preorder():
+#         if node.is_leaf():
+#             dag_leaves.add(node.label.mutseq)
+
+#     assert toidag_leaves == dag_leaves
+
+#     verbose = False # NOTE: Very slow to count all the trees!
+
+#     print("Merging tree dag into hdag...")
+#     print(f"\t{dag.count_trees()} trees before merge")
+#     if verbose:
+#         hist = dag.weight_count(edge_weight_func=distance_between_nodes)
+#         for k, v in hist.items():
+#             print(k, "\t", v)
+#         print()
+
+#     dag.merge([toidag])
+#     if verbose:
+#         print(f"\t{dag.count_trees()} trees after merge")
+#         hist = dag.weight_count(edge_weight_func=distance_between_nodes)
+#         for k, v in hist.items():
+#             print(k, "\t", v)
+#         print()
+
+#     dag.add_all_allowed_edges()
+#     if verbose:
+#         print(f"\t{dag.count_trees()} after adding edges")
+#         hist = dag.weight_count(edge_weight_func=distance_between_nodes)
+#         for k, v in hist.items():
+#             print(k, "\t", v)
+#         print()
+    
+#     # NOTE: Trimming to optimal weight often emoves ToI nodes
+#     start_time = time.time()
+#     trim = True
+#     if trim:
+#         dag.trim_optimal_weight(edge_weight_func=distance_between_nodes)
+#         dag.recompute_parents()
+#         print(f"\t{dag.count_trees()} trees after trim")
+#         print(f"\t--- Trimming took {time.time() - start_time} seconds ---")
+
+
+#     # Annotate the original version of the tree:
+#     raw_tree = process_from_mat(subset_mat_file, leaf_id, known_node_cg = frozendict(cg))
+#     print("Annotating raw tree...")
+#     raw_tree = annotate_ete(dag, raw_tree)
+#     raw_tree.write(outfile=f"{clade_dir}/annotated_toi.nh")
+#     with open(f"{clade_dir}/annotated_toi.pk", "wb") as f:
+#         pickle.dump(raw_tree, f)
+
+#     print("Annotating modified tree...")
+#     tree = annotate_ete(dag, tree)
+#     tree.write(outfile=f"{clade_dir}/annotated_modified_toi.nh")
+#     with open(f"{clade_dir}/annotated_modified_toi.pk", "wb") as f:
+#         pickle.dump(tree, f)
+    
+#     for node in tree.traverse():
+#         if not node.is_leaf():
+#             print(node.support, "\troot:", node.is_root())
+
+#     print(f"\t--- Annotation took {time.time() - begin} seconds ---")
+#     num_uncertain = 0
+#     total_leaves = 0
+#     support_vals = {}
+#     for node in tree.traverse():
+#         if not node.is_leaf():
+#             total_leaves += 1
+#             if node.support < 1:
+#                 num_uncertain += 1
+#                 if node.support not in support_vals:
+#                     support_vals[node.support] = 0
+#                 support_vals[node.support] += 1
+    
+#     print("Uncertainty:", num_uncertain, "/", total_leaves)
+#     for sup, count in support_vals.items():
+#         print(f"{sup:4g}\t{count}")
+
+#     return tree
+
+
+@cli.command("plot-hists")
+def plot_hists():
+    """ Aggregates support statistics across clades in a couple histograms
     """
-    import os
-    import matplotlib.pyplot as plt
-    plots_path = clade_dir + "/plots"
-    os.makedirs(plots_path)
 
-    tree = load_toi(subset_mat_file, reference_file, unique_seqs_file)
-
-    mutseqs = set()
-    unique_seqs = set()
-    for node in tree.traverse():
-        if node.is_leaf() and node.mutseq not in mutseqs:
-            unique_seqs.add(node.name)
-            mutseqs.add(node.mutseq)
+    plot_path = "clades/plots"
+    if not os.path.isdir(plot_path):
+        os.makedirs(plot_path)
     
-    # Delete non-unique leaf nodes
-    to_delete = []
-    for node in tree.traverse():
-        if node.is_leaf() and node.name not in unique_seqs:
-            to_delete.append(node)
-    for node in to_delete:
-        node.delete(prevent_nondicotomic=False)
+    with open("focus_clades.txt", "r") as f:
+        clade_list = f.readlines()
 
-    # Remove unifurcations
-    to_delete = []
-    for node in tree.traverse():
-        if len(node.children) == 1:
-            to_delete.append(node)
-    for node in to_delete:
-        node.delete(prevent_nondicotomic=False)
+    percent_uncertain = []
+    sample_uncertain = {}
+    best_pars_diffs = [[], [], []]
 
-    toidag = hdag.history_dag_from_etes(
-        [tree],
-        ["mutseq"],
-        attr_func=lambda n: {
-            "name": n.name,
-        }
-    )
-    hist = toidag.weight_count(edge_weight_func=distance_between_nodes)
-    print("=> TOI (hdag) has parsimony score", hist)
+    for clade in clade_list:
+        clade_dir = "clades/" + clade[:-1] # Remove newline char
 
-    dag_path = f"{clade_dir}/full_dag.p"
-    with open(dag_path, 'rb') as fh:
-        dag_stuff = pickle.load(fh)
-        refseqid, refsequence = dag_stuff[1]
-        dag = dag_stuff[0]
+        print(clade_dir)
+        print("Loading annotated TOI as ete...")
+        with open(f"{clade_dir}/annotated_modified_toi.pk", "rb") as f:
+            tree = pickle.load(f)
+        
+        # TODO: 
+        # Sample tree from hDAG here and make certainty histogram in parallel
+        dag_path = f"{clade_dir}/trimmed_dag.pkl"
+        with open(dag_path, 'rb') as f:
+            dag = pickle.load(f)
+        
+        num_samples = 3
+        for i in range(num_samples):
+            ete_tree = dag.sample().to_ete()
+            ete_tree = annotate_ete(dag, ete_tree)
 
-    hist = dag.weight_count(edge_weight_func=distance_between_nodes)
-    print("=> Parsimony scores of trees in big hdag")
-    print(hist)
+            num_certain = 0
+            total_non_leaves = 0
+            for node in ete_tree.traverse():
+                if not node.is_leaf():
+                    total_non_leaves += 1
+                    if node.support == 1:
+                        num_certain += 1
 
-    # Ensure all trees are on the same leaves
-    toidag_leaves = set()
-    for node in toidag.preorder():
-        if node.is_leaf():
-            toidag_leaves.add(node.label.mutseq)
-    dag_leaves = set()
-    for node in dag.preorder():
-        if node.is_leaf():
-            dag_leaves.add(node.label.mutseq)
-
-    assert toidag_leaves == dag_leaves
-
-    verbose = False # NOTE: Very slow to count all the trees!
-
-    print("Merging tree dag into hdag...")
-    print(f"\t{dag.count_trees()} trees before merge")
-    if verbose:
-        hist = dag.weight_count(edge_weight_func=distance_between_nodes)
-        for k, v in hist.items():
-            print(k, "\t", v)
-        print()
-
-    dag.merge([toidag])
-    if verbose:
-        print(f"\t{dag.count_trees()} trees after merge")
-        hist = dag.weight_count(edge_weight_func=distance_between_nodes)
-        for k, v in hist.items():
-            print(k, "\t", v)
-        print()
-
-    dag.add_all_allowed_edges()
-    if verbose:
-        print(f"\t{dag.count_trees()} after adding edges")
-        hist = dag.weight_count(edge_weight_func=distance_between_nodes)
-        for k, v in hist.items():
-            print(k, "\t", v)
-        print()
+            if i not in sample_uncertain:
+                sample_uncertain[i] = []
+            sample_uncertain[i].append(num_certain / total_non_leaves)
     
-    # NOTE: Trimming to optimal weight often emoves ToI nodes
-    start_time = time.time()
-    trim = True
-    if trim:
-        dag.trim_optimal_weight(edge_weight_func=distance_between_nodes)
-        dag.recompute_parents()
-        print(f"\t{dag.count_trees()} trees after trim")
-        print(f"\t--- Trimming took {time.time() - start_time} seconds ---")
+        
+
+        num_uncertain = 0
+        total_non_leaves = 0
+        support_vals = {}
+        for node in tree.traverse():
+            if not node.is_leaf():
+                total_non_leaves += 1
+                if node.support < 1:
+                    num_uncertain += 1
+                    if node.support not in support_vals:
+                        support_vals[node.support] = 0
+                    support_vals[node.support] += 1
+
+        percent_uncertain.append((total_non_leaves - num_uncertain) / total_non_leaves)
+        
+        print("Uncertainty:", num_uncertain, "/", total_non_leaves)
+        for sup, count in support_vals.items():
+            print(f"{sup:4g}\t{count}")
+
+        hist_dir = clade_dir + "/parsimony_hists"
+        histograms = ['before_merge.pkl', 'after_merge.pkl', 'after_trim.pkl']
+        
+        toi_parsimony = parsimony(tree)
+
+        for diffs_list, file_name in zip(best_pars_diffs, histograms):
+            hist_path = hist_dir + "/" + file_name
+            print("\t=> Reading", hist_path)
+            with open(hist_path, "rb") as f:
+                pars2count = pickle.load(f)
+
+            best_pars = 10 ** 18
+            for pars_val in pars2count.keys():
+                best_pars = min(best_pars, pars_val)
+
+            diffs_list.append(toi_parsimony / best_pars)
+
+        print("Pars diff is", best_pars_diffs[0][-1])
+
+    for clade, pars_diff in zip(clade_list, best_pars_diffs[0]):
+        print(clade, "\t", pars_diff)
+       
+    # Put percent uncertain into a histogram and title it nicely and stuff...
+    plt.hist(percent_uncertain)
+    plt.xlabel("Percentage")
+    plt.ylabel("Number of Clades")
+    plt.title("Percentage of TOI (non-leaf) Nodes that are Certain")
+
+    plt.savefig(plot_path + "/certainty_hisogram.png")
+    plt.clf()
+
+    for i, percent_uncertain in sample_uncertain.items():
+        plt.hist(percent_uncertain)
+        plt.xlabel("Percentage")
+        plt.ylabel("Number of Clades")
+        plt.title("Percentage of Sampled Tree (non-leaf) Nodes that are Certain")
+
+        plt.savefig(plot_path + f"/certainty_hisogram_{i}.png")
+        plt.clf()
 
 
-    # Annotate the original version of the tree:
-    raw_tree = process_from_mat(subset_mat_file, leaf_id, known_node_cg = frozendict(cg))
-    print("Annotating raw tree...")
-    raw_tree = annotate_ete(dag, raw_tree)
-    raw_tree.write(outfile=f"{clade_dir}/annotated_toi.nh")
-    with open(f"{clade_dir}/annotated_toi.pk", "wb") as f:
-        pickle.dump(raw_tree, f)
-
-    print("Annotating modified tree...")
-    tree = annotate_ete(dag, tree)
-    tree.write(outfile=f"{clade_dir}/annotated_modified_toi.nh")
-    with open(f"{clade_dir}/annotated_modified_toi.pk", "wb") as f:
-        pickle.dump(tree, f)
+    fig, ax = plt.subplots(1)
+    titles = ["before merge"]#, "after merge", "after trim"]
     
-    for node in tree.traverse():
-        if not node.is_leaf():
-            print(node.support, "\troot:", node.is_root())
+    # ax.hist([np.log(val) for val in best_pars_diffs[0]], bins=50)#bins=1+10.0**np.arange(-5, 1))
+    data = best_pars_diffs[0]
+    ax.hist(data) #, bins=range(min(data), max(data) + binwidth, binwidth))
+    ax.set_title("Parsimony Difference Between TOI and Best Pars Tree")
+    ax.set_ylabel("Number of Clades")
+    ax.set_xlabel("Difference in Parsimony: pars(TOI) / pars(Other)")
+    # ax.set_xscale('log')
 
-    print(f"\t--- Annotation took {time.time() - begin} seconds ---")
-    num_uncertain = 0
-    total_leaves = 0
-    support_vals = {}
-    for node in tree.traverse():
-        if not node.is_leaf():
-            total_leaves += 1
-            if node.support < 1:
-                num_uncertain += 1
-                if node.support not in support_vals:
-                    support_vals[node.support] = 0
-                support_vals[node.support] += 1
+    plt.savefig(plot_path + "/toi_difference.png")
+    plt.clf()
+
     
-    print("Uncertainty:", num_uncertain, "/", total_leaves)
-    for sup, count in support_vals.items():
-        print(f"{sup:4g}\t{count}")
 
-    return tree
 
 
 if __name__ == '__main__':
