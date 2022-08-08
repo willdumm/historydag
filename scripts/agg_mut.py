@@ -967,6 +967,22 @@ def _cli_test():
                 print("FAILED")
                 raise
 
+@cli.command('check-parsimony')
+@click.argument('indag')
+@click.argument('outnewick')
+def check_parsimony(indag, outnewick):
+    """check parsimony of a tree sampled from the DAG, and output a newick string"""
+    with open(indag, 'rb') as fh:
+        dag = pickle.load(fh)
+    tree = dag.sample()
+    @hdag.utils.access_nodefield_default("mutseq", default=0)
+    def dist(seq1, seq2):
+        return distance(seq1, seq2)
+    print(tree.optimal_weight_annotate(edge_weight_func=dist))
+    with open(outnewick, 'w') as fh:
+        print(tree.to_newick(name_func=lambda n: n.attr['name'] if n.is_leaf() else '', features=[]), file=fh)
+
+
 @cli.command('get-leaf-ids')
 @click.option('-t', '--treepath')
 @click.option('-o', '--outfile')
