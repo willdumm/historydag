@@ -88,12 +88,12 @@ def process_from_mat(file, refseqid):
         fh.write(pickle.dumps(tree))
     for node in tree.iter_descendants(strategy='preorder'):
         node.add_feature("mutseq", apply_muts(node.up.mutseq, node.mutations))
-    # remove root unifurcations
-    while len(tree.children) == 1:
-            tree.children[0].delete(prevent_nondicotomic=False)
+    # # remove root unifurcations
+    # while len(tree.children) == 1:
+    #         tree.children[0].delete(prevent_nondicotomic=False)
     # remove unifurcations
     while True:
-        to_delete = [node for node in tree.traverse() if len(node.children) == 1]
+        to_delete = [node for node in tree.traverse() if len(node.children) == 1 and not node.is_root()]
         if len(to_delete) == 0:
             break
         for node in to_delete:
@@ -968,19 +968,32 @@ def _cli_test():
                 raise
 
 @cli.command('check-parsimony')
-@click.argument('indag')
+@click.argument('cladedir')
+@click.argument('refseqid')
 @click.argument('outnewick')
-def check_parsimony(indag, outnewick):
+def check_parsimony(cladedir, refseqid, outnewick):
     """check parsimony of a tree sampled from the DAG, and output a newick string"""
-    with open(indag, 'rb') as fh:
+    cladedir = Path(cladedir)
+    with open(cladedir / 'trimmed_dag.pkl', 'rb') as fh:
         dag = pickle.load(fh)
     tree = dag.sample()
+    print("trimmed DAG parsimony score from sampled tree, from Python")
     @hdag.utils.access_nodefield_default("mutseq", default=0)
     def dist(seq1, seq2):
         return distance(seq1, seq2)
     print(tree.optimal_weight_annotate(edge_weight_func=dist))
     with open(outnewick, 'w') as fh:
         print(tree.to_newick(name_func=lambda n: n.attr['name'] if n.is_leaf() else '', features=[]), file=fh)
+    with open(cladedir / 'annotated_toi.pk', 'rb') as fh:
+        toi = pickle.load(fh)
+    print("modified TOI parsimony score, from Python")
+    print(parsimony(toi))
+    with open(cladedir / 'modified_toi.nk', 'w') as fh:
+        print(toi.write(format_root_node=True, format=9), file=fh)
+
+    original_toi = process_from_mat(str(cladedir / 'subset_mat.pb'), 'node_1')
+    print("original TOI parsimony score, from Python")
+    print(parsimony(original_toi))
 
 
 @cli.command('get-leaf-ids')
