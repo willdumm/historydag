@@ -18,6 +18,10 @@ import warnings
 nuc_lookup = {0: "A", 1: "C", 2: "G", 3: "T"}
 nuc_codes = {nuc: code for code, nuc in nuc_lookup.items()}
 
+@hdag.utils.access_nodefield_default("mutseq", default=0)
+def dist(seq1, seq2):
+    return distance(seq1, seq2)
+
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def cli():
     """
@@ -25,13 +29,25 @@ def cli():
     """
     pass
 
-def merge(first, others):
+def merge(first, others, accumulation_data=None, resolution=10):
     r"""Graph union first history DAG with a generator of others."""
     selforder = first.postorder()
     # hash and __eq__ are implemented for nodes, but we need to retrieve
     # the actual instance that's the same as a proposed node-to-add:
     nodedict = {n: n for n in selforder}
-    for other in others:
+    accum_data = []
+
+    def compute_accum_data(dag):
+        tdag = dag.copy()
+        tdag.add_all_allowed_edges()
+        pscore = tdag.trim_optimal_weight(edge_weight_func=dist)
+        tdag.convert_to_collapsed()
+        ntrees = tdag.count_trees()
+        return ntrees, pscore
+
+    if accumulation_data is not None:
+        accum_data.append((0, *compute_accum_data(first)))
+    for oidx, other in enumerate(others):
         if first.refseq != other.refseq:
             raise NotImplementedError("Cannot yet merge history DAGs with different UA node reference sequences.")
         for n in other.postorder():
@@ -44,6 +60,17 @@ def merge(first, others):
             for _, edgeset in n.clades.items():
                 for child, weight, _ in edgeset:
                     pnode.add_edge(nodedict[child], weight=weight)
+        if accumulation_data is not None and oidx % resolution == 0:
+            accum_data.append((oidx, *compute_accum_data(first)))
+    if accumulation_data is not None:
+        accum_data.append((oidx, *compute_accum_data(first)))
+    if accumulation_data is not None:
+        with open(accumulation_data, 'w') as fh:
+            print("iteration,ntrees,parsimonyscore", file=fh)
+            for line in accum_data:
+                print(','.join([str(it) for it in line]), file=fh)
+
+
 
 def apply_muts(sequence, muts, reverse=False):
     for mut in muts:
@@ -386,9 +413,6 @@ def pb_to_dag(pbdata):
 @click.option('-p', '--print_header', is_flag=True, help='also print csv header row')
 def summarize(dagpath, treedir, outfile, csv_data, print_header):
     """output summary information about the provided input file(s)"""
-    @hdag.utils.access_nodefield_default("mutseq", default=0)
-    def dist(seq1, seq2):
-        return distance(seq1, seq2)
     dag = load_dag(dagpath)
     data = []
     data.append(("before_collapse_n_trees", dag.count_trees()))
@@ -464,6 +488,29 @@ def load_fasta(fastapath):
                 fasta_records[-1][-1] += line.strip()
     return dict(fasta_records)
 
+def collapse_by_mutseq(tree):
+    to_collapse = []
+    for node in tree.iter_descendants():
+        if node.mutseq == node.up.mutseq:
+            to_collapse.append(node)
+    for node in to_collapse:
+        node.delete(prevent_nondicotomic=False)
+    return tree
+
+class TreeComparer:
+    def __init__(self, tree):
+        tree = collapse_by_mutseq(tree.copy())
+        for node in tree.traverse(strategy='postorder'):
+            seqlist = [val[0] + str(key) + val[1] for key, val in node.mutseq.items()]
+            node.name = ':'.join(sorted(seqlist))
+            node.children.sort(key=lambda n: n.name)
+        self.tree = tree.write(format=8, format_root_node=True)
+
+    def __eq__(self, other):
+        return self.tree == other.tree
+
+    def __hash__(self):
+        return hash(self.tree)
 
 @cli.command('count_parsimony')
 @click.argument('trees', nargs=-1, type=click.Path(exists=True))
@@ -477,8 +524,9 @@ def count_parsimony_command(trees):
 @click.option('-o', '--outdagpath', default='dag.p', help='output history DAG file')
 @click.option('-d', '--outtreedir', default=None, help='directory to move input trees to once added to DAG')
 @click.option('--refseq', help='fasta file containing a reference sequence id found in all trees, and that reference sequence')
+@click.option('--accumulation-data', default=None, help='A file to save accumulation data')
 # @click.option('--refseqid', help='fasta file containing a reference sequence id found in all trees, and that reference sequence')
-def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseq):
+def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseq, accumulation_data):
     """Aggregate the passed trees (MAT protobufs) into a history DAG"""
     
     ((refseqid, refsequence), ) = load_fasta(refseq).items()
@@ -518,6 +566,8 @@ def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseq):
 
     print(f"loading {len(trees)} trees lazily...")
     ushertrees = (process_from_mat(str(file), refseqid) for file in trees)
+    if accumulation_data is not None:
+        ushertrees = iter({TreeComparer(tree): tree for tree in ushertrees}.values())
     if dagpath is not None:
         print("opening old DAG...")
         olddag = load_dag(dagpath)
@@ -527,7 +577,7 @@ def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseq):
         olddag = singledag(etetree)
 
     print(f"Adding {len(trees)} trees to history DAG...")
-    merge(olddag, (singledag(etetree) for etetree in ushertrees))
+    merge(olddag, (singledag(etetree) for etetree in ushertrees), accumulation_data=accumulation_data)
     
     print("\nParsimony scores of added trees:")
     print(parsimony_counter)
@@ -542,29 +592,6 @@ def aggregate_trees(trees, dagpath, outdagpath, outtreedir, refseq):
         for path in pathlist:
             path.replace(treepath / path.name)
 
-def collapse_by_mutseq(tree):
-    to_collapse = []
-    for node in tree.iter_descendants():
-        if node.mutseq == node.up.mutseq:
-            to_collapse.append(node)
-    for node in to_collapse:
-        node.delete(prevent_nondicotomic=False)
-    return tree
-
-class TreeComparer:
-    def __init__(self, tree):
-        tree = collapse_by_mutseq(tree.copy())
-        for node in tree.traverse(strategy='postorder'):
-            seqlist = [val[0] + str(key) + val[1] for key, val in node.mutseq.items()]
-            node.name = ':'.join(sorted(seqlist))
-            node.children.sort(key=lambda n: n.name)
-        self.tree = tree.write(format=8, format_root_node=True)
-
-    def __eq__(self, other):
-        return self.tree == other.tree
-
-    def __hash__(self):
-        return hash(self.tree)
 
 def count_unique(trees):
     """Count the number of unique trees represented by MAT protobufs passed to this function"""
@@ -984,11 +1011,11 @@ def check_parsimony(cladedir, refseqid, outnewick):
     print(tree.optimal_weight_annotate(edge_weight_func=dist))
     with open(outnewick, 'w') as fh:
         print(tree.to_newick(name_func=lambda n: n.attr['name'] if n.is_leaf() else '', features=[]), file=fh)
-    with open(cladedir / 'annotated_toi.pk', 'rb') as fh:
+    with open(cladedir / 'annotated_modified_toi.pk', 'rb') as fh:
         toi = pickle.load(fh)
     print("modified TOI parsimony score, from Python")
     print(parsimony(toi))
-    with open(cladedir / 'modified_toi.nk', 'w') as fh:
+    with open(cladedir / 'tmpdir/modified_toi.nk', 'w') as fh:
         print(toi.write(format_root_node=True, format=9), file=fh)
 
     original_toi = process_from_mat(str(cladedir / 'subset_mat.pb'), 'node_1')
