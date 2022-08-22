@@ -888,7 +888,10 @@ def make_testcase(pickled_forest, outdir, num_trees, random_seed):
     outdir.mkdir(exist_ok=True)
     with open(pickled_forest, 'rb') as fh:
         forest = pickle.load(fh)
-    dag = forest._forest
+    try:
+        dag = forest._forest
+    except AttributeError:
+        dag = forest
     trees = [dag.sample() for _ in range(int(num_trees))]
     refseqs = [next(tree.preorder(skip_root=True)).label.sequence for tree in trees]
     assert len(set(refseqs)) == 1
