@@ -4,6 +4,7 @@ import historydag.dag as hdag
 import historydag.utils as dagutils
 from collections import Counter
 import pytest
+import random
 
 
 def deterministic_newick(tree: ete3.TreeNode) -> str:
@@ -336,3 +337,58 @@ def test_indexing_comprehensive():
         assert set(history_dag.to_newicks()) == set(
             {tree.to_newick() for tree in history_dag}
         )
+
+
+def test_from_nodes():
+    for dag in dags + cdags:
+        cdag = dag.copy()
+        cdag.add_all_allowed_edges()
+        cdag.trim_optimal_weight()
+        wc = cdag.weight_count()
+        ndag = hdag.history_dag_from_nodes(cdag.preorder())
+        ndag.trim_optimal_weight()
+        print(ndag.to_graphviz())
+        assert wc == ndag.weight_count()
+
+
+def test_sample_with_node():
+    random.seed(1)
+    dag = dags[-1]
+    node_to_count = dag.count_nodes()
+    min_count = min(node_to_count.values())
+    least_supported_nodes = [
+        node for node, val in node_to_count.items() if val == min_count
+    ]
+    for node in least_supported_nodes:
+        tree_samples = [dag.sample_with_node(node) for _ in range(min_count * 5)]
+        tree_newicks = {tree.to_newick() for tree in tree_samples}
+        # We sampled all trees possible containing the node
+        assert len(tree_newicks) == min_count
+        # All trees sampled contained the node
+        assert all(node in set(tree.preorder()) for tree in tree_samples)
+
+
+def test_sample_with_edge():
+    random.seed(1)
+    dag = dags[-1]
+    dag.recompute_parents()
+    node_to_count = dag.count_nodes()
+    min_count = min(node_to_count.values())
+    least_supported_nodes = [
+        node for node, val in node_to_count.items() if val == min_count
+    ]
+    node = least_supported_nodes[0]
+
+    def edges(dag):
+        eset = set()
+        for node in dag.preorder():
+            for child in node.children():
+                eset.add((node, child))
+        return eset
+
+    for parent in node.parents:
+        edge = (parent, node)
+        tree_samples = [dag.sample_with_edge(edge) for _ in range(min_count * 5)]
+        # We sampled all trees possible containing the node
+        # All trees sampled contained the node
+        assert all(edge in edges(tree) for tree in tree_samples)

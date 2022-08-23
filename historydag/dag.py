@@ -28,6 +28,16 @@ from historydag.utils import Weight, Label, UALabel, prod
 from historydag.counterops import counter_sum, counter_prod
 
 
+def _under_clade_dict(nodeseq: Sequence["HistoryDagNode"]) -> Dict:
+    clade_dict: Dict[FrozenSet[Label], List[HistoryDagNode]] = {}
+    for node in nodeseq:
+        under_clade = node.under_clade()
+        if under_clade not in clade_dict:
+            clade_dict[under_clade] = []
+        clade_dict[node.under_clade()].append(node)
+    return clade_dict
+
+
 class HistoryDagNode:
     r"""A recursive representation of a history DAG object
     - a dictionary keyed by clades (frozensets) containing EdgeSet objects
@@ -212,14 +222,15 @@ class HistoryDagNode:
             parent.remove_edge_by_clade_and_id(self, self.under_clade())
         self.removed = True
 
-    def _sample(self) -> "HistoryDagNode":
+    def _sample(self, edge_selector=lambda n: True) -> "HistoryDagNode":
         r"""Samples a clade tree (a sub-history DAG containing the root and all
         leaf nodes). Returns a new HistoryDagNode object."""
         sample = self.node_self()
         for clade, eset in self.clades.items():
-            sampled_target, target_weight = eset.sample()
+            mask = [edge_selector((self, target)) for target in eset.targets]
+            sampled_target, target_weight = eset.sample(mask=mask)
             sample.clades[clade].add_to_edgeset(
-                sampled_target._sample(),
+                sampled_target._sample(edge_selector=edge_selector),
                 weight=target_weight,
             )
         return sample
@@ -461,14 +472,48 @@ class HistoryDag:
         for cladetree in self.dagroot._get_trees():
             yield HistoryDag(cladetree)
 
-    def sample(self) -> "HistoryDag":
+    def sample(self, edge_selector=lambda e: True) -> "HistoryDag":
         r"""Samples a history from the history DAG.
         (A history is a sub-history DAG containing the root and all
         leaf nodes)
         For reproducibility, set ``random.seed`` before sampling.
 
+        When there is an option, edges pointing to nodes on which `selection_func` is True
+        will always be chosen.
+
         Returns a new HistoryDag object."""
-        return HistoryDag(self.dagroot._sample())
+        return HistoryDag(self.dagroot._sample(edge_selector=edge_selector))
+
+    def nodes_above_node(self, node) -> Set[HistoryDagNode]:
+        """Return a set of nodes from which the passed node is reachable along directed edges."""
+        self.recompute_parents()
+        mask_true = set()
+        nodequeue = {node}
+        while len(nodequeue) > 0:
+            curr_node = nodequeue.pop()
+            if curr_node not in mask_true:
+                nodequeue.update(curr_node.parents)
+                mask_true.add(curr_node)
+        return mask_true
+
+    def sample_with_node(self, node) -> "HistoryDag":
+        """Samples a history which contains ``node`` from the history DAG."""
+
+        mask_true = self.nodes_above_node(node)
+
+        def edge_selector(edge):
+            return edge[-1] in mask_true
+
+        return self.sample(edge_selector=edge_selector)
+
+    def sample_with_edge(self, edge) -> "HistoryDag":
+        """Samples a history which contains ``edge`` (a tuple of HistoryDagNodes) from the history DAG."""
+        mask_true = self.nodes_above_node(edge[0])
+
+        def edge_selector(inedge):
+            return inedge[-1] in mask_true or inedge == edge
+
+        return self.sample(edge_selector=edge_selector)
 
     def unlabel(self) -> "HistoryDag":
         """Sets all internal node labels to be identical, and merges nodes so
@@ -561,9 +606,6 @@ class HistoryDag:
             The number of edges added to the history DAG
         """
         n_added = 0
-        clade_dict: Dict[FrozenSet[Label], List[HistoryDagNode]] = {
-            node.under_clade(): [] for node in self.postorder()
-        }
         if preserve_parent_labels is True:
             self.recompute_parents()
             uplabels = {
@@ -571,11 +613,8 @@ class HistoryDag:
                 for node in self.postorder()
             }
 
-        # discard root node
-        gen = self.preorder()
-        next(gen)
-        for node in gen:
-            clade_dict[node.under_clade()].append(node)
+        clade_dict = _under_clade_dict(self.preorder(skip_root=True))
+        clade_dict[self.dagroot.under_clade()] = []
 
         for node in self.postorder():
             if new_from_root is False and node.is_root():
@@ -1606,12 +1645,15 @@ class EdgeSet:
             self.weights.pop(idx_to_remove)
             self._targetset = set(self.targets)
 
-    def sample(self) -> Tuple[HistoryDagNode, float]:
+    def sample(self, mask=None) -> Tuple[HistoryDagNode, float]:
         """Returns a randomly sampled child edge, and its corresponding
-        weight."""
-        index = random.choices(list(range(len(self.targets))), weights=self.probs, k=1)[
-            0
-        ]
+        weight. When possible, only edges pointing to child nodes on which ``selection_function`` evaluates to True
+        will be sampled."""
+        if sum(mask) == 0:
+            weights = self.probs
+        else:
+            weights = [factor * prob for factor, prob in zip(mask, self.probs)]
+        index = random.choices(list(range(len(self.targets))), weights=weights, k=1)[0]
         return (self.targets[index], self.weights[index])
 
     def add_to_edgeset(self, target, weight=0, prob=None, prob_norm=True) -> bool:
@@ -1822,3 +1864,29 @@ def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
     dag = treelist[0].copy()
     dag.merge(treelist[1:])
     return dag
+
+
+def history_dag_from_nodes(nodes: Sequence[HistoryDagNode]) -> HistoryDag:
+    """Take an iterable containing HistoryDagNodes, and build a HistoryDag from
+    those nodes."""
+    # use dictionary to preserve order
+    nodes = {node.node_self(): node for node in nodes}
+    # check for UA node in passed set, and recover if present:
+    ua_node = UANode(EdgeSet())
+    if ua_node in nodes:
+        ua_node = nodes[ua_node].node_self()
+    nodes.pop(ua_node)
+    clade_dict = _under_clade_dict(nodes.keys())
+    edge_dict = {
+        node: [child for clade in node.clades for child in clade_dict[clade]]
+        for node in nodes
+    }
+    children = {node: "" for _, children in edge_dict.items() for node in children}
+    source_nodes = set(nodes) - set(children.keys())
+    edge_dict[ua_node] = list(source_nodes)
+
+    for node, children in edge_dict.items():
+        for child in children:
+            node.add_edge(child)
+
+    return HistoryDag(ua_node)
