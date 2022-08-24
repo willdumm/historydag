@@ -1,6 +1,7 @@
 import random
 import click
 from collections import Counter
+from itertools import product
 import ete3
 import historydag as hdag
 import pickle
@@ -77,7 +78,7 @@ def _get_adj_array(seq_len, transition_weights=None):
 
 def sankoff_upward(tree, gap_as_char=False, transition_weights=None):
     """Compute Sankoff cost vectors at nodes in a postorder traversal,
-    and return best possible parsimony score of the tree.
+    and return best possible parsimony score of the tree or DAG.
 
     Args:
         gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
@@ -102,29 +103,75 @@ def sankoff_upward(tree, gap_as_char=False, transition_weights=None):
             else:
                 return char
 
-    adj_arr = _get_adj_array(len(tree.sequence), transition_weights=transition_weights)
+    if isinstance(tree, ete3.Tree):
+        adj_arr = _get_adj_array(len(tree.sequence), transition_weights=transition_weights)
 
-    # First pass of Sankoff: compute cost vectors
-    for node in tree.traverse(strategy="postorder"):
-        node.add_feature(
-            "cv",
-            np.array(
-                [code_vectors[translate_base(base)].copy() for base in node.sequence]
-            ),
-        )
-        if not node.is_leaf():
-            child_costs = []
-            for child in node.children:
-                stacked_child_cv = np.stack((child.cv,) * 5, axis=1)
-                total_cost = adj_arr + stacked_child_cv
-                child_costs.append(np.min(total_cost, axis=2))
-            child_cost = np.sum(child_costs, axis=0)
-            node.cv = (
-                np.array([code_vectors[translate_base(base)] for base in node.sequence])
-                + child_cost
+        # First pass of Sankoff: compute cost vectors
+        for node in tree.traverse(strategy="postorder"):
+            node.add_feature(
+                "cv",
+                np.array(
+                    [code_vectors[translate_base(base)].copy() for base in node.sequence]
+                ),
             )
-    return np.sum(np.min(tree.cv, axis=1))
+            if not node.is_leaf():
+                child_costs = []
+                for child in node.children:
+                    stacked_child_cv = np.stack((child.cv,) * 5, axis=1)
+                    total_cost = adj_arr + stacked_child_cv
+                    child_costs.append(np.min(total_cost, axis=2))
+                child_cost = np.sum(child_costs, axis=0)
+                node.cv = (
+                    np.array([code_vectors[translate_base(base)] for base in node.sequence])
+                    + child_cost
+                )
+        return np.sum(np.min(tree.cv, axis=1))
 
+    elif isinstance(tree, hdag.HistoryDag):
+        adj_arr = _get_adj_array(len(next(tree.postorder()).label.sequence), transition_weights=transition_weights)
+
+        def children_cost(child_cost_vectors):
+            costs=[]
+            for c in child_cost_vectors:
+                cost = adj_arr + np.stack((c,) * 5, axis=1)
+                costs.append(np.min(cost, axis=2))
+            return np.sum(costs, axis=0)
+
+        def leaf_func(n):
+            return {
+                "cost_vectors": [np.array([code_vectors[translate_base(base)].copy() for base in n.label.sequence])],
+                "paired_children": [],
+                "subtree_cost": 0
+            }
+
+        def accum_between_clade(clade_data):
+            cost_vectors = []
+            paired_children = []
+            min_cost = float("inf")
+            # iterate over each possible combination of edge choice across clades
+            for choice in product(*clade_data):
+                # compute every possible combination of cost vectors for the given edge choice 
+                # (each child node has possibly multiple cost vectors that are all optimal)
+                for cost_vector_combination in product(*[c._dp_data["cost_vectors"] for c in choice]):
+                    cv = children_cost(cost_vector_combination)
+                    cost = np.sum(np.min(cv, axis=1))
+                    if cost < min_cost:
+                        min_cost = cost
+                        cost_vectors = [cv]
+                        paired_children = [(c for c in choice)]
+                    elif cost <= min_cost and not any([np.array_equal(cv, cv2) for cv2 in cost_vectors]):
+                        cost_vectors.append(cv)
+                        paired_children.append((c for c in choice))
+            return {"cost_vectors": cost_vectors,
+                    "paired_children": paired_children,
+                    "subtree_cost": min_cost}
+        tree.postorder_cladetree_accum(
+                leaf_func=leaf_func,
+                edge_func=lambda x, y: y,
+                accum_within_clade=lambda x: x,
+                accum_between_clade=accum_between_clade,
+                accum_above_edge=lambda x, y: y)
+        return next(tree.preorder())._dp_data["subtree_cost"]
 
 def disambiguate(
     tree,
