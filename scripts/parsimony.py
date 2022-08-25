@@ -253,6 +253,101 @@ def disambiguate(
             node.dist = hamming_distance(node.up.sequence, node.sequence)
     return tree
 
+def full_sankoff_on_dag(dag, compute_cvs=True, gap_as_char=False, transition_weights=None):
+    """Completely resolve maximally parsimonious internal sequence labelings
+    on a DAG using a two-pass Sankoff Algorithm.
+
+    Args:
+        compute_cvs: If true, compute upward sankoff cost vectors. If ``sankoff_upward`` was
+            already run on the dag, this may be skipped.
+        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
+            it will be treated the same as an ``N``.
+        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.
+            Rows contain targeting weights. That is, the first row contains the transition weights
+            from `A` to each possible target base. Alternatively, a sequence-length array of these
+            transition weight matrices, if transition weights vary by-site. By default, a constant
+            weight matrix will be used containing 1 in all off-diagonal positions, equivalent
+            to Hamming parsimony.
+    """
+
+    if compute_cvs:
+        sankoff_upward(dag, gap_as_char=gap_as_char, transition_weights=transition_weights)
+
+    nodedict = {node: node for node in dag.postorder()}
+    model_label = next(dag.preorder(skip_root=True)).label
+    seq_len = len(next(dag.postorder()).label.sequence)
+    adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+
+    def compute_sequence_data(cost_vector):
+        all_base_indices = [[]]
+        min_cost = 0
+        for idx in range(seq_len):
+            min_cost += min(cost_vector[idx])
+            min_cost_indices = np.where(cost_vector[idx] == cost_vector[idx].min())[0]
+            all_base_indices = [base_idx + [i] for base_idx in all_base_indices for i in min_cost_indices]
+        adj_vec = [adj_arr[np.arange(seq_len), base_indices] for base_indices in all_base_indices]
+        new_sequence = ["".join([bases[base_index] \
+                        for base_index in base_indices]) \
+                        for base_indices in all_base_indices]
+        return list(zip(new_sequence, adj_vec, [min_cost]*len(new_sequence)))
+
+    for node in reversed(list(dag.postorder())):
+        if not (node.is_leaf() or node.is_root()):
+            computed_sequences_for_node = set()
+            first_parent = 0
+            for p in node.parents:
+                if p.is_root():
+                    new_seq_data = [
+                        y
+                        for cv in node._dp_data["cost_vectors"]
+                        for y in compute_sequence_data(cv)
+                    ]
+                else:
+                    new_seq_data = [
+                        y
+                        for cv in node._dp_data["cost_vectors"]
+                        for y in compute_sequence_data(cv + p._dp_data["transition_cost"])
+                    ]
+
+                min_val = new_seq_data[0][-1]
+                # only keep those node/parent/cost_vector choices that
+                # achieve a minimal cost for the node/parent choice
+                if len(new_seq_data) > 1:
+                    min_val = min(*list(zip(*new_seq_data))[-1])
+                    new_seq_data = [x for x in new_seq_data if x[-1] <= min_val]
+
+                for i, nsd in enumerate(new_seq_data):
+                    if nsd[0] not in computed_sequences_for_node:
+                        computed_sequences_for_node.add(nsd[0])
+
+                        vals = [
+                            value if name != "sequence" else nsd[0]
+                            for name, value in model_label._asdict().items()
+                        ]
+                        new_label = type(model_label)(*vals)
+
+                        if i + first_parent < 1:
+                            first_parent += 1
+                            node.label = new_label
+                            node._dp_data["transition_cost"] = nsd[1]
+                        else:
+                            newnodetmp = hdag.empty_node(
+                                            new_label,
+                                            frozenset(node.clades.keys()),
+                                            deepcopy(node.attr)
+                                        )
+                            newnodetmp._dp_data = {k: v for k, v in node._dp_data.items() if k != "transition_cost"}
+                            newnodetmp._dp_data["transition_cost"] = nsd[1]
+                            for c in node.children():
+                                newnodetmp.add_edge(c)
+                                c.parents.add(newnodetmp)
+                            for parent in node.parents:
+                                parent.add_edge(newnodetmp)
+                                newnodetmp.parents.add(parent)
+    # still need to trim the dag since the final addition of all
+    # parents/children to new nodes can yield suboptimal choices
+    dag.trim_optimal_weight()
+
 
 def load_fasta(fastapath):
     """Load a fasta file as a dictionary, with sequence ids as keys and sequences as values."""
