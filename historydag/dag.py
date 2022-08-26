@@ -476,12 +476,12 @@ class HistoryDag:
         """Return a generator containing all leaf nodes in the history DAG."""
         return (node for node in self.postorder() if node.is_leaf())
 
-    def count_nodes(self) -> int:
-        """Return the number of nodes in the DAG, not counting the UA node"""
+    def num_nodes(self) -> int:
+        """Return the number of nodes in the DAG, not counting the UA node."""
         return sum(1 for _ in self.preorder(skip_root=True))
 
-    def count_leaves(self) -> int:
-        """Return the number of leaf nodes in the DAG"""
+    def num_leaves(self) -> int:
+        """Return the number of leaf nodes in the DAG."""
         return sum(1 for _ in self.get_leaves())
 
     def sample(self, edge_selector=lambda e: True) -> "HistoryDag":
@@ -497,7 +497,8 @@ class HistoryDag:
         return HistoryDag(self.dagroot._sample(edge_selector=edge_selector))
 
     def nodes_above_node(self, node) -> Set[HistoryDagNode]:
-        """Return a set of nodes from which the passed node is reachable along directed edges."""
+        """Return a set of nodes from which the passed node is reachable along
+        directed edges."""
         self.recompute_parents()
         mask_true = set()
         nodequeue = {node}
@@ -511,9 +512,11 @@ class HistoryDag:
     def sample_with_node(self, node) -> "HistoryDag":
         """Samples a history which contains ``node`` from the history DAG.
 
-        Sampling is likely unbiased from the distribution of trees in the DAG, conditioned on each sampled
-        tree containing the passed node. However, if unbiased sampling from the conditional distribution is
-        important, this should be tested."""
+        Sampling is likely unbiased from the distribution of trees in
+        the DAG, conditioned on each sampled tree containing the passed
+        node. However, if unbiased sampling from the conditional
+        distribution is important, this should be tested.
+        """
 
         mask_true = self.nodes_above_node(node)
 
@@ -523,11 +526,14 @@ class HistoryDag:
         return self.sample(edge_selector=edge_selector)
 
     def sample_with_edge(self, edge) -> "HistoryDag":
-        """Samples a history which contains ``edge`` (a tuple of HistoryDagNodes) from the history DAG.
+        """Samples a history which contains ``edge`` (a tuple of
+        HistoryDagNodes) from the history DAG.
 
-        Sampling is likely unbiased from the distribution of trees in the DAG, conditioned on each sampled
-        tree containing the passed edge. However, if unbiased sampling from the conditional distribution is
-        important, this should be tested."""
+        Sampling is likely unbiased from the distribution of trees in
+        the DAG, conditioned on each sampled tree containing the passed
+        edge. However, if unbiased sampling from the conditional
+        distribution is important, this should be tested.
+        """
         mask_true = self.nodes_above_node(edge[0])
 
         def edge_selector(inedge):
@@ -535,12 +541,15 @@ class HistoryDag:
 
         return self.sample(edge_selector=edge_selector)
 
-    def iter_covering_histories(self) -> Generator["Historydag", None, None]:
-        """Samples a sequence of histories which together contain all nodes in the history DAG.
+    def iter_covering_histories(self) -> Generator["HistoryDag", None, None]:
+        """Samples a sequence of histories which together contain all nodes in
+        the history DAG.
 
-        Histories are sampled using :meth:`sample_with_node`, starting with the nodes which are contained
-        in the fewest of the DAG's histories. The sequence of trees is therefore non-deterministic unless
-        ``random.seed`` is set."""
+        Histories are sampled using :meth:`sample_with_node`, starting
+        with the nodes which are contained in the fewest of the DAG's
+        histories. The sequence of trees is therefore non-deterministic
+        unless ``random.seed`` is set.
+        """
         node_counts = self.count_nodes()
         node_list = sorted(node_counts.keys(), key=lambda n: node_counts[n])
 
@@ -574,8 +583,12 @@ class HistoryDag:
         return ret
 
     def relabel(self, relabel_func: Callable[[HistoryDagNode], Label]) -> "HistoryDag":
-        """Return a new HistoryDag with labels modified according to a provided function.
-        `relabel_func` should take a node and return the new label appropriate for that node."""
+        """Return a new HistoryDag with labels modified according to a provided
+        function.
+
+        `relabel_func` should take a node and return the new label
+        appropriate for that node.
+        """
 
         leaf_label_dict = {leaf.label: relabel_func(leaf) for leaf in self.get_leaves()}
         if len(leaf_label_dict) != len(set(leaf_label_dict.keys())):
@@ -1727,9 +1740,11 @@ class EdgeSet:
             self._targetset = set(self.targets)
 
     def sample(self, mask=None) -> Tuple[HistoryDagNode, float]:
-        """Returns a randomly sampled child edge, and its corresponding
-        weight. When possible, only edges pointing to child nodes on which ``selection_function`` evaluates to True
-        will be sampled."""
+        """Returns a randomly sampled child edge, and its corresponding weight.
+
+        When possible, only edges pointing to child nodes on which
+        ``selection_function`` evaluates to True will be sampled.
+        """
         if sum(mask) == 0:
             weights = self.probs
         else:

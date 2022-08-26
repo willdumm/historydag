@@ -172,8 +172,8 @@ def wrapped_hamming_distance(s1, s2) -> int:
 
 
 def hamming_distance_leaf_ambiguous(n1, n2):
-    """Same as wrapped_hamming_distance, but correctly calculates parsimony scores
-    if leaf nodes have ambiguous sequences."""
+    """Same as wrapped_hamming_distance, but correctly calculates parsimony
+    scores if leaf nodes have ambiguous sequences."""
     if n2.is_leaf():
         # Then its sequence may be ambiguous
         s1 = n1.label.sequence
@@ -622,7 +622,6 @@ class StrState(str):
 
 def load_fasta(fastapath):
     fasta_records = []
-    current_seq = ""
     with open(fastapath, "r") as fh:
         for line in fh:
             if line[0] == ">":

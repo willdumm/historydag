@@ -424,5 +424,5 @@ def test_relabel():
     Label = namedtuple("Label", ["sequence", "newthing"])
     ndag = dag.relabel(lambda n: Label(n.label.sequence, len(list(n.children()))))
     Label = namedtuple("Label", ["sequence"])
-    odag = dag.relabel(lambda n: Label(n.label.sequence))
+    odag = ndag.relabel(lambda n: Label(n.label.sequence))
     assert dag.weight_count() == odag.weight_count()
