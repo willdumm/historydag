@@ -472,6 +472,18 @@ class HistoryDag:
         for cladetree in self.dagroot._get_trees():
             yield HistoryDag(cladetree)
 
+    def get_leaves(self) -> Generator["HistoryDag", None, None]:
+        """Return a generator containing all leaf nodes in the history DAG."""
+        return (node for node in self.postorder() if node.is_leaf())
+
+    def count_nodes(self) -> int:
+        """Return the number of nodes in the DAG, not counting the UA node"""
+        return sum(1 for _ in self.preorder(skip_root=True))
+
+    def count_leaves(self) -> int:
+        """Return the number of leaf nodes in the DAG"""
+        return sum(1 for _ in self.get_leaves())
+
     def sample(self, edge_selector=lambda e: True) -> "HistoryDag":
         r"""Samples a history from the history DAG.
         (A history is a sub-history DAG containing the root and all
@@ -497,7 +509,11 @@ class HistoryDag:
         return mask_true
 
     def sample_with_node(self, node) -> "HistoryDag":
-        """Samples a history which contains ``node`` from the history DAG."""
+        """Samples a history which contains ``node`` from the history DAG.
+
+        Sampling is likely unbiased from the distribution of trees in the DAG, conditioned on each sampled
+        tree containing the passed node. However, if unbiased sampling from the conditional distribution is
+        important, this should be tested."""
 
         mask_true = self.nodes_above_node(node)
 
@@ -507,13 +523,36 @@ class HistoryDag:
         return self.sample(edge_selector=edge_selector)
 
     def sample_with_edge(self, edge) -> "HistoryDag":
-        """Samples a history which contains ``edge`` (a tuple of HistoryDagNodes) from the history DAG."""
+        """Samples a history which contains ``edge`` (a tuple of HistoryDagNodes) from the history DAG.
+
+        Sampling is likely unbiased from the distribution of trees in the DAG, conditioned on each sampled
+        tree containing the passed edge. However, if unbiased sampling from the conditional distribution is
+        important, this should be tested."""
         mask_true = self.nodes_above_node(edge[0])
 
         def edge_selector(inedge):
             return inedge[-1] in mask_true or inedge == edge
 
         return self.sample(edge_selector=edge_selector)
+
+    def iter_covering_histories(self) -> Generator["Historydag", None, None]:
+        """Samples a sequence of histories which together contain all nodes in the history DAG.
+
+        Histories are sampled using :meth:`sample_with_node`, starting with the nodes which are contained
+        in the fewest of the DAG's histories. The sequence of trees is therefore non-deterministic unless
+        ``random.seed`` is set."""
+        node_counts = self.count_nodes()
+        node_list = sorted(node_counts.keys(), key=lambda n: node_counts[n])
+
+        visited = set()
+        for node in node_list:
+            if node not in visited:
+                tree = self.sample_with_node(node)
+                olen = len(visited)
+                visited.update(set(list(tree.preorder())))
+                # At least node must have been added.
+                assert len(visited) > olen
+                yield tree
 
     def unlabel(self) -> "HistoryDag":
         """Sets all internal node labels to be identical, and merges nodes so
@@ -533,6 +572,48 @@ class HistoryDag:
         ret = newdag.sample()
         ret.merge(newdag)
         return ret
+
+    def relabel(self, relabel_func: Callable[[HistoryDagNode], Label]) -> "HistoryDag":
+        """Return a new HistoryDag with labels modified according to a provided function.
+        `relabel_func` should take a node and return the new label appropriate for that node."""
+
+        leaf_label_dict = {leaf.label: relabel_func(leaf) for leaf in self.get_leaves()}
+        if len(leaf_label_dict) != len(set(leaf_label_dict.keys())):
+            raise RuntimeError(
+                "relabeling function maps multiple leaf nodes to the same new label"
+            )
+
+        def remove_abundance_clade(old_clade):
+            return frozenset(leaf_label_dict[old_label] for old_label in old_clade)
+
+        def remove_abundance_node(old_node):
+            if old_node.is_root():
+                return UANode(
+                    EdgeSet(
+                        [
+                            remove_abundance_node(old_child)
+                            for old_child in old_node.children()
+                        ]
+                    )
+                )
+            else:
+                clades = {
+                    remove_abundance_clade(old_clade): EdgeSet(
+                        [
+                            remove_abundance_node(old_child)
+                            for old_child in old_eset.targets
+                        ],
+                        weights=old_eset.weights,
+                        probs=old_eset.probs,
+                    )
+                    for old_clade, old_eset in old_node.clades.items()
+                }
+                return HistoryDagNode(relabel_func(old_node), clades, None)
+
+        newdag = HistoryDag(remove_abundance_node(self.dagroot))
+        # do any necessary collapsing
+        newdag = newdag.sample() | newdag
+        return newdag
 
     def is_clade_tree(self) -> bool:
         """Returns whether history DAG is a clade tree.
@@ -1857,12 +1938,11 @@ def history_dag_from_etes(
     )
 
 
-def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
+def history_dag_from_clade_trees(treelist: Sequence[HistoryDag]) -> HistoryDag:
     """Build a history DAG from a list of history DAGs which are clade
     trees."""
-    # merge checks that all clade trees have the same leaf label set.
-    dag = treelist[0].copy()
-    dag.merge(treelist[1:])
+    dag = next(iter(treelist))
+    dag.merge(treelist)
     return dag
 
 
