@@ -43,8 +43,10 @@ def _cli_remove_invariant_sites(in_fasta, out_fasta, out_variant_sites):
     "-F",
     "--newick-format",
     default=1,
-    help=("Newick format of the provided newick file. See "
-          "http://etetoolkit.org/docs/latest/reference/reference_tree.html#ete3.TreeNode"),
+    help=(
+        "Newick format of the provided newick file. See "
+        "http://etetoolkit.org/docs/latest/reference/reference_tree.html#ete3.TreeNode"
+    ),
 )
 @click.option(
     "-i",
@@ -62,8 +64,10 @@ def _cli_remove_invariant_sites(in_fasta, out_fasta, out_variant_sites):
     "-a",
     "--preserve-ambiguities",
     is_flag=True,
-    help=("Do not disambiguate fully, but rather preserve ambiguities to express "
-          "all maximally parsimonious assignments at each site."),
+    help=(
+        "Do not disambiguate fully, but rather preserve ambiguities to express "
+        "all maximally parsimonious assignments at each site."
+    ),
 )
 @click.option(
     "-o", "--outdir", default=".", help="Directory in which to write pickled trees."
@@ -125,8 +129,10 @@ def _cli_build_trees(
     "-F",
     "--newick-format",
     default=1,
-    help=("Newick format of the provided newick file. See "
-          "http://etetoolkit.org/docs/latest/reference/reference_tree.html#ete3.TreeNode"),
+    help=(
+        "Newick format of the provided newick file. See "
+        "http://etetoolkit.org/docs/latest/reference/reference_tree.html#ete3.TreeNode"
+    ),
 )
 @click.option(
     "-i",
@@ -150,8 +156,10 @@ def _cli_build_trees(
     "-a",
     "--preserve-ambiguities",
     is_flag=True,
-    help=("Do not disambiguate fully, but rather preserve ambiguities to express "
-          "all maximally parsimonious assignments at each site."),
+    help=(
+        "Do not disambiguate fully, but rather preserve ambiguities to express "
+        "all maximally parsimonious assignments at each site."
+    ),
 )
 def _cli_parsimony_score_from_files(
     treefiles,

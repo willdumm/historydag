@@ -419,6 +419,14 @@ def test_iter_covering_histories():
         assert tdag.weight_count() == codag.weight_count()
 
 
+def test_iter_covering_histories_edges():
+    for dag in dags + cdags:
+        trees = list(dag.iter_covering_histories(cover_edges=True))
+        tdag = trees[0] | trees
+        assert tdag.weight_count() == dag.weight_count()
+        assert set(tdag.to_newicks()) == set(dag.to_newicks())
+
+
 def test_relabel():
     dag = dags[-1]
     Label = namedtuple("Label", ["sequence", "newthing"])

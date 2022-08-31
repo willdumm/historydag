@@ -541,7 +541,9 @@ class HistoryDag:
 
         return self.sample(edge_selector=edge_selector)
 
-    def iter_covering_histories(self) -> Generator["HistoryDag", None, None]:
+    def iter_covering_histories(
+        self, cover_edges=False
+    ) -> Generator["HistoryDag", None, None]:
         """Samples a sequence of histories which together contain all nodes in
         the history DAG.
 
@@ -552,14 +554,35 @@ class HistoryDag:
         """
         node_counts = self.count_nodes()
         node_list = sorted(node_counts.keys(), key=lambda n: node_counts[n])
-
         visited = set()
-        for node in node_list:
-            if node not in visited:
-                tree = self.sample_with_node(node)
+        if cover_edges:
+            part_list = [
+                (parent, child) for parent in node_list for child in parent.children()
+            ]
+            sample_func = self.sample_with_edge
+
+            def update_visited(tree):
+                visited.update(
+                    set(
+                        (parent, child)
+                        for parent in tree.preorder()
+                        for child in parent.children()
+                    )
+                )
+
+        else:
+            part_list = node_list
+            sample_func = self.sample_with_node
+
+            def update_visited(tree):
+                visited.update(set(tree.preorder()))
+
+        for part in part_list:
+            if part not in visited:
+                tree = sample_func(part)
                 olen = len(visited)
-                visited.update(set(list(tree.preorder())))
-                # At least node must have been added.
+                update_visited(tree)
+                # At least part must have been added.
                 assert len(visited) > olen
                 yield tree
 

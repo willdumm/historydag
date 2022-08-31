@@ -1,10 +1,12 @@
+"""A module implementing Sankoff Algorithm"""
+
 import random
 import ete3
-import historydag as hdag
 import numpy as np
 import Bio.Data.IUPACData
 from historydag.utils import access_nodefield_default
 from itertools import product
+from historydag.dag import history_dag_from_clade_trees, history_dag_from_etes
 
 bases = "AGCT-"
 ambiguous_dna_values = Bio.Data.IUPACData.ambiguous_dna_values.copy()
@@ -609,7 +611,7 @@ def build_dag_from_trees(trees):
         if len(tree.children) == 1:
             newchild = tree.add_child()
             newchild.add_feature("sequence", tree.sequence)
-    return hdag.history_dag_from_etes(
+    return history_dag_from_etes(
         trees,
         ["sequence"],
     )
@@ -635,14 +637,14 @@ def disambiguate_history(history):
         }
     )
     disambiguate(etetree, min_ambiguities=True)
-    rhistory = hdag.history_dag_from_etes([etetree], ["sequence"])
+    rhistory = history_dag_from_etes([etetree], ["sequence"])
     return rhistory
 
 
-def treewise_sankoff_in_dag(dag):
+def treewise_sankoff_in_dag(dag, cover_edges=False):
     """Perform tree-wise sankoff to compute labels for all nodes in the DAG."""
-    newdag = hdag.dag.history_dag_from_clade_trees(
-        disambiguate_history(history) for history in dag.iter_covering_histories()
+    newdag = history_dag_from_clade_trees(
+        disambiguate_history(history) for history in dag.iter_covering_histories(cover_edges=cover_edges)
     )
     newdag.explode_nodes()
     newdag.add_all_allowed_edges()
