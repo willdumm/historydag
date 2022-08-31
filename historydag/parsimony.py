@@ -6,7 +6,7 @@ import numpy as np
 import Bio.Data.IUPACData
 from historydag.utils import access_nodefield_default
 from itertools import product
-from historydag.dag import history_dag_from_clade_trees, history_dag_from_etes
+from historydag.dag import history_dag_from_clade_trees, history_dag_from_etes, HistoryDag
 
 bases = "AGCT-"
 ambiguous_dna_values = Bio.Data.IUPACData.ambiguous_dna_values.copy()
@@ -148,7 +148,7 @@ def sankoff_upward(
                 )
         return np.sum(np.min(tree.cost_vector, axis=1))
 
-    elif isinstance(tree, hdag.HistoryDag):
+    elif isinstance(tree, HistoryDag):
         tree.recompute_parents()
         adj_arr = _get_adj_array(
             len(next(tree.postorder()).label.sequence),
