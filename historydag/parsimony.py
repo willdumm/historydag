@@ -3,6 +3,8 @@ import ete3
 import historydag as hdag
 import numpy as np
 import Bio.Data.IUPACData
+from historydag.utils import access_nodefield_default
+from itertools import product
 
 bases = "AGCT-"
 ambiguous_dna_values = Bio.Data.IUPACData.ambiguous_dna_values.copy()
@@ -63,7 +65,25 @@ def _get_adj_array(seq_len, transition_weights=None):
     return adj_arr
 
 
-def sankoff_upward(tree, gap_as_char=False, transition_weights=None):
+def edge_weight_func_from_weight_matrix(dag, weight_mat, bases):
+    @access_nodefield_default("sequence", 0)
+    def wrapped_weighted_hamming_distance(s1, s2) -> int:
+        """The sitewise sum of base differences between s1 and s2."""
+        base_indices = {k: v for v, k in enumerate(bases)}
+        if len(s1) != len(s2):
+            raise ValueError("Sequences must have the same length!")
+        return sum(weight_mat[base_indices[x], base_indices[y]] for x, y in zip(s1, s2))
+
+    return wrapped_weighted_hamming_distance
+
+
+def sankoff_upward(
+    tree,
+    gap_as_char=False,
+    transition_weights=None,
+    filter_min_score=True,
+    use_internal_node_sequences=False,
+):
     """Compute Sankoff cost vectors at nodes in a postorder traversal, and
     return best possible parsimony score of the tree.
 
@@ -76,6 +96,12 @@ def sankoff_upward(tree, gap_as_char=False, transition_weights=None):
             transition weight matrices, if transition weights vary by-site. By default, a constant
             weight matrix will be used containing 1 in all off-diagonal positions, equivalent
             to Hamming parsimony.
+        filter_min_score: (used when tree is of type ``HistoryDag``) if True, then discard any cost
+            vectors that do not minimize subtree cost. Otherwise, keep all possible cost vectors at all
+            nodes. This is an optimization that *seems* to be valid, but is yet to be proven to be valid.
+        use_internal_node_sequences: (used when tree is of type ``ete3.TreeNode``) If True, then compute
+            the transition cost for sequences assigned to internal nodes. This assumes that internal
+            nodes have a field with name ``sequence``.
     """
     if gap_as_char:
 
@@ -90,28 +116,252 @@ def sankoff_upward(tree, gap_as_char=False, transition_weights=None):
             else:
                 return char
 
-    adj_arr = _get_adj_array(len(tree.sequence), transition_weights=transition_weights)
-
-    # First pass of Sankoff: compute cost vectors
-    for node in tree.traverse(strategy="postorder"):
-        node.add_feature(
-            "cv",
-            np.array(
-                [code_vectors[translate_base(base)].copy() for base in node.sequence]
-            ),
+    if isinstance(tree, ete3.TreeNode):
+        adj_arr = _get_adj_array(
+            len(tree.sequence), transition_weights=transition_weights
         )
-        if not node.is_leaf():
-            child_costs = []
-            for child in node.children:
-                stacked_child_cv = np.stack((child.cv,) * 5, axis=1)
-                total_cost = adj_arr + stacked_child_cv
-                child_costs.append(np.min(total_cost, axis=2))
-            child_cost = np.sum(child_costs, axis=0)
-            node.cv = (
-                np.array([code_vectors[translate_base(base)] for base in node.sequence])
-                + child_cost
+
+        # First pass of Sankoff: compute cost vectors
+        for node in tree.traverse(strategy="postorder"):
+            node.add_feature(
+                "cost_vector",
+                np.array(
+                    [
+                        code_vectors[translate_base(base)].copy()
+                        for base in node.sequence
+                    ]
+                ),
             )
-    return np.sum(np.min(tree.cv, axis=1))
+            if not node.is_leaf():
+                child_costs = []
+                for child in node.children:
+                    stacked_child_cv = np.stack((child.cost_vector,) * 5, axis=1)
+                    total_cost = adj_arr + stacked_child_cv
+                    child_costs.append(np.min(total_cost, axis=2))
+                child_cost = np.sum(child_costs, axis=0)
+                node.cost_vector = child_cost
+            if use_internal_node_sequences:
+                node.cost_vector += np.array(
+                    [code_vectors[translate_base(base)] for base in node.sequence]
+                )
+        return np.sum(np.min(tree.cost_vector, axis=1))
+
+    elif isinstance(tree, hdag.HistoryDag):
+        tree.recompute_parents()
+        adj_arr = _get_adj_array(
+            len(next(tree.postorder()).label.sequence),
+            transition_weights=transition_weights,
+        )
+
+        def children_cost(child_cost_vectors):
+            costs = []
+            for c in child_cost_vectors:
+                cost = adj_arr + np.stack((c,) * 5, axis=1)
+                costs.append(np.min(cost, axis=2))
+            return np.sum(costs, axis=0)
+
+        def leaf_func(n):
+            return {
+                "cost_vectors": [
+                    np.array(
+                        [
+                            code_vectors[translate_base(base)].copy()
+                            for base in n.label.sequence
+                        ]
+                    )
+                ],
+                "subtree_cost": 0,
+            }
+
+        def accum_between_clade(clade_data):
+            cost_vectors = []
+            min_cost = float("inf")
+            # iterate over each possible combination of edge choice across clades
+            for choice in product(*clade_data):
+                # compute every possible combination of cost vectors for the given edge choice
+                # (each child node has possibly multiple cost vectors that are all optimal)
+                for cost_vector_combination in product(
+                    *[c._dp_data["cost_vectors"] for c in choice]
+                ):
+                    cv = children_cost(cost_vector_combination)
+                    min_cost = min(min_cost, np.sum(np.min(cv, axis=1)))
+                    if not any([np.array_equal(cv, cv2) for cv2 in cost_vectors]):
+                        cost_vectors.append(cv)
+            return {"cost_vectors": cost_vectors, "subtree_cost": min_cost}
+
+        def accum_between_clade_with_filtering(clade_data):
+            cost_vectors = []
+            min_cost = float("inf")
+            # iterate over each possible combination of edge choice across clades
+            for choice in product(*clade_data):
+                # compute every possible combination of cost vectors for the given edge choice
+                # (each child node has possibly multiple cost vectors that are all optimal)
+                for cost_vector_combination in product(
+                    *[c._dp_data["cost_vectors"] for c in choice]
+                ):
+                    cv = children_cost(cost_vector_combination)
+                    cost = np.sum(np.min(cv, axis=1))
+                    if cost < min_cost:
+                        min_cost = cost
+                        cost_vectors = [cv]
+                    elif cost <= min_cost and not any(
+                        [np.array_equal(cv, other_cv) for other_cv in cost_vectors]
+                    ):
+                        cost_vectors.append(cv)
+            return {"cost_vectors": cost_vectors, "subtree_cost": min_cost}
+
+        if filter_min_score:
+            clade_func = accum_between_clade_with_filtering
+        else:
+            clade_func = accum_between_clade
+
+        tree.postorder_cladetree_accum(
+            leaf_func=leaf_func,
+            edge_func=lambda x, y: y,
+            accum_within_clade=lambda x: x,
+            accum_between_clade=clade_func,
+            accum_above_edge=lambda x, y: y,
+        )
+        return next(tree.preorder(skip_root=True))._dp_data["subtree_cost"]
+    else:
+        return 0
+
+
+def sankoff_downward(
+    dag,
+    compute_cvs=True,
+    gap_as_char=False,
+    transition_weights=None,
+    filter_min_score=True,
+):
+    """Assign sequences to internal nodes of dag using a weighted Sankoff
+    algorithm by exploding all possible labelings associated to each internal
+    node based on its subtrees.
+
+    Args:
+        compute_cvs: If true, compute upward sankoff cost vectors. If ``sankoff_upward`` was
+            already run on the tree/dag, this may be skipped.
+        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
+            it will be treated the same as an ``N``.
+        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.
+            Rows contain targeting weights. That is, the first row contains the transition weights
+            from `A` to each possible target base. Alternatively, a sequence-length array of these
+            transition weight matrices, if transition weights vary by-site. By default, a constant
+            weight matrix will be used containing 1 in all off-diagonal positions, equivalent
+            to Hamming parsimony.
+        filter_min_score: potentially valid optimization(See :meth:`sankoff_upward`).
+    """
+    dag.recompute_parents()
+    # this computes cost vectors for each node in an upward sweep of Sankoff
+    if compute_cvs:
+        sankoff_upward(
+            dag,
+            gap_as_char=gap_as_char,
+            transition_weights=transition_weights,
+            filter_min_score=filter_min_score,
+        )
+
+    # save the field names/types of the label datatype for this dag
+    model_label = next(dag.preorder(skip_root=True)).label
+    seq_len = len(next(dag.postorder()).label.sequence)
+    adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+
+    def compute_sequence_data(cost_vector):
+        """Compute all possible sequences that minimize transition costs as given by cost_vector.
+        Returns: a list of tuples, each tuple containing:
+                  - a sequence
+                  - an adjacency array of costs for that sequence, and
+                  - the minimum cost associated to the cost vector
+        """
+        all_base_indices = [[]]
+        min_cost = sum(np.min(cost_vector, axis=1))
+        for idx in range(seq_len):
+            min_cost_indices = np.where(cost_vector[idx] == cost_vector[idx].min())[0]
+            all_base_indices = [
+                base_idx + [i]
+                for base_idx in all_base_indices
+                for i in min_cost_indices
+            ]
+        adj_vec = [
+            adj_arr[np.arange(seq_len), base_indices]
+            for base_indices in all_base_indices
+        ]
+        new_sequence = [
+            "".join([bases[base_index] for base_index in base_indices])
+            for base_indices in all_base_indices
+        ]
+        return list(zip(new_sequence, adj_vec, [min_cost] * len(new_sequence)))
+
+    # downward pass of Sankoff: find and assign sequence labels to each internal node
+    for node in reversed(list(dag.postorder())):
+        if not (node.is_leaf() or node.is_root()):
+            node_copies = {}
+            for p in node.parents:
+                if p.is_root():
+                    new_seq_data = [
+                        y
+                        for cv in node._dp_data["cost_vectors"]
+                        for y in compute_sequence_data(cv)
+                    ]
+                else:
+                    new_seq_data = [
+                        y
+                        for cv in node._dp_data["cost_vectors"]
+                        for y in compute_sequence_data(
+                            cv + p._dp_data["transition_cost"]
+                        )
+                    ]
+
+                # only keep those node/parent/cost_vector choices that
+                # achieve a minimal cost for the node/parent choice
+                min_val = new_seq_data[0][-1]
+                if len(new_seq_data) > 1:
+                    min_val = min(*list(zip(*new_seq_data))[-1])
+
+                for nsd in new_seq_data:
+                    if (nsd[-1] <= min_val) and (nsd[0] not in node_copies):
+                        vals = [
+                            value if name != "sequence" else nsd[0]
+                            for name, value in model_label._asdict().items()
+                        ]
+                        new_label = type(model_label)(*vals)
+                        newnodetmp = node.node_self()
+                        newnodetmp.label = new_label
+                        newnodetmp._dp_data = {
+                            k: v
+                            for k, v in node._dp_data.items()
+                            if k != "transition_cost"
+                        }
+                        newnodetmp._dp_data["transition_cost"] = nsd[1]
+
+                        node_copies[nsd[0]] = newnodetmp
+
+            # add all new copies of current node(with alt sequence labels) into the dag
+            for i, new_sequence in enumerate(node_copies.keys()):
+                # make sure to overwrite node with a new copy that has an instantiated label
+                newnode = node_copies[new_sequence]
+                if i < 1:
+                    node.label = newnode.label
+                    node._dp_data["transition_cost"] = newnode._dp_data[
+                        "transition_cost"
+                    ]
+                else:
+                    for c in node.children():
+                        newnode.add_edge(c)
+                        c.parents.add(newnode)
+                    for parent in node.parents:
+                        parent.add_edge(newnode)
+                    newnode.parents.update(node.parents)
+    dag.recompute_parents()
+    # still need to trim the dag since the final addition of all
+    # parents/children to new nodes can yield suboptimal choices
+    if transition_weights is not None:
+        optimal_weight = dag.trim_optimal_weight(
+            edge_weight_func=edge_weight_func_from_weight_matrix(dag, adj_arr[0], bases)
+        )
+    else:
+        optimal_weight = dag.trim_optimal_weight()
+    return optimal_weight
 
 
 def disambiguate(
@@ -161,16 +411,22 @@ def disambiguate(
     preorder = list(tree.traverse(strategy="preorder"))
     for node in preorder:
         if min_ambiguities:
-            adj_vec = node.cv != np.stack((node.cv.min(axis=1),) * 5, axis=1)
+            adj_vec = node.cost_vector != np.stack(
+                (node.cost_vector.min(axis=1),) * 5, axis=1
+            )
             new_seq = [
                 ambiguous_codes_from_vecs[tuple(map(float, row))] for row in adj_vec
             ]
         else:
             base_indices = []
             for idx in range(seq_len):
-                min_cost = min(node.cv[idx])
+                min_cost = min(node.cost_vector[idx])
                 base_index = random.choice(
-                    [i for i, val in enumerate(node.cv[idx]) if val == min_cost]
+                    [
+                        i
+                        for i, val in enumerate(node.cost_vector[idx])
+                        if val == min_cost
+                    ]
                 )
                 base_indices.append(base_index)
 
@@ -179,13 +435,13 @@ def disambiguate(
 
         # Adjust child cost vectors
         for child in node.children:
-            child.cv += adj_vec
+            child.cost_vector += adj_vec
         node.sequence = "".join(new_seq)
 
     if remove_cvs:
         for node in tree.traverse():
             try:
-                node.del_feature("cv")
+                node.del_feature("cost_vector")
             except (AttributeError, KeyError):
                 pass
     if adj_dist:
