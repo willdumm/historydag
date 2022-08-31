@@ -111,7 +111,7 @@ def test_most_supported_trees():
                 clade2support[node.under_clade()] = 0
             clade2support[node.under_clade()] += count / total_trees
 
-        print(dag.to_graphviz())
+        # print(dag.to_graphviz())
         best_sup = dag.most_supported_trees()
         print("Best support =", best_sup)
         print(f"\tnum trees before trim: {total_trees}")

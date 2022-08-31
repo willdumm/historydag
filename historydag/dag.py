@@ -1202,7 +1202,6 @@ class HistoryDag:
             optimal_func=max,
         )
         
-        # NOTE: I think this will return the maximum log support value
         return self.dagroot._dp_data
     
 

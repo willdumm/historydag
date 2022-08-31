@@ -29,7 +29,7 @@ def cli():
     """
     pass
 
-def merge(first, others, accumulation_data=None, resolution=10):
+def merge(first, others, accumulation_data=None, resolution=10, edge_weight_func=dist):
     r"""Graph union first history DAG with a generator of others."""
     selforder = first.postorder()
     # hash and __eq__ are implemented for nodes, but we need to retrieve
@@ -37,10 +37,10 @@ def merge(first, others, accumulation_data=None, resolution=10):
     nodedict = {n: n for n in selforder}
     accum_data = []
 
-    def compute_accum_data(dag):
+    def compute_accum_data(dag, edge_weight_func=edge_weight_func):
         tdag = dag.copy()
         tdag.add_all_allowed_edges()
-        pscore = tdag.trim_optimal_weight(edge_weight_func=dist)
+        pscore = tdag.trim_optimal_weight(edge_weight_func=edge_weight_func)
         tdag.convert_to_collapsed()
         ntrees = tdag.count_trees()
         return ntrees, pscore
@@ -60,6 +60,7 @@ def merge(first, others, accumulation_data=None, resolution=10):
             for _, edgeset in n.clades.items():
                 for child, weight, _ in edgeset:
                     pnode.add_edge(nodedict[child], weight=weight)
+        
         if accumulation_data is not None and oidx % resolution == 0:
             accum_data.append((oidx, *compute_accum_data(first)))
     if accumulation_data is not None:
