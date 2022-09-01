@@ -264,7 +264,6 @@ def sankoff_downward(
         )
 
     # save the field names/types of the label datatype for this dag
-    model_label = next(dag.preorder(skip_root=True)).label
     seq_len = len(next(dag.postorder()).label.sequence)
     adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
 
@@ -322,38 +321,27 @@ def sankoff_downward(
 
                 for nsd in new_seq_data:
                     if (nsd[-1] <= min_val) and (nsd[0] not in node_copies):
-                        vals = [
-                            value if name != "sequence" else nsd[0]
-                            for name, value in model_label._asdict().items()
-                        ]
-                        new_label = type(model_label)(*vals)
                         newnodetmp = node.node_self()
-                        newnodetmp.label = new_label
-                        newnodetmp._dp_data = {
-                            k: v
-                            for k, v in node._dp_data.items()
-                            if k != "transition_cost"
-                        }
+                        newnodetmp.label = node.label._replace(sequence=nsd[0])
+                        newnodetmp._dp_data = {}
                         newnodetmp._dp_data["transition_cost"] = nsd[1]
-
                         node_copies[nsd[0]] = newnodetmp
 
             # add all new copies of current node(with alt sequence labels) into the dag
-            for i, new_sequence in enumerate(node_copies.keys()):
+            replaced_current_node = False
+            for new_sequence, new_node in node_copies.items():
                 # make sure to overwrite node with a new copy that has an instantiated label
-                newnode = node_copies[new_sequence]
-                if i < 1:
-                    node.label = newnode.label
-                    node._dp_data["transition_cost"] = newnode._dp_data[
-                        "transition_cost"
-                    ]
+                if not replaced_current_node:
+                    node.label = node.label._replace(sequence=new_sequence)
+                    node._dp_data["transition_cost"] = new_node._dp_data["transition_cost"]
+                    replaced_current_node = True
                 else:
                     for c in node.children():
-                        newnode.add_edge(c)
-                        c.parents.add(newnode)
+                        new_node.add_edge(c)
+                        c.parents.add(new_node)
                     for parent in node.parents:
-                        parent.add_edge(newnode)
-                    newnode.parents.update(node.parents)
+                        parent.add_edge(new_node)
+                    new_node.parents = node.parents
     dag.recompute_parents()
     # still need to trim the dag since the final addition of all
     # parents/children to new nodes can yield suboptimal choices
