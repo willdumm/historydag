@@ -1,4 +1,4 @@
-"""A module implementing Sankoff Algorithm"""
+"""A module implementing Sankoff Algorithm."""
 
 import random
 import ete3
@@ -6,7 +6,11 @@ import numpy as np
 import Bio.Data.IUPACData
 from historydag.utils import access_nodefield_default
 from itertools import product
-from historydag.dag import history_dag_from_clade_trees, history_dag_from_etes, HistoryDag
+from historydag.dag import (
+    history_dag_from_clade_trees,
+    history_dag_from_etes,
+    HistoryDag,
+)
 from copy import deepcopy
 
 bases = "AGCT-"
@@ -150,8 +154,7 @@ def sankoff_upward(
         return np.sum(np.min(tree.cost_vector, axis=1))
 
     elif isinstance(tree, HistoryDag):
-        # make sure that the historydag is valid
-        tree.recompute_parents()
+        # squash all duplicated nodes in the unlabeled historydag, since they will get expanded out with new labels.
         tree.convert_to_collapsed()
         adj_arr = _get_adj_array(
             len(next(tree.postorder()).label.sequence),
@@ -644,7 +647,8 @@ def disambiguate_history(history):
 def treewise_sankoff_in_dag(dag, cover_edges=False):
     """Perform tree-wise sankoff to compute labels for all nodes in the DAG."""
     newdag = history_dag_from_clade_trees(
-        disambiguate_history(history) for history in dag.iter_covering_histories(cover_edges=cover_edges)
+        disambiguate_history(history)
+        for history in dag.iter_covering_histories(cover_edges=cover_edges)
     )
     newdag.explode_nodes()
     newdag.add_all_allowed_edges()

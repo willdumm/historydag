@@ -81,6 +81,10 @@ def check_sankoff_on_dag(
         [downward_pass_min_cost], [expected_score]
     ), "Downward pass of Sankoff on dag did not yield expected score"
 
+    assert (
+        dag.count_trees() == dag.copy().count_trees()
+    ), "Resulting DAG had invalid internal node assignments"
+
 
 with open("sample_data/toy_trees.p", "rb") as f:
     ete_trees = pickle.load(f)
