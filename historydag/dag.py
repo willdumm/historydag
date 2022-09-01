@@ -460,10 +460,14 @@ class HistoryDag:
 
     def _check_valid(self) -> bool:
         """Check that this HistoryDag complies with all the conditions of the definition."""
+        # Traversal checks if a node has been visited by its id, which makes it
+        # suitable for these checks.
         po = list(self.postorder())
         node_set = set(po)
+
         # ***Node instances are unique (And therefore leaves are uniquely labeled also):
-        assert len(po) == len(node_set)
+        if len(po) != len(node_set):
+            raise ValueError("Node instances are not unique")
 
         # ***All nodes are reachable from the UA node: this is proven by the
         # structure of the postorder traversal; if a node is visited, then it's
@@ -475,14 +479,24 @@ class HistoryDag:
                 for clade, eset in node.clades.items():
                     for child in eset.targets:
                         # ***Parent clade equals child clade union for all edges:
-                        assert child.under_clade() == clade
+                        if child.under_clade() != clade:
+                            raise ValueError(
+                                "Parent clade does not equal child clade union"
+                            )
 
         for node in po:
             for clade, eset in node.clades.items():
                 # ***At least one edge descends from each node-clade pair:
-                assert len(eset.targets) > 0
+                if len(eset.targets) == 0:
+                    raise ValueError("Found a clade with no child edges")
                 # ...and there are no duplicate children:
-                assert len(eset.targets) == len(set(eset.targets))
+                if len(eset.targets) != len(set(eset.targets)):
+                    raise ValueError(
+                        "Duplicate child edges found descending from the same clade"
+                    )
+                # ...and the eset._targetset set is correct
+                if eset._targetset != set(eset.targets):
+                    raise ValueError("eset._targetset doesn't match eset.targets")
 
         parents = {node: [] for node in po}
         for node in po:
@@ -490,9 +504,11 @@ class HistoryDag:
                 parents[child].append(node)
         for node in po:
             # ... and parent sets are correct:
-            assert node.parents == set(parents[node])
+            if node.parents != set(parents[node]):
+                raise ValueError("Found an incorrect parent set")
             # ... and there are no duplicate parents:
-            assert len(parents[node]) == len(set(parents[node]))
+            if len(parents[node]) != len(set(parents[node])):
+                raise ValueError("Found duplicate parents")
 
         return True
 
