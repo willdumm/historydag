@@ -1,3 +1,4 @@
+from audioop import reverse
 from genericpath import isdir
 from math import floor
 import ete3
@@ -1635,8 +1636,6 @@ def plot_hists():
                 sample_uncertain[i] = []
             sample_uncertain[i].append(num_certain / total_non_leaves)
     
-        
-
         num_uncertain = 0
         total_non_leaves = 0
         support_vals = {}
@@ -1674,11 +1673,6 @@ def plot_hists():
             diffs_list.append(toi_parsimony / best_pars)
 
         print("Pars diff is", best_pars_diffs[stage][-1])
-
-        # TODO: Aggregate information about the uncertainty + size of nodes across clades
-        # Ideas:
-        #   --> Scatter plot node support vs height
-        #   --> 
 
         name2size = {}
         name2dist = {}
@@ -1739,14 +1733,6 @@ def plot_hists():
     plt.legend(loc='upper right')
     plt.savefig(plot_path + "/heights.png")
     plt.clf()
-
-    height_buckets = range(0, 1, 0.1)
-    data = [ind: {height_bucket: 0 for height_bucket in height_buckets} for ind in range(len(heights))]
-    
-
-
-
-
     
     for clade, pars_diff in zip(clade_list, best_pars_diffs[stage]):
         print(clade, "\t", pars_diff)
@@ -1783,6 +1769,275 @@ def plot_hists():
 
     plt.savefig(plot_path + "/toi_difference.png")
     plt.clf()
+
+
+### TODO: ERemove these and add to DAG
+from math import log
+def most_supported_trees(dag):
+    """ Trims the DAG to only express the trees that have the highest support.
+    """
+    node2count = dag.count_nodes()        
+    total_trees = dag.count_trees()
+    clade2support = {}
+    for node, count in node2count.items():
+        if node.under_clade() not in clade2support:
+            clade2support[node.under_clade()] = 0
+        clade2support[node.under_clade()] += count / total_trees
+
+    dag.trim_optimal_weight(
+        start_func= lambda n: 0,
+        edge_weight_func= lambda n1, n2: log(clade2support[n2.under_clade()]),
+        accum_func= lambda weights: sum([w for w in weights]),
+        optimal_func=max,
+        #TODO: Add equality_func that checks first 5 decimals
+    )
+    dag.recompute_parents()
+    
+    return dag.dagroot._dp_data
+
+def support_count(dag, clade2support=None):
+    if clade2support is None:
+        node2count = dag.count_nodes()        
+        total_trees = dag.count_trees()
+        clade2support = {}
+        for node, count in node2count.items():
+            if node.under_clade() not in clade2support:
+                clade2support[node.under_clade()] = 0
+            clade2support[node.under_clade()] += count / total_trees
+    
+    support_hist = Counter()
+    for node in dag.postorder():
+        support_hist[clade2support[node.under_clade()]] += 1
+    return support_hist
+
+
+@cli.command("explore-most-supported-trees")
+def explore_most_supported_trees():
+    clade_dir = "/fh/fast/matsen_e/whowards/usher-clade-reconstructions/clades"
+    with open("focus_clades.txt", "r") as f:
+        clade_list = f.readlines()
+
+    num_nodes_before = []
+    num_nodes_after = []
+    toi_sups = []
+    best_sups = []
+
+    for clade in clade_list:
+        print(clade)
+        dag_path = f"{clade_dir}/{clade[:-1]}/trimmed_dag.pkl"
+        with open(dag_path, 'rb') as fh:
+            dag = pickle.load(fh)
+        
+        toi_path = f"{clade_dir}/{clade[:-1]}/annotated_modified_toi.pk"
+        with open(toi_path, 'rb') as fh:
+            toi = pickle.load(fh)
+
+        # Compute the support for the toi
+        toi_support = 0
+        for node in toi.traverse():
+            if not node.is_leaf():
+                toi_support += log(node.support)
+        toi_sups.append(toi_support)
+
+        node2count = dag.count_nodes()        
+        total_trees = dag.count_trees()
+        clade2support = {}
+        for node, count in node2count.items():
+            if node.under_clade() not in clade2support:
+                clade2support[node.under_clade()] = 0
+            clade2support[node.under_clade()] += count / total_trees
+        
+        num_trees_before = dag.count_trees()
+        support_hist = support_count(dag, clade2support)
+        best_sup = most_supported_trees(dag)
+        best_sups.append(best_sup)
+        num_trees_after = dag.count_trees()
+
+        print(f"\t{num_trees_before} -> {num_trees_after}\tsup: {best_sup}\ttoi_sup: {toi_support}")
+        # print("\tsupport hist:", support_hist)
+        bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        plt.hist(support_hist, bins=bins)
+        plt.hist(support_count(dag, clade2support), bins=bins)
+        plt.legend(["Before Trim", "After Trim"])
+        plt.xlabel("Support Values")
+        plt.ylabel("Number of Nodes in DAG")
+        plt.title(f"Support distribution before/after trimming to best trees")
+        plt.savefig(f"{clade_dir}/{clade[:-1]}/support_for_full_dag.png")
+        plt.clf()
+
+        num_nodes_before.append(num_trees_before)
+        num_nodes_after.append(num_trees_after)
+
+    # TODO: Scatter plot of number of trees in hDAG before and after
+    plt.scatter(num_nodes_before, num_nodes_after)
+    plt.xlabel("Number trees before trim")
+    plt.ylabel("Number trees after trim")
+    plt.xscale('log')
+    plt.savefig(f"{clade_dir}/plots/num_trees_before_after_scatter_.png")
+    plt.clf()
+
+    plt.scatter(num_nodes_before, num_nodes_after)
+    plt.xlabel("Number trees before trim")
+    plt.ylabel("Number trees after trim")
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.savefig(f"{clade_dir}/plots/num_trees_before_after_scatter.png")
+    plt.clf()
+
+    plt.scatter(toi_sups, best_sups)
+    plt.plot(plt.ylim(), plt.ylim(), ls="--", c=".3")
+    plt.xlabel("TOI ln-support")
+    plt.ylabel("Best ln-support")
+    plt.savefig(f"{clade_dir}/plots/TOI_vs_best_support.png")
+    plt.clf()
+
+    diffs = [log(toi_sup / best_sup) for toi_sup, best_sup in zip(toi_sups, best_sups)]
+    plt.hist(diffs)#, bins=[1+i for i in range(0, 350, 25)])
+    # plt.xticks([1+i for i in range(0, 350, 50)])
+    plt.xlabel("TOI ln-support / Best Tree ln-support")
+    plt.ylabel("Number of Clades")
+    plt.savefig(f"{clade_dir}/plots/TOI_vs_best_diffs.png")
+    plt.clf()
+
+
+@cli.command("get-clade-stats")
+def select_clades():
+    """ Given a path to a MAT, save the subtree, the leaves, and the ancestral sequences for each 
+    """
+
+    working_dir = "/fh/fast/matsen_e/whowards/usher-clade-reconstructions/clade_selection"
+
+    # Load big MAT tree
+    bigmat_file = "clade_selection/data/mat_unique_leaves.pb" #"public-latest.all.masked.pb.gz"
+    refseq_file = "public-latest-reference.fasta"
+
+    print("Loading big MAT...", end="\n\t")
+    mattree = mat.MATree(bigmat_file)
+    node_list = mattree.breadth_first_expansion(reverse=True)
+
+    print(f"Gathering stats from big MAT with {len(node_list)} nodes...")
+    # Gather stats for nodes at each level
+    id2height = {}
+    id2clade = {}
+    id2num_muts = {}
+    leaves = []
+
+    for i, node in enumerate(node_list):
+        height = -1
+        if node.is_leaf():
+            clade = 1
+        else:
+            clade = 0
+            for child in node.children:
+                height = max(height, id2height[child.id])
+                clade += id2clade[child.id]
+        
+        id2height[node.id] = height+1
+        id2clade[node.id] = clade
+        id2num_muts[node.id] = len(node.mutations)
+
+        if i % 5000 == 0:
+            print(i, "height:", height+1, "\tclade len:", clade, "\tnum muts:", len(node.mutations), "\tnum leaves:", len(leaves))
+
+        if node.is_leaf():
+            leaves.append(node.id)
+
+    with open(working_dir + "/usher_stats.pkl", "wb") as f:
+        stats = {
+            "id2height": id2height,
+            "id2clade": id2clade,
+            "id2num_muts": id2num_muts,
+            "root_leaves": leaves
+        }
+        pickle.dump(stats, f)
+
+@cli.command("analyze-clades")
+def analyze_clades():
+    # TODO:
+    # - Figure out why the maximum clade size at a level decreases when you merge clade sets.
+    # --> Because you're joining and summing over height. NOT actually summing over nodes in your partition
+
+    working_dir = "/fh/fast/matsen_e/whowards/usher-clade-reconstructions/clade_selection"
+
+    with open(working_dir + "/usher_stats.pkl", "rb") as f:
+        stats = pickle.load(f)
+    
+    id2height = stats["id2height"]
+    id2clade = stats["id2clade"]
+    id2num_muts = stats["id2num_muts"]
+
+    height2ids = {}
+    height2range = {}
+    for id, height in id2height.items():
+        if height not in height2ids:
+            height2ids[height] = []
+        height2ids[height].append(id)
+
+        if height not in height2range:
+            height2range[height] = (id2clade[id], id2clade[id])
+        else:
+            height2range[height] = (min(height2range[height][0], id2clade[id]), max(height2range[height][1], id2clade[id]))
+            
+
+    for height, ids in height2ids.items():
+        print(height, "\t", len(ids), f"\t\tclades: [{height2range[height][0]}, {height2range[height][1]}]")
+
+    height2cladesizes = {}
+    for height, ids in height2ids.items():
+        height2cladesizes[height] = []
+        for id in ids:
+            height2cladesizes[height].append(id2clade[id])
+    
+    # Put the axes in a flattened list
+    fig, axes_tup = plt.subplots(2,3)
+    axes = []
+    for row in axes_tup:
+        for col in row:
+            axes.append(col)
+
+    for ax, height in zip(axes, range(5, 11)):
+        ax.hist(height2cladesizes[height])
+        ax.set_yscale('log')
+        ax.set_title(f"height {height}")
+
+    plt.tight_layout()
+    plt.savefig(working_dir + "/output/clade_distrib.png")
+    plt.clf()
+
+    muts_dist = Counter()
+    for id, muts in id2num_muts.items():
+        muts_dist[muts] += 1
+    print("Distribution of num mutations on each edge:")
+    print(muts_dist)
+
+    heights = []
+    num_muts = []
+    clade_sizes = []
+    for id, height in id2height.items():
+        heights.append(height)
+        num_muts.append(id2num_muts[id])
+        clade_sizes.append(id2clade[id])
+    
+    plt.scatter(heights, num_muts, alpha=0.1)
+    plt.xlabel("height")
+    plt.ylabel("num mutations")
+    plt.savefig(working_dir + "/output/height_vs_num_muts.png")
+    plt.clf()
+
+    plt.scatter(clade_sizes, num_muts, alpha=0.1)
+    plt.xlabel("clade sizes")
+    plt.xscale('log')
+    plt.ylabel("num mutations")
+    plt.savefig(working_dir + "/output/clade_size_vs_num_muts.png")
+    plt.clf()
+
+
+
+
+    
+
+
+    
 
     
 
