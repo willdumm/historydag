@@ -7,6 +7,7 @@ import Bio.Data.IUPACData
 from historydag.utils import access_nodefield_default
 from itertools import product
 from historydag.dag import history_dag_from_clade_trees, history_dag_from_etes, HistoryDag
+from copy import deepcopy
 
 bases = "AGCT-"
 ambiguous_dna_values = Bio.Data.IUPACData.ambiguous_dna_values.copy()
@@ -149,7 +150,9 @@ def sankoff_upward(
         return np.sum(np.min(tree.cost_vector, axis=1))
 
     elif isinstance(tree, HistoryDag):
+        # make sure that the historydag is valid
         tree.recompute_parents()
+        tree.convert_to_collapsed()
         adj_arr = _get_adj_array(
             len(next(tree.postorder()).label.sequence),
             transition_weights=transition_weights,
@@ -253,7 +256,6 @@ def sankoff_downward(
             to Hamming parsimony.
         filter_min_score: potentially valid optimization(See :meth:`sankoff_upward`).
     """
-    dag.recompute_parents()
     # this computes cost vectors for each node in an upward sweep of Sankoff
     if compute_cvs:
         sankoff_upward(
@@ -293,10 +295,14 @@ def sankoff_downward(
         ]
         return list(zip(new_sequence, adj_vec, [min_cost] * len(new_sequence)))
 
+    dag_nodes = {node: node for node in dag.postorder()}
     # downward pass of Sankoff: find and assign sequence labels to each internal node
     for node in reversed(list(dag.postorder())):
         if not (node.is_leaf() or node.is_root()):
+            node_data = {k: v for k, v in node._dp_data.items()}
             node_copies = {}
+            node_children = set(c for c in node.children())
+            node_parents = set(p for p in node.parents)
             for p in node.parents:
                 if p.is_root():
                     new_seq_data = [
@@ -321,27 +327,33 @@ def sankoff_downward(
 
                 for nsd in new_seq_data:
                     if (nsd[-1] <= min_val) and (nsd[0] not in node_copies):
-                        newnodetmp = node.node_self()
-                        newnodetmp.label = node.label._replace(sequence=nsd[0])
-                        newnodetmp._dp_data = {}
-                        newnodetmp._dp_data["transition_cost"] = nsd[1]
-                        node_copies[nsd[0]] = newnodetmp
+                        new_node = node.node_self()
+                        new_node.label = node.label._replace(sequence=nsd[0])
+                        new_node._dp_data = deepcopy(node_data)
+                        new_node._dp_data["transition_cost"] = nsd[1]
+                        node_copies[nsd[0]] = new_node
 
+            for c in node_children:
+                c.parents.remove(node)
+            for p in node_parents:
+                p.remove_edge_by_clade_and_id(node, node.under_clade())
             # add all new copies of current node(with alt sequence labels) into the dag
-            replaced_current_node = False
             for new_sequence, new_node in node_copies.items():
-                # make sure to overwrite node with a new copy that has an instantiated label
-                if not replaced_current_node:
-                    node.label = node.label._replace(sequence=new_sequence)
-                    node._dp_data["transition_cost"] = new_node._dp_data["transition_cost"]
-                    replaced_current_node = True
+                if new_node in dag_nodes:
+                    tc = new_node._dp_data["transition_cost"]
+                    new_node = dag_nodes[new_node]
+                    new_node._dp_data["transition_cost"] = tc
                 else:
-                    for c in node.children():
-                        new_node.add_edge(c)
-                        c.parents.add(new_node)
-                    for parent in node.parents:
-                        parent.add_edge(new_node)
-                    new_node.parents = node.parents
+                    new_node.label = new_node.label._replace(sequence=new_sequence)
+                for c in node_children:
+                    new_node.add_edge(c)
+                    c.parents.add(new_node)
+                for parent in node_parents:
+                    parent.add_edge(new_node)
+                new_node.parents.update(node_parents)
+                dag_nodes[new_node] = new_node
+            dag_nodes.pop(node)
+
     dag.recompute_parents()
     # still need to trim the dag since the final addition of all
     # parents/children to new nodes can yield suboptimal choices

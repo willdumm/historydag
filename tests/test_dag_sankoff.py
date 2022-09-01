@@ -8,6 +8,8 @@ def compare_dag_and_tree_parsimonies(
     dag, transition_weights=None, filter_min_score=True
 ):
     dag.recompute_parents()
+    dag.convert_to_collapsed()
+
     # extract sample tree
     s = dag.sample()
     # convert to ete3.Tree format
@@ -99,7 +101,7 @@ tw_options = [
         ),
     ),
     (
-        104,
+        106,
         np.array(
             [
                 [0, 1, 5, 1, 1],
