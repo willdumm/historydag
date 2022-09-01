@@ -458,6 +458,44 @@ class HistoryDag:
         self.dagroot = node_postorder[-1]
         self.attr = serial_dict["attr"]
 
+    def _check_valid(self) -> bool:
+        """Check that this HistoryDag complies with all the conditions of the definition."""
+        po = list(self.postorder())
+        node_set = set(po)
+        # ***Node instances are unique (And therefore leaves are uniquely labeled also):
+        assert len(po) == len(node_set)
+
+        # ***All nodes are reachable from the UA node: this is proven by the
+        # structure of the postorder traversal; if a node is visited, then it's
+        # reachable by following directed edges downward. (parent sets aren't
+        # used in the traversal)
+
+        for node in po:
+            if not node.is_root():
+                for clade, eset in node.clades.items():
+                    for child in eset.targets:
+                        # ***Parent clade equals child clade union for all edges:
+                        assert child.under_clade() == clade
+
+        for node in po:
+            for clade, eset in node.clades.items():
+                # ***At least one edge descends from each node-clade pair:
+                assert len(eset.targets) > 0
+                # ...and there are no duplicate children:
+                assert len(eset.targets) == len(set(eset.targets))
+
+        parents = {node: [] for node in po}
+        for node in po:
+            for child in node.children():
+                parents[child].append(node)
+        for node in po:
+            # ... and parent sets are correct:
+            assert node.parents == set(parents[node])
+            # ... and there are no duplicate parents:
+            assert len(parents[node]) == len(set(parents[node]))
+
+        return True
+
     def serialize(self) -> bytes:
         return pickle.dumps(self.__getstate__())
 
@@ -1516,6 +1554,11 @@ class HistoryDag:
                 eset.targets = newtargets
                 eset.weights = newweights
                 n = len(eset.targets)
+                if n == 0:
+                    raise ValueError(
+                        f"Value returned by ``optimal_func`` {optimal_func} is not in the "
+                        f"list of weights passed to that function, according to eq_func {eq_func}"
+                    )
                 eset.probs = [1.0 / n] * n
         self.recompute_parents()
         return opt_weight
