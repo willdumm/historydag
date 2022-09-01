@@ -304,9 +304,9 @@ def sankoff_downward(
         if not (node.is_leaf() or node.is_root()):
             node_data = {k: v for k, v in node._dp_data.items()}
             node_copies = {}
-            node_children = set(c for c in node.children())
-            node_parents = set(p for p in node.parents)
-            for p in node.parents:
+            node_children = set(node.children())
+            node_parents = set(node.parents)
+            for p in node_parents:
                 if p.is_root():
                     new_seq_data = [
                         y
@@ -346,8 +346,6 @@ def sankoff_downward(
                     tc = new_node._dp_data["transition_cost"]
                     new_node = dag_nodes[new_node]
                     new_node._dp_data["transition_cost"] = tc
-                else:
-                    new_node.label = new_node.label._replace(sequence=new_sequence)
                 for c in node_children:
                     new_node.add_edge(c)
                     c.parents.add(new_node)
@@ -355,7 +353,6 @@ def sankoff_downward(
                     parent.add_edge(new_node)
                 new_node.parents.update(node_parents)
                 dag_nodes[new_node] = new_node
-            dag_nodes.pop(node)
 
     dag.recompute_parents()
     # still need to trim the dag since the final addition of all
@@ -614,10 +611,7 @@ def build_dag_from_trees(trees):
         if len(tree.children) == 1:
             newchild = tree.add_child()
             newchild.add_feature("sequence", tree.sequence)
-    return history_dag_from_etes(
-        trees,
-        ["sequence"],
-    )
+    return history_dag_from_etes(trees, ["sequence"],)
 
 
 def summarize_dag(dag):
