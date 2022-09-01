@@ -1,6 +1,7 @@
 import random
 import click
 from collections import Counter
+from itertools import product
 import ete3
 import historydag as hdag
 import pickle
@@ -77,7 +78,7 @@ def _get_adj_array(seq_len, transition_weights=None):
 
 def sankoff_upward(tree, gap_as_char=False, transition_weights=None):
     """Compute Sankoff cost vectors at nodes in a postorder traversal,
-    and return best possible parsimony score of the tree.
+    and return best possible parsimony score of the tree or DAG.
 
     Args:
         gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
@@ -102,29 +103,75 @@ def sankoff_upward(tree, gap_as_char=False, transition_weights=None):
             else:
                 return char
 
-    adj_arr = _get_adj_array(len(tree.sequence), transition_weights=transition_weights)
+    if isinstance(tree, ete3.Tree):
+        adj_arr = _get_adj_array(len(tree.sequence), transition_weights=transition_weights)
 
-    # First pass of Sankoff: compute cost vectors
-    for node in tree.traverse(strategy="postorder"):
-        node.add_feature(
-            "cv",
-            np.array(
-                [code_vectors[translate_base(base)].copy() for base in node.sequence]
-            ),
-        )
-        if not node.is_leaf():
-            child_costs = []
-            for child in node.children:
-                stacked_child_cv = np.stack((child.cv,) * 5, axis=1)
-                total_cost = adj_arr + stacked_child_cv
-                child_costs.append(np.min(total_cost, axis=2))
-            child_cost = np.sum(child_costs, axis=0)
-            node.cv = (
-                np.array([code_vectors[translate_base(base)] for base in node.sequence])
-                + child_cost
+        # First pass of Sankoff: compute cost vectors
+        for node in tree.traverse(strategy="postorder"):
+            node.add_feature(
+                "cv",
+                np.array(
+                    [code_vectors[translate_base(base)].copy() for base in node.sequence]
+                ),
             )
-    return np.sum(np.min(tree.cv, axis=1))
+            if not node.is_leaf():
+                child_costs = []
+                for child in node.children:
+                    stacked_child_cv = np.stack((child.cv,) * 5, axis=1)
+                    total_cost = adj_arr + stacked_child_cv
+                    child_costs.append(np.min(total_cost, axis=2))
+                child_cost = np.sum(child_costs, axis=0)
+                node.cv = (
+                    np.array([code_vectors[translate_base(base)] for base in node.sequence])
+                    + child_cost
+                )
+        return np.sum(np.min(tree.cv, axis=1))
 
+    elif isinstance(tree, hdag.HistoryDag):
+        adj_arr = _get_adj_array(len(next(tree.postorder()).label.sequence), transition_weights=transition_weights)
+
+        def children_cost(child_cost_vectors):
+            costs=[]
+            for c in child_cost_vectors:
+                cost = adj_arr + np.stack((c,) * 5, axis=1)
+                costs.append(np.min(cost, axis=2))
+            return np.sum(costs, axis=0)
+
+        def leaf_func(n):
+            return {
+                "cost_vectors": [np.array([code_vectors[translate_base(base)].copy() for base in n.label.sequence])],
+                "paired_children": [],
+                "subtree_cost": 0
+            }
+
+        def accum_between_clade(clade_data):
+            cost_vectors = []
+            paired_children = []
+            min_cost = float("inf")
+            # iterate over each possible combination of edge choice across clades
+            for choice in product(*clade_data):
+                # compute every possible combination of cost vectors for the given edge choice 
+                # (each child node has possibly multiple cost vectors that are all optimal)
+                for cost_vector_combination in product(*[c._dp_data["cost_vectors"] for c in choice]):
+                    cv = children_cost(cost_vector_combination)
+                    cost = np.sum(np.min(cv, axis=1))
+                    if cost < min_cost:
+                        min_cost = cost
+                        cost_vectors = [cv]
+                        paired_children = [(c for c in choice)]
+                    elif cost <= min_cost and not any([np.array_equal(cv, cv2) for cv2 in cost_vectors]):
+                        cost_vectors.append(cv)
+                        paired_children.append((c for c in choice))
+            return {"cost_vectors": cost_vectors,
+                    "paired_children": paired_children,
+                    "subtree_cost": min_cost}
+        tree.postorder_cladetree_accum(
+                leaf_func=leaf_func,
+                edge_func=lambda x, y: y,
+                accum_within_clade=lambda x: x,
+                accum_between_clade=accum_between_clade,
+                accum_above_edge=lambda x, y: y)
+        return next(tree.preorder())._dp_data["subtree_cost"]
 
 def disambiguate(
     tree,
@@ -205,6 +252,101 @@ def disambiguate(
         for node in tree.iter_descendants():
             node.dist = hamming_distance(node.up.sequence, node.sequence)
     return tree
+
+def full_sankoff_on_dag(dag, compute_cvs=True, gap_as_char=False, transition_weights=None):
+    """Completely resolve maximally parsimonious internal sequence labelings
+    on a DAG using a two-pass Sankoff Algorithm.
+
+    Args:
+        compute_cvs: If true, compute upward sankoff cost vectors. If ``sankoff_upward`` was
+            already run on the dag, this may be skipped.
+        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
+            it will be treated the same as an ``N``.
+        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.
+            Rows contain targeting weights. That is, the first row contains the transition weights
+            from `A` to each possible target base. Alternatively, a sequence-length array of these
+            transition weight matrices, if transition weights vary by-site. By default, a constant
+            weight matrix will be used containing 1 in all off-diagonal positions, equivalent
+            to Hamming parsimony.
+    """
+
+    if compute_cvs:
+        sankoff_upward(dag, gap_as_char=gap_as_char, transition_weights=transition_weights)
+
+    nodedict = {node: node for node in dag.postorder()}
+    model_label = next(dag.preorder(skip_root=True)).label
+    seq_len = len(next(dag.postorder()).label.sequence)
+    adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+
+    def compute_sequence_data(cost_vector):
+        all_base_indices = [[]]
+        min_cost = 0
+        for idx in range(seq_len):
+            min_cost += min(cost_vector[idx])
+            min_cost_indices = np.where(cost_vector[idx] == cost_vector[idx].min())[0]
+            all_base_indices = [base_idx + [i] for base_idx in all_base_indices for i in min_cost_indices]
+        adj_vec = [adj_arr[np.arange(seq_len), base_indices] for base_indices in all_base_indices]
+        new_sequence = ["".join([bases[base_index] \
+                        for base_index in base_indices]) \
+                        for base_indices in all_base_indices]
+        return list(zip(new_sequence, adj_vec, [min_cost]*len(new_sequence)))
+
+    for node in reversed(list(dag.postorder())):
+        if not (node.is_leaf() or node.is_root()):
+            computed_sequences_for_node = set()
+            first_parent = 0
+            for p in node.parents:
+                if p.is_root():
+                    new_seq_data = [
+                        y
+                        for cv in node._dp_data["cost_vectors"]
+                        for y in compute_sequence_data(cv)
+                    ]
+                else:
+                    new_seq_data = [
+                        y
+                        for cv in node._dp_data["cost_vectors"]
+                        for y in compute_sequence_data(cv + p._dp_data["transition_cost"])
+                    ]
+
+                min_val = new_seq_data[0][-1]
+                # only keep those node/parent/cost_vector choices that
+                # achieve a minimal cost for the node/parent choice
+                if len(new_seq_data) > 1:
+                    min_val = min(*list(zip(*new_seq_data))[-1])
+                    new_seq_data = [x for x in new_seq_data if x[-1] <= min_val]
+
+                for i, nsd in enumerate(new_seq_data):
+                    if nsd[0] not in computed_sequences_for_node:
+                        computed_sequences_for_node.add(nsd[0])
+
+                        vals = [
+                            value if name != "sequence" else nsd[0]
+                            for name, value in model_label._asdict().items()
+                        ]
+                        new_label = type(model_label)(*vals)
+
+                        if i + first_parent < 1:
+                            first_parent += 1
+                            node.label = new_label
+                            node._dp_data["transition_cost"] = nsd[1]
+                        else:
+                            newnodetmp = hdag.empty_node(
+                                            new_label,
+                                            frozenset(node.clades.keys()),
+                                            deepcopy(node.attr)
+                                        )
+                            newnodetmp._dp_data = {k: v for k, v in node._dp_data.items() if k != "transition_cost"}
+                            newnodetmp._dp_data["transition_cost"] = nsd[1]
+                            for c in node.children():
+                                newnodetmp.add_edge(c)
+                                c.parents.add(newnodetmp)
+                            for parent in node.parents:
+                                parent.add_edge(newnodetmp)
+                                newnodetmp.parents.add(parent)
+    # still need to trim the dag since the final addition of all
+    # parents/children to new nodes can yield suboptimal choices
+    dag.trim_optimal_weight()
 
 
 def load_fasta(fastapath):
