@@ -1561,21 +1561,16 @@ class HistoryDag:
                     for index, target in enumerate(eset.targets)
                 ]
                 optimalweight = optimal_func([weight for weight, _, _ in weightlist])
-                newtargets = []
-                newweights = []
                 for weight, target, index in weightlist:
-                    if eq_func(weight, optimalweight):
-                        newtargets.append(target)
-                        newweights.append(eset.weights[index])
-                eset.targets = newtargets
-                eset.weights = newweights
+                    if not eq_func(weight, optimalweight):
+                        eset.remove_from_edgeset_byid(target)
                 n = len(eset.targets)
                 if n == 0:
                     raise ValueError(
                         f"Value returned by ``optimal_func`` {optimal_func} is not in the "
                         f"list of weights passed to that function, according to eq_func {eq_func}"
                     )
-                eset.probs = [1.0 / n] * n
+                eset.set_edge_stats(probs=[1.0 / n] * n)
         self.recompute_parents()
         return opt_weight
 
@@ -1767,41 +1762,48 @@ class EdgeSet:
 
     def __init__(
         self,
-        *args,
+        targets: List[HistoryDagNode] = [],
         weights: Optional[List[float]] = None,
         probs: Optional[List[float]] = None,
     ):
         r"""Takes no arguments, or an ordered iterable containing target nodes"""
-        if len(args) > 1:
-            raise TypeError(f"Expected at most one argument, got {len(args)}")
-        elif args:
-            self.targets = list(args[0])
-            n = len(self.targets)
-            if weights is not None:
-                self.weights = weights
-            else:
-                self.weights = [0] * n
-
-            if probs is not None:
-                self.probs = probs
-            else:
-                self.probs = [float(1) / n] * n
-        else:
-            self.targets = []
-            self.weights = []
-            self.probs = []
-            self._targetset = set()
-
-        self._targetset = set(self.targets)
-        if not len(self._targetset) == len(self.targets):
-            raise TypeError("First argument may not contain duplicate target nodes")
-        # Should probably also check to see that all passed lists have same length
+        self.set_targets(targets, weights, probs)
 
     def __iter__(self):
         return (
             (self.targets[i], self.weights[i], self.probs[i])
             for i in range(len(self.targets))
         )
+
+    def set_targets(self, targets, weights=None, probs=None):
+        """Set the target nodes of this node. If no weights or probabilities
+        are provided, then these will be set to 0 and 1/n, respectively."""
+        n = len(targets)
+        if len(set(targets)) != n:
+            raise ValueError(f"duplicate target nodes provided: {len(set(targets))} out of {len(targets)} unique.")
+
+        self.targets = targets
+        self._targetset = set(targets)
+        if weights is None:
+            weights = [0] * n
+        if probs is None:
+            if n == 0:
+                probs = []
+            else:
+                probs = [float(1) / n] * n
+        self.set_edge_stats(weights, probs)
+
+    def set_edge_stats(self, weights=None, probs=None):
+        """Set the edge weights and/or probabilities of this EdgeSet."""
+        n = len(self.targets) 
+        if weights is not None:
+            if len(weights) != n:
+                raise ValueError("length of provided weights list must match number of target nodes")
+            self.weights = weights
+        if probs is not None:
+            if len(probs) != n:
+                raise ValueError("length of provided probabilities list must match number of target nodes")
+            self.probs = probs
 
     def shallowcopy(self) -> "EdgeSet":
         """Return an identical EdgeSet object, which points to the same target
