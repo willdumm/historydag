@@ -1340,7 +1340,7 @@ class HistoryDag:
             return node2count
 
     # TODO: Consider ways to reduce redundancy between this method and the one above
-    def count_edges(self) -> Dict[(HistoryDagNode, HistoryDagNode), int]:
+    def count_edges(self) -> Dict[Tuple[HistoryDagNode, HistoryDagNode], int]:
         """Counts the number of trees each edge takes part in.
         Returns:
             A dicitonary mapping each edge in the DAG to the number of trees
