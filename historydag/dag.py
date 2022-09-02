@@ -1277,7 +1277,9 @@ class HistoryDag:
                             below_clade += sib._dp_data
                         below_parent *= below_clade
 
-                    above_parent = node2stats[parent][0]    # NOTE: Assumes that you're visiting parents before children
+                    above_parent = node2stats[parent][
+                        0
+                    ]  # NOTE: Assumes that you're visiting parents before children
                     above += above_parent * below_parent
 
             node2count[node] = above * below
@@ -1296,47 +1298,9 @@ class HistoryDag:
             return node2count
         return node2count
 
-    # TODO: Consider ways to reduce redundancy between this method and the one above
-    def count_edges(self) -> Dict[Tuple[HistoryDagNode, HistoryDagNode], int]:
-        """Counts the number of trees each edge takes part in.
-
-        Returns:
-            A dicitonary mapping each edge in the DAG to the number of trees
-            that it takes part in.
-        """
-        edge2count = {}
-        node2stats = {}
-
-        self.count_trees()
-        reverse_postorder = reversed(list(self.postorder()))
-        for node in reverse_postorder:
-            below = node._dp_data
-            curr_clade = node.under_clade()
-
-            if node.is_root():
-                above = 1
-            else:
-                above = 0
-                for parent in node.parents:
-                    above_parent = node2stats[parent][0]
-                    below_parent = 1
-                    for clade in parent.clades:
-                        # Skip clade covered by node of interest
-                        if clade == curr_clade or parent.is_root():
-                            continue
-                        below_clade = 0
-                        for sib in parent.children(clade=clade):
-                            below_clade += sib._dp_data
-                        below_parent *= below_clade
-
-                    above += above_parent * below_parent
-
-                    edge2count[(parent, node)] = (above_parent * below_parent) * below
-            node2stats[node] = [above, below]
-
-        return edge2count
-
-    def count_edges(self, collapsed=False) -> Dict[(HistoryDagNode, HistoryDagNode), int]:
+    def count_edges(
+        self, collapsed=False
+    ) -> Dict[Tuple[HistoryDagNode, HistoryDagNode], int]:
         """Counts the number of trees each edge takes part in.
 
         Returns:
@@ -1386,25 +1350,25 @@ class HistoryDag:
         return edge2count
 
     def most_supported_trees(self):
-        """ Trims the DAG to only express the trees that have the highest support.
-        """
-        node2count = self.count_nodes()        
+        """Trims the DAG to only express the trees that have the highest
+        support."""
+        node2count = self.count_nodes()
         total_trees = self.count_trees()
         clade2support = {}
         for node, count in node2count.items():
             if node.under_clade() not in clade2support:
                 clade2support[node.under_clade()] = 0
             clade2support[node.under_clade()] += count / total_trees
-        
+
         from math import log
 
         self.trim_optimal_weight(
-            start_func= lambda n: 0,
-            edge_weight_func= lambda n1, n2: log(clade2support[n2.under_clade()]),
-            accum_func= lambda weights: sum([w for w in weights]),
+            start_func=lambda n: 0,
+            edge_weight_func=lambda n1, n2: log(clade2support[n2.under_clade()]),
+            accum_func=lambda weights: sum([w for w in weights]),
             optimal_func=max,
         )
-        
+
         return self.dagroot._dp_data
 
     def count_paths_to_leaf(

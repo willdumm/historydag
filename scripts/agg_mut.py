@@ -1299,7 +1299,6 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
         print()
         with open(clade_dir + "/parsimony_hists/after_merge.pkl", "wb") as f:
             pickle.dump(hist, f)
-
     dag.add_all_allowed_edges()
     if False:   # NOTE: For many clades this is infeasible to compute in a reasonable amount of time
         print(f"\t{dag.count_trees()} after adding edges")
