@@ -113,4 +113,4 @@ for ((run=1;run<=NRUNS;run++)); do
     rm -f $TMPDIR/ushertree/*.txt
     rm -f $TMPDIR/ushertree/*.tsv
 done
-rm -r $TMPDIR
+rm -rf $TMPDIR
