@@ -132,11 +132,6 @@ def test_count_topologies_equals_newicks():
         assert dag.count_topologies_fast() == dag.count_topologies()
 
 
-def test_count_topologies_equals_newicks():
-    for dag in dags:
-        assert dag.count_topologies() == dag.count_topologies_with_newicks()
-
-
 def test_parsimony():
     # test parsimony counts without ete
     def parsimony(tree):
