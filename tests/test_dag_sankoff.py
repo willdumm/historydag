@@ -8,6 +8,8 @@ def compare_dag_and_tree_parsimonies(
     dag, transition_weights=None, filter_min_score=True
 ):
     dag.recompute_parents()
+    dag.convert_to_collapsed()
+
     # extract sample tree
     s = dag.sample()
     # convert to ete3.Tree format
@@ -79,6 +81,10 @@ def check_sankoff_on_dag(
         [downward_pass_min_cost], [expected_score]
     ), "Downward pass of Sankoff on dag did not yield expected score"
 
+    assert (
+        dag.count_trees() == dag.copy().count_trees()
+    ), "Resulting DAG had invalid internal node assignments"
+
 
 with open("sample_data/toy_trees.p", "rb") as f:
     ete_trees = pickle.load(f)
@@ -99,7 +105,7 @@ tw_options = [
         ),
     ),
     (
-        104,
+        106,
         np.array(
             [
                 [0, 1, 5, 1, 1],

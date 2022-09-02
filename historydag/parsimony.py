@@ -1,4 +1,4 @@
-"""A module implementing Sankoff Algorithm"""
+"""A module implementing Sankoff Algorithm."""
 
 import random
 import ete3
@@ -6,7 +6,12 @@ import numpy as np
 import Bio.Data.IUPACData
 from historydag.utils import access_nodefield_default
 from itertools import product
-from historydag.dag import history_dag_from_clade_trees, history_dag_from_etes, HistoryDag
+from historydag.dag import (
+    history_dag_from_clade_trees,
+    history_dag_from_etes,
+    HistoryDag,
+)
+from copy import deepcopy
 
 bases = "AGCT-"
 ambiguous_dna_values = Bio.Data.IUPACData.ambiguous_dna_values.copy()
@@ -149,7 +154,8 @@ def sankoff_upward(
         return np.sum(np.min(tree.cost_vector, axis=1))
 
     elif isinstance(tree, HistoryDag):
-        tree.recompute_parents()
+        # squash all duplicated nodes in the unlabeled historydag, since they will get expanded out with new labels.
+        tree.convert_to_collapsed()
         adj_arr = _get_adj_array(
             len(next(tree.postorder()).label.sequence),
             transition_weights=transition_weights,
@@ -253,7 +259,6 @@ def sankoff_downward(
             to Hamming parsimony.
         filter_min_score: potentially valid optimization(See :meth:`sankoff_upward`).
     """
-    dag.recompute_parents()
     # this computes cost vectors for each node in an upward sweep of Sankoff
     if compute_cvs:
         sankoff_upward(
@@ -264,7 +269,6 @@ def sankoff_downward(
         )
 
     # save the field names/types of the label datatype for this dag
-    model_label = next(dag.preorder(skip_root=True)).label
     seq_len = len(next(dag.postorder()).label.sequence)
     adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
 
@@ -294,11 +298,15 @@ def sankoff_downward(
         ]
         return list(zip(new_sequence, adj_vec, [min_cost] * len(new_sequence)))
 
+    dag_nodes = {node: node for node in dag.postorder()}
     # downward pass of Sankoff: find and assign sequence labels to each internal node
     for node in reversed(list(dag.postorder())):
         if not (node.is_leaf() or node.is_root()):
+            node_data = {k: v for k, v in node._dp_data.items()}
             node_copies = {}
-            for p in node.parents:
+            node_children = set(node.children())
+            node_parents = set(node.parents)
+            for p in node_parents:
                 if p.is_root():
                     new_seq_data = [
                         y
@@ -322,38 +330,30 @@ def sankoff_downward(
 
                 for nsd in new_seq_data:
                     if (nsd[-1] <= min_val) and (nsd[0] not in node_copies):
-                        vals = [
-                            value if name != "sequence" else nsd[0]
-                            for name, value in model_label._asdict().items()
-                        ]
-                        new_label = type(model_label)(*vals)
-                        newnodetmp = node.node_self()
-                        newnodetmp.label = new_label
-                        newnodetmp._dp_data = {
-                            k: v
-                            for k, v in node._dp_data.items()
-                            if k != "transition_cost"
-                        }
-                        newnodetmp._dp_data["transition_cost"] = nsd[1]
+                        new_node = node.node_self()
+                        new_node.label = node.label._replace(sequence=nsd[0])
+                        new_node._dp_data = deepcopy(node_data)
+                        new_node._dp_data["transition_cost"] = nsd[1]
+                        node_copies[nsd[0]] = new_node
 
-                        node_copies[nsd[0]] = newnodetmp
-
+            for c in node_children:
+                c.parents.remove(node)
+            for p in node_parents:
+                p.remove_edge_by_clade_and_id(node, node.under_clade())
             # add all new copies of current node(with alt sequence labels) into the dag
-            for i, new_sequence in enumerate(node_copies.keys()):
-                # make sure to overwrite node with a new copy that has an instantiated label
-                newnode = node_copies[new_sequence]
-                if i < 1:
-                    node.label = newnode.label
-                    node._dp_data["transition_cost"] = newnode._dp_data[
-                        "transition_cost"
-                    ]
-                else:
-                    for c in node.children():
-                        newnode.add_edge(c)
-                        c.parents.add(newnode)
-                    for parent in node.parents:
-                        parent.add_edge(newnode)
-                    newnode.parents.update(node.parents)
+            for new_sequence, new_node in node_copies.items():
+                if new_node in dag_nodes:
+                    tc = new_node._dp_data["transition_cost"]
+                    new_node = dag_nodes[new_node]
+                    new_node._dp_data["transition_cost"] = tc
+                for c in node_children:
+                    new_node.add_edge(c)
+                    c.parents.add(new_node)
+                for parent in node_parents:
+                    parent.add_edge(new_node)
+                new_node.parents.update(node_parents)
+                dag_nodes[new_node] = new_node
+
     dag.recompute_parents()
     # still need to trim the dag since the final addition of all
     # parents/children to new nodes can yield suboptimal choices
@@ -611,10 +611,7 @@ def build_dag_from_trees(trees):
         if len(tree.children) == 1:
             newchild = tree.add_child()
             newchild.add_feature("sequence", tree.sequence)
-    return history_dag_from_etes(
-        trees,
-        ["sequence"],
-    )
+    return history_dag_from_etes(trees, ["sequence"],)
 
 
 def summarize_dag(dag):
@@ -644,7 +641,8 @@ def disambiguate_history(history):
 def treewise_sankoff_in_dag(dag, cover_edges=False):
     """Perform tree-wise sankoff to compute labels for all nodes in the DAG."""
     newdag = history_dag_from_clade_trees(
-        disambiguate_history(history) for history in dag.iter_covering_histories(cover_edges=cover_edges)
+        disambiguate_history(history)
+        for history in dag.iter_covering_histories(cover_edges=cover_edges)
     )
     newdag.explode_nodes()
     newdag.add_all_allowed_edges()
