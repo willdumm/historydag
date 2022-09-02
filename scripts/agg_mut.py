@@ -1,5 +1,3 @@
-from audioop import reverse
-from genericpath import isdir
 from math import floor
 import ete3
 import functools

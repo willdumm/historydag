@@ -1277,9 +1277,6 @@ class HistoryDag:
                             below_clade += sib._dp_data
                         below_parent *= below_clade
 
-                    above_parent = node2stats[parent][
-                        0
-                    ]  # NOTE: Assumes that you're visiting parents before children
                     above += above_parent * below_parent
 
             node2count[node] = above * below
