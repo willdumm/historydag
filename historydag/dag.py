@@ -1240,8 +1240,6 @@ class HistoryDag:
             prod,
         )
 
-    # TODO: Rename to node_support() or something...
-    # TODO: Currently, the returned type is only correct when collapse is False
     def count_nodes(self, collapse=False) -> Dict[HistoryDagNode, int]:
         """Counts the number of trees each node takes part in.
 
@@ -1297,8 +1295,9 @@ class HistoryDag:
             return node2count
         return node2count
 
-    # TODO: Consider ways to reduce redundancy between this method and the one above
-    def count_edges(self) -> Dict[Tuple[HistoryDagNode, HistoryDagNode], int]:
+    def count_edges(
+        self, collapsed=False
+    ) -> Dict[Tuple[HistoryDagNode, HistoryDagNode], int]:
         """Counts the number of trees each edge takes part in.
 
         Returns:
@@ -1335,7 +1334,39 @@ class HistoryDag:
                     edge2count[(parent, node)] = (above_parent * below_parent) * below
             node2stats[node] = [above, below]
 
+        e2c = {}
+        if collapsed:
+            for (parent, child), count in edge2count.items():
+                parent_cu = parent.under_clade()
+                child_cu = child.under_clade()
+                if (parent_cu, child_cu) not in e2c:
+                    e2c[(parent_cu, child_cu)] = 0
+                e2c[(parent_cu, child_cu)] += count
+            return e2c
+
         return edge2count
+
+    def most_supported_trees(self):
+        """Trims the DAG to only express the trees that have the highest
+        support."""
+        node2count = self.count_nodes()
+        total_trees = self.count_trees()
+        clade2support = {}
+        for node, count in node2count.items():
+            if node.under_clade() not in clade2support:
+                clade2support[node.under_clade()] = 0
+            clade2support[node.under_clade()] += count / total_trees
+
+        from math import log
+
+        self.trim_optimal_weight(
+            start_func=lambda n: 0,
+            edge_weight_func=lambda n1, n2: log(clade2support[n2.under_clade()]),
+            accum_func=lambda weights: sum([w for w in weights]),
+            optimal_func=max,
+        )
+
+        return self.dagroot._dp_data
 
     def count_paths_to_leaf(
         self,

@@ -69,12 +69,12 @@ while getopts "n:f:ho:M:D:d:v:r:" option; do
     esac
 done
 
-# TODO: Uncomment this stuff
+# TODO: Uncomment this stuff after you've regenerated the repos
 # [ -e $OUTDIR ] && { echo "$OUTDIR already exists! Exiting."; exit 0; }
 mkdir -p $OUTDIR
 
 TMPDIR=$OUTDIR/tmp
-mkdir $TMPDIR
+mkdir -p $TMPDIR
 
 if [ -n "${FASTA}" ]
 then
@@ -92,6 +92,7 @@ fi
 
 echo "($REFID)1;" > $TMPDIR/starttree.nh
 echo $REFID > $OUTDIR/refid.txt
+echo "Reference id is" $REFID
 for ((run=1;run<=NRUNS;run++)); do
     echo Building alternative initial trees: iteration $run / $NRUNS ...
     # place samples in the tree in up to MAX_ALTERNATE_PLACEMENTS different
@@ -111,6 +112,6 @@ for ((run=1;run<=NRUNS;run++)); do
     rm -f *intermediate*
     rm -f $TMPDIR/ushertree/*.nh
     rm -f $TMPDIR/ushertree/*.txt
-    rm -f $TMPDIR/ushertree/*.tsv
+    # rm -f $TMPDIR/ushertree/*.tsv # NOTE: I dont think we need this
 done
 rm -rf $TMPDIR
