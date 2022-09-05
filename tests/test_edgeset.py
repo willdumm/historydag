@@ -11,12 +11,14 @@ def test_init():
     tree1 = ete3.Tree(newickstring2, format=1)
     dag1 = from_tree(tree1, ["sequence"])
     EdgeSet()
-    EdgeSet([dag.dagroot])
+    e = EdgeSet([dag.dagroot])
+    for edge in e:
+        print(e)
     EdgeSet([dag.dagroot], probs=[0.5])
     try:
         EdgeSet([dag.dagroot, dag1.dagroot])
         raise TypeError("EdgeSet init is allowing identical dags to be added")
-    except TypeError:
+    except (TypeError, ValueError):
         pass
     try:
         EdgeSet([dag.dagroot], [dag1.dagroot])
@@ -33,6 +35,9 @@ def test_iter():
     e2 = EdgeSet([next(dag.dagroot.children()), next(dag1.dagroot.children())])
     for target, weight, prob in e2:
         pass
+    for node in (dag | dag1).preorder():
+        for clade, eset in node.clades.items():
+            assert len(eset.targets) == len(eset.probs) and len(eset.probs) == len(eset.weights)
 
 
 def test_copy():
