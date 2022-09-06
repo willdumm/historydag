@@ -125,7 +125,9 @@ def test_sankoff_on_dag():
     ]
 
     for (w, tw) in tw_options:
-        check_sankoff_on_dag(dg.copy(), w, transition_weights=tw, filter_min_score=False)
+        check_sankoff_on_dag(
+            dg.copy(), w, transition_weights=tw, filter_min_score=False
+        )
         check_sankoff_on_dag(dg.copy(), w, transition_weights=tw, filter_min_score=True)
         compare_dag_and_tree_parsimonies(
             dg.copy(), transition_weights=tw, filter_min_score=False

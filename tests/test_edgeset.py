@@ -37,7 +37,9 @@ def test_iter():
         pass
     for node in (dag | dag1).preorder():
         for clade, eset in node.clades.items():
-            assert len(eset.targets) == len(eset.probs) and len(eset.probs) == len(eset.weights)
+            assert len(eset.targets) == len(eset.probs) and len(eset.probs) == len(
+                eset.weights
+            )
 
 
 def test_copy():
