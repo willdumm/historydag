@@ -1770,10 +1770,6 @@ class EdgeSet:
         self.set_targets(targets, weights, probs)
 
     def __iter__(self):
-        print('group')
-        print(len(self.targets))
-        print(len(self.probs))
-        print(len(self.weights))
         return (
             (self.targets[i], self.weights[i], self.probs[i])
             for i in range(len(self.targets))
