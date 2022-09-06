@@ -35,7 +35,7 @@ def test_iter():
     e2 = EdgeSet([next(dag.dagroot.children()), next(dag1.dagroot.children())])
     for target, weight, prob in e2:
         pass
-    for node in (dag | dag2).preorder():
+    for node in (dag | dag1).preorder():
         for clade, eset in node.clades.items():
             assert len(eset.targets) == len(eset.probs) and len(eset.probs) == len(eset.weights)
 

@@ -55,6 +55,7 @@ for tree in trees:
 def test_fulltree():
     dag = hdag.history_dag_from_etes([etetree], ["sequence"])
     dag.convert_to_collapsed()
+    dag._check_valid()
     assert set(deterministic_newick(tree.to_ete()) for tree in dag.get_trees()) == set(
         {deterministic_newick(etetree2)}
     )
@@ -63,6 +64,7 @@ def test_fulltree():
 def test_twotrees():
     dag = hdag.history_dag_from_etes([etetree, etetree2], ["sequence"])
     dag.convert_to_collapsed()
+    dag._check_valid()
     assert dag.count_trees() == 1
     assert {deterministic_newick(tree.to_ete()) for tree in dag.get_trees()} == {
         deterministic_newick(etetree2)
@@ -75,10 +77,12 @@ def test_collapse():
     uncollapsed_dag.convert_to_collapsed()
     allcollapsedtrees = [utils.collapse_adjacent_sequences(tree) for tree in trees]
     collapsed_dag = hdag.history_dag_from_etes(allcollapsedtrees, ["sequence"])
+    collapsed_dag._check_valid()
     maybecollapsedtrees = [tree.to_ete() for tree in uncollapsed_dag.get_trees()]
     assert all(utils.is_collapsed(tree) for tree in maybecollapsedtrees)
     n_before = uncollapsed_dag.count_trees()
     uncollapsed_dag.merge(collapsed_dag)
+    uncollapsed_dag._check_valid()
     assert n_before == uncollapsed_dag.count_trees()
 
 
@@ -86,14 +90,18 @@ def test_add_allowed_edges():
     # See that adding only edges that preserve parent labels preserves parsimony
     dag = hdag.history_dag_from_etes(trees, ["sequence"])
     dag.add_all_allowed_edges(preserve_parent_labels=True)
+    dag._check_valid()
     c = dag.weight_count()
     assert min(c) == max(c)
 
     # See that adding only edges between nodes with different labels preserves collapse
     allcollapsedtrees = [collapse_adjacent_sequences(tree) for tree in trees]
     collapsed_dag = hdag.history_dag_from_etes(allcollapsedtrees, ["sequence"])
+    collapsed_dag._check_valid()
     collapsed_dag.convert_to_collapsed()
+    collapsed_dag._check_valid()
     collapsed_dag.add_all_allowed_edges(adjacent_labels=False)
+    collapsed_dag._check_valid()
     assert all(
         parent.label != target.label
         for parent in collapsed_dag.postorder()

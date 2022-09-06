@@ -106,6 +106,8 @@ def _testfactory(resultfunc, verify_func, collapse_invariant=False, accum_func=C
 
 def test_valid_dags():
     for dag in dags + cdags:
+        dag._check_valid()
+        dag.copy()._check_valid()
         # each edge is allowed:
         for node in dag.postorder():
             for clade in node.clades:
@@ -353,9 +355,12 @@ def test_from_nodes():
         cdag = dag.copy()
         cdag.add_all_allowed_edges()
         cdag.trim_optimal_weight()
+        cdag._check_valid()
         wc = cdag.weight_count()
         ndag = hdag.history_dag_from_nodes(cdag.preorder())
+        ndag._check_valid()
         ndag.trim_optimal_weight()
+        ndag._check_valid()
         print(ndag.to_graphviz())
         assert wc == ndag.weight_count()
 
@@ -371,6 +376,7 @@ def test_sample_with_node():
     ]
     for node in least_supported_nodes:
         tree_samples = [dag.sample_with_node(node) for _ in range(min_count * 5)]
+        tree_samples[0]._check_valid()
         tree_newicks = {tree.to_newick() for tree in tree_samples}
         # We sampled all trees possible containing the node
         assert len(tree_newicks) == min_count
@@ -404,6 +410,7 @@ def test_sample_with_edge():
     for parent in node.parents:
         edge = (parent, node)
         tree_samples = [dag.sample_with_edge(edge) for _ in range(min_count * 5)]
+        tree_samples[0]._check_valid()
         # We sampled all trees possible containing the node
         # All trees sampled contained the node
         assert all(edge in edges(tree) for tree in tree_samples)
@@ -433,4 +440,5 @@ def test_relabel():
     ndag = dag.relabel(lambda n: Label(n.label.sequence, len(list(n.children()))))
     Label = namedtuple("Label", ["sequence"])
     odag = ndag.relabel(lambda n: Label(n.label.sequence))
+    odag._check_valid()
     assert dag.weight_count() == odag.weight_count()
