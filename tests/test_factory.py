@@ -362,6 +362,7 @@ def test_trim():
         dag.convert_to_collapsed()
         dag._check_valid()
 
+
 def test_from_nodes():
     for dag in dags + cdags:
         cdag = dag.copy()
