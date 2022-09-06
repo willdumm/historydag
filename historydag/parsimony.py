@@ -4,7 +4,6 @@ import random
 import ete3
 import numpy as np
 import Bio.Data.IUPACData
-from historydag.utils import access_nodefield_default
 from itertools import product
 from historydag.dag import (
     history_dag_from_clade_trees,
@@ -72,16 +71,18 @@ def _get_adj_array(seq_len, transition_weights=None):
     return adj_arr
 
 
-def edge_weight_func_from_weight_matrix(dag, weight_mat, bases):
-    @access_nodefield_default("sequence", 0)
-    def wrapped_weighted_hamming_distance(s1, s2) -> int:
-        """The sitewise sum of base differences between s1 and s2."""
+def edge_weight_func_from_weight_matrix(n1, n2, weight_mat=None, bases=None):
+    if n1.is_root() or n2.is_root():
+        return 0
+    if len(n1.label.sequence) != len(n2.label.sequence):
+        raise ValueError("Sequences must have the same length!")
+    if weight_mat is not None and bases is not None:
         base_indices = {k: v for v, k in enumerate(bases)}
-        if len(s1) != len(s2):
-            raise ValueError("Sequences must have the same length!")
-        return sum(weight_mat[base_indices[x], base_indices[y]] for x, y in zip(s1, s2))
-
-    return wrapped_weighted_hamming_distance
+        return sum(
+            weight_mat[base_indices[x], base_indices[y]]
+            for x, y in zip(n1.label.sequence, n2.label.sequence)
+        )
+    return sum(x != y for x, y in zip(n1.label.sequence, n2.label.sequence))
 
 
 def sankoff_upward(
@@ -358,9 +359,11 @@ def sankoff_downward(
     # still need to trim the dag since the final addition of all
     # parents/children to new nodes can yield suboptimal choices
     if transition_weights is not None:
-        optimal_weight = dag.trim_optimal_weight(
-            edge_weight_func=edge_weight_func_from_weight_matrix(dag, adj_arr[0], bases)
-        )
+
+        def weight_func(x, y):
+            return edge_weight_func_from_weight_matrix(x, y, adj_arr[0], bases)
+
+        optimal_weight = dag.trim_optimal_weight(edge_weight_func=weight_func)
     else:
         optimal_weight = dag.trim_optimal_weight()
     return optimal_weight
@@ -611,7 +614,10 @@ def build_dag_from_trees(trees):
         if len(tree.children) == 1:
             newchild = tree.add_child()
             newchild.add_feature("sequence", tree.sequence)
-    return history_dag_from_etes(trees, ["sequence"],)
+    return history_dag_from_etes(
+        trees,
+        ["sequence"],
+    )
 
 
 def summarize_dag(dag):
