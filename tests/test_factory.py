@@ -350,6 +350,18 @@ def test_indexing_comprehensive():
         )
 
 
+def test_trim():
+    for dag in dags + cdags:
+        dag = dag.copy()
+        dag.add_all_allowed_edges()
+        dag._check_valid()
+        dag.recompute_parents()
+        dag._check_valid()
+        dag.trim_optimal_weight()
+        dag._check_valid()
+        dag.convert_to_collapsed()
+        dag._check_valid()
+
 def test_from_nodes():
     for dag in dags + cdags:
         cdag = dag.copy()
