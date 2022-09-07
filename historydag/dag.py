@@ -229,8 +229,12 @@ class HistoryDagNode:
         for clade, eset in self.clades.items():
             mask = [edge_selector((self, target)) for target in eset.targets]
             sampled_target, target_weight = eset.sample(mask=mask)
+            sampled_target_subsample = sampled_target._sample(
+                edge_selector=edge_selector
+            )
+            sampled_target_subsample.parents = set([self])
             sample.clades[clade].add_to_edgeset(
-                sampled_target._sample(edge_selector=edge_selector),
+                sampled_target_subsample,
                 weight=target_weight,
             )
         return sample
@@ -1762,18 +1766,22 @@ class EdgeSet:
 
     def __init__(
         self,
-        targets: List[HistoryDagNode] = [],
+        *args,
         weights: Optional[List[float]] = None,
         probs: Optional[List[float]] = None,
     ):
         r"""Takes no arguments, or an ordered iterable containing target nodes"""
+        if len(args) == 0:
+            targets = []
+        elif len(args) == 1:
+            targets = args[0]
+        else:
+            raise TypeError(
+                f"__init__() takes 0 or 1 positional arguments but {len(args)} were given."
+            )
         self.set_targets(targets, weights, probs)
 
     def __iter__(self):
-        print('group')
-        print(len(self.targets))
-        print(len(self.probs))
-        print(len(self.weights))
         return (
             (self.targets[i], self.weights[i], self.probs[i])
             for i in range(len(self.targets))
@@ -1784,7 +1792,9 @@ class EdgeSet:
         are provided, then these will be set to 0 and 1/n, respectively."""
         n = len(targets)
         if len(set(targets)) != n:
-            raise ValueError(f"duplicate target nodes provided: {len(set(targets))} out of {len(targets)} unique.")
+            raise ValueError(
+                f"duplicate target nodes provided: {len(set(targets))} out of {len(targets)} unique."
+            )
 
         self.targets = targets
         self._targetset = set(targets)
@@ -1799,14 +1809,18 @@ class EdgeSet:
 
     def set_edge_stats(self, weights=None, probs=None):
         """Set the edge weights and/or probabilities of this EdgeSet."""
-        n = len(self.targets) 
+        n = len(self.targets)
         if weights is not None:
             if len(weights) != n:
-                raise ValueError("length of provided weights list must match number of target nodes")
+                raise ValueError(
+                    "length of provided weights list must match number of target nodes"
+                )
             self.weights = weights
         if probs is not None:
             if len(probs) != n:
-                raise ValueError("length of provided probabilities list must match number of target nodes")
+                raise ValueError(
+                    "length of provided probabilities list must match number of target nodes"
+                )
             self.probs = probs
 
     def shallowcopy(self) -> "EdgeSet":

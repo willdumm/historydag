@@ -90,6 +90,7 @@ def test_from_tree():
     tree = ete3.Tree(newickstring2, format=1)
     print(tree.sequence)
     dag = from_tree(tree, ["sequence"])
+    dag._check_valid()
     G = dag.to_graphviz(namedict=namedict)
     return G
 
@@ -98,6 +99,7 @@ def test_is_clade_tree():
     tree = ete3.Tree(newickstring2, format=1)
     print(tree.sequence)
     dag = from_tree(tree, ["sequence"])
+    dag._check_valid()
     assert dag.is_clade_tree()
 
 
@@ -110,6 +112,7 @@ def test_from_tree_label():
         ["sequence", "abundance"],
         label_functions={"abundance2x": lambda n: 2 * n.abundance},
     )
+    dag._check_valid()
 
 
 def test_preserve_attr():
@@ -119,6 +122,7 @@ def test_preserve_attr():
         ["sequence"],
         attr_func=lambda n: n.name,
     )
+    dag._check_valid()
     assert all(n.attr for n in dag.preorder(skip_root=True))
 
     @utils.explode_label("sequence")
@@ -131,8 +135,10 @@ def test_preserve_attr():
             yield seq
 
     dag.explode_nodes(expand_func=expand_func)
+    dag._check_valid()
     assert all(n.attr for n in dag.preorder(skip_root=True))
     dag.convert_to_collapsed()
+    dag._check_valid()
     assert all(n.attr for n in dag.preorder(skip_root=True))
 
 
@@ -232,6 +238,7 @@ def test_sample():
     for i in range(10):
         assert dag.sample().is_clade_tree()
     sample = dag.sample()
+    sample._check_valid()
     return sample.to_graphviz(namedict=namedict)
 
 
@@ -332,6 +339,7 @@ def test_make_uniform():
     )
     take1 = Counter([dag.sample().to_newick() for _ in range(1000)])
     dag.make_uniform()
+    dag._check_valid()
     take2 = Counter([dag.sample().to_newick() for _ in range(1000)])
 
     take1norms, avg1 = normalize_counts(take1)

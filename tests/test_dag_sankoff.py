@@ -81,6 +81,7 @@ def check_sankoff_on_dag(
         filter_min_score=filter_min_score,
         compute_cvs=False,
     )
+    dag._check_valid()
     assert np.isclose(
         [downward_pass_min_cost], [expected_score]
     ), "Downward pass of Sankoff on dag did not yield expected score"
@@ -90,44 +91,47 @@ def check_sankoff_on_dag(
     ), "Resulting DAG had invalid internal node assignments"
 
 
-with open("sample_data/toy_trees.p", "rb") as f:
-    ete_trees = pickle.load(f)
-dg = hdag.history_dag_from_etes(ete_trees, ["sequence"])
+def test_sankoff_on_dag():
+    with open("sample_data/toy_trees.p", "rb") as f:
+        ete_trees = pickle.load(f)
+    dg = hdag.history_dag_from_etes(ete_trees, ["sequence"])
 
-tw_options = [
-    (75, None),
-    (
-        93,
-        np.array(
-            [
-                [0, 1, 2.5, 1, 1],
-                [1, 0, 1, 2.5, 1],
-                [2.5, 1, 0, 1, 1],
-                [1, 2.5, 1, 0, 1],
-                [1, 1, 1, 1, 0],
-            ]
+    tw_options = [
+        (75, None),
+        (
+            93,
+            np.array(
+                [
+                    [0, 1, 2.5, 1, 1],
+                    [1, 0, 1, 2.5, 1],
+                    [2.5, 1, 0, 1, 1],
+                    [1, 2.5, 1, 0, 1],
+                    [1, 1, 1, 1, 0],
+                ]
+            ),
         ),
-    ),
-    (
-        106,
-        np.array(
-            [
-                [0, 1, 5, 1, 1],
-                [1, 0, 1, 5, 1],
-                [5, 1, 0, 1, 1],
-                [1, 5, 1, 0, 1],
-                [1, 1, 1, 1, 0],
-            ]
+        (
+            106,
+            np.array(
+                [
+                    [0, 1, 5, 1, 1],
+                    [1, 0, 1, 5, 1],
+                    [5, 1, 0, 1, 1],
+                    [1, 5, 1, 0, 1],
+                    [1, 1, 1, 1, 0],
+                ]
+            ),
         ),
-    ),
-]
+    ]
 
-for (w, tw) in tw_options:
-    check_sankoff_on_dag(dg.copy(), w, transition_weights=tw, filter_min_score=False)
-    check_sankoff_on_dag(dg.copy(), w, transition_weights=tw, filter_min_score=True)
-    compare_dag_and_tree_parsimonies(
-        dg.copy(), transition_weights=tw, filter_min_score=False
-    )
-    compare_dag_and_tree_parsimonies(
-        dg.copy(), transition_weights=tw, filter_min_score=True
-    )
+    for (w, tw) in tw_options:
+        check_sankoff_on_dag(
+            dg.copy(), w, transition_weights=tw, filter_min_score=False
+        )
+        check_sankoff_on_dag(dg.copy(), w, transition_weights=tw, filter_min_score=True)
+        compare_dag_and_tree_parsimonies(
+            dg.copy(), transition_weights=tw, filter_min_score=False
+        )
+        compare_dag_and_tree_parsimonies(
+            dg.copy(), transition_weights=tw, filter_min_score=True
+        )
