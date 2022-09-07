@@ -299,7 +299,7 @@ def sankoff_downward(
         ]
         return list(zip(new_sequence, adj_vec, [min_cost] * len(new_sequence)))
 
-    dag_nodes = {node: node for node in dag.postorder()}
+    dag_nodes = {}
     # downward pass of Sankoff: find and assign sequence labels to each internal node
     for node in reversed(list(dag.postorder())):
         if not (node.is_leaf() or node.is_root()):
