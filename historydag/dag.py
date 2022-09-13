@@ -463,7 +463,8 @@ class HistoryDag:
         self.attr = serial_dict["attr"]
 
     def _check_valid(self) -> bool:
-        """Check that this HistoryDag complies with all the conditions of the definition."""
+        """Check that this HistoryDag complies with all the conditions of the
+        definition."""
         # Traversal checks if a node has been visited by its id, which makes it
         # suitable for these checks.
         po = list(self.postorder())
@@ -1788,8 +1789,11 @@ class EdgeSet:
         )
 
     def set_targets(self, targets, weights=None, probs=None):
-        """Set the target nodes of this node. If no weights or probabilities
-        are provided, then these will be set to 0 and 1/n, respectively."""
+        """Set the target nodes of this node.
+
+        If no weights or probabilities are provided, then these will be
+        set to 0 and 1/n, respectively.
+        """
         n = len(targets)
         if len(set(targets)) != n:
             raise ValueError(
