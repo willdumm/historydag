@@ -28,13 +28,13 @@ from historydag.utils import Weight, Label, UALabel, prod
 from historydag.counterops import counter_sum, counter_prod
 
 
-def _under_clade_dict(nodeseq: Sequence["HistoryDagNode"]) -> Dict:
+def _clade_union_dict(nodeseq: Sequence["HistoryDagNode"]) -> Dict:
     clade_dict: Dict[FrozenSet[Label], List[HistoryDagNode]] = {}
     for node in nodeseq:
-        under_clade = node.under_clade()
-        if under_clade not in clade_dict:
-            clade_dict[under_clade] = []
-        clade_dict[node.under_clade()].append(node)
+        clade_union = node.clade_union()
+        if clade_union not in clade_dict:
+            clade_dict[clade_union] = []
+        clade_dict[node.clade_union()].append(node)
     return clade_dict
 
 
@@ -506,11 +506,11 @@ class HistoryDag:
         # used in the traversal)
 
         for node in po:
-            if not node.is_root():
+            if not node.is_ua_node():
                 for clade, eset in node.clades.items():
                     for child in eset.targets:
                         # ***Parent clade equals child clade union for all edges:
-                        if child.under_clade() != clade:
+                        if child.clade_union() != clade:
                             raise ValueError(
                                 "Parent clade does not equal child clade union"
                             )
@@ -570,7 +570,7 @@ class HistoryDag:
 
     def num_nodes(self) -> int:
         """Return the number of nodes in the DAG, not counting the UA node."""
-        return sum(1 for _ in self.preorder(skip_root=True))
+        return sum(1 for _ in self.preorder(skip_ua_node=True))
 
     def num_leaves(self) -> int:
         """Return the number of leaf nodes in the DAG."""
@@ -683,11 +683,11 @@ class HistoryDag:
         that all histories in the DAG have unique topologies."""
 
         newdag = self.copy()
-        model_label = next(self.preorder(skip_root=True)).label
+        model_label = next(self.preorder(skip_ua_node=True)).label
         # initialize empty/default value for each item in model_label
         field_values = tuple(type(item)() for item in model_label)
         internal_label = type(model_label)(*field_values)
-        for node in newdag.preorder(skip_root=True):
+        for node in newdag.preorder(skip_ua_node=True):
             if not node.is_leaf():
                 node.label = internal_label
 
@@ -715,7 +715,7 @@ class HistoryDag:
             return frozenset(leaf_label_dict[old_label] for old_label in old_clade)
 
         def remove_abundance_node(old_node):
-            if old_node.is_root():
+            if old_node.is_ua_node():
                 return UANode(
                     EdgeSet(
                         [
@@ -797,7 +797,11 @@ class HistoryDag:
                     for child, weight, _ in edgeset:
                         pnode.add_edge(nodedict[child], weight=weight)
 
-    def add_all_allowed_edges(
+    def add_all_allowed_edges(self, *args, **kwargs) -> int:
+        """Provided as a deprecated synonym for :meth:``make_complete``."""
+        return self.make_complete(*args, **kwargs)
+
+    def make_complete(
         self,
         new_from_root: bool = True,
         adjacent_labels: bool = True,
@@ -826,8 +830,8 @@ class HistoryDag:
                 for node in self.postorder()
             }
 
-        clade_dict = _under_clade_dict(self.preorder(skip_root=True))
-        clade_dict[self.dagroot.under_clade()] = []
+        clade_dict = _clade_union_dict(self.preorder(skip_ua_node=True))
+        clade_dict[self.dagroot.clade_union()] = []
 
         for node in self.postorder():
             if new_from_root is False and node.is_ua_node():
@@ -930,7 +934,7 @@ class HistoryDag:
                 newnode.add_feature(feature, func(node))
             return newnode
 
-        nodedict = {node: etenode(node) for node in self.preorder(skip_root=True)}
+        nodedict = {node: etenode(node) for node in self.preorder(skip_ua_node=True)}
 
         for node in nodedict:
             for target in node.children():
@@ -1103,7 +1107,7 @@ class HistoryDag:
             if leaf_label in node.clade_union()
         }
 
-        for node in self.preorder(skip_root=True):
+        for node in self.preorder(skip_ua_node=True):
             for clade, eset in node.clades.items():
                 if leaf_label in clade:
                     for cnode in eset.targets:
@@ -1151,7 +1155,7 @@ class HistoryDag:
                         parent.label == parent_label
                         and child.label == child_label
                         and (
-                            leaf_label in child.under_clade()
+                            leaf_label in child.clade_union()
                             or (child.label == leaf_label and child.is_leaf())
                         )
                     ):
@@ -1206,11 +1210,11 @@ class HistoryDag:
         parent_dictionary = {
             node: set()
             for node in self.dagroot.children()
-            if leaf_label in node.under_clade()
+            if leaf_label in node.clade_union()
             or (node.is_leaf() and node.label == leaf_label)
         }
 
-        for node in self.preorder(skip_root=True):
+        for node in self.preorder(skip_ua_node=True):
             for clade, eset in node.clades.items():
                 if leaf_label in clade:
                     for cnode in eset.targets:
@@ -1275,7 +1279,7 @@ class HistoryDag:
         duplicates = list(
             Counter(
                 node.child_clades()
-                for node in self.preorder(skip_root=True)
+                for node in self.preorder(skip_ua_node=True)
                 if not node.is_leaf()
             ).values()
         )
@@ -1519,13 +1523,13 @@ class HistoryDag:
         node2count = {}
         node2stats = {}
 
-        self.count_trees()
+        self.count_histories()
         reverse_postorder = reversed(list(self.postorder()))
         for node in reverse_postorder:
             below = node._dp_data
-            curr_clade = node.under_clade()
+            curr_clade = node.clade_union()
 
-            if node.is_root():
+            if node.is_ua_node():
                 above = 1
             else:
                 above = 0
@@ -1534,7 +1538,7 @@ class HistoryDag:
                     below_parent = 1
                     for clade in parent.clades:
                         # Skip clade covered by node of interest
-                        if clade == curr_clade or parent.is_root():
+                        if clade == curr_clade or parent.is_ua_node():
                             continue
                         below_clade = 0
                         for sib in parent.children(clade=clade):
@@ -1549,7 +1553,7 @@ class HistoryDag:
         collapsed_n2c = {}
         if collapse:
             for node in node2count.keys():
-                clade = node.under_clade()
+                clade = node.clade_union()
                 if clade not in collapsed_n2c:
                     collapsed_n2c[clade] = 0
 
@@ -1571,13 +1575,13 @@ class HistoryDag:
         edge2count = {}
         node2stats = {}
 
-        self.count_trees()
+        self.count_histories()
         reverse_postorder = reversed(list(self.postorder()))
         for node in reverse_postorder:
             below = node._dp_data
-            curr_clade = node.under_clade()
+            curr_clade = node.clade_union()
 
-            if node.is_root():
+            if node.is_ua_node():
                 above = 1
             else:
                 above = 0
@@ -1586,7 +1590,7 @@ class HistoryDag:
                     below_parent = 1
                     for clade in parent.clades:
                         # Skip clade covered by node of interest
-                        if clade == curr_clade or parent.is_root():
+                        if clade == curr_clade or parent.is_ua_node():
                             continue
                         below_clade = 0
                         for sib in parent.children(clade=clade):
@@ -1601,8 +1605,8 @@ class HistoryDag:
         e2c = {}
         if collapsed:
             for (parent, child), count in edge2count.items():
-                parent_cu = parent.under_clade()
-                child_cu = child.under_clade()
+                parent_cu = parent.clade_union()
+                child_cu = child.clade_union()
                 if (parent_cu, child_cu) not in e2c:
                     e2c[(parent_cu, child_cu)] = 0
                 e2c[(parent_cu, child_cu)] += count
@@ -1614,18 +1618,18 @@ class HistoryDag:
         """Trims the DAG to only express the trees that have the highest
         support."""
         node2count = self.count_nodes()
-        total_trees = self.count_trees()
+        total_trees = self.count_histories()
         clade2support = {}
         for node, count in node2count.items():
-            if node.under_clade() not in clade2support:
-                clade2support[node.under_clade()] = 0
-            clade2support[node.under_clade()] += count / total_trees
+            if node.clade_union() not in clade2support:
+                clade2support[node.clade_union()] = 0
+            clade2support[node.clade_union()] += count / total_trees
 
         from math import log
 
         self.trim_optimal_weight(
             start_func=lambda n: 0,
-            edge_weight_func=lambda n1, n2: log(clade2support[n2.under_clade()]),
+            edge_weight_func=lambda n1, n2: log(clade2support[n2.clade_union()]),
             accum_func=lambda weights: sum([w for w in weights]),
             optimal_func=max,
         )
@@ -1969,15 +1973,23 @@ class HistoryDag:
 
         yield from traverse(self.dagroot)
 
-    def preorder(self, skip_root=False) -> Generator[HistoryDagNode, None, None]:
+    def preorder(
+        self, skip_ua_node=False, skip_root=None
+    ) -> Generator[HistoryDagNode, None, None]:
         """Recursive postorder traversal of the history DAG.
 
         Careful! This is not guaranteed to visit a parent node before any of its children.
         for that, need reverse postorder traversal.
 
+        If skip_ua_node is passed, the universal ancestor node will be skipped.
+        skip_root is provided as a backwards-compatible synonym of skip_ua_node.
+
         Returns:
             Generator on nodes
         """
+        if skip_root is not None:
+            skip_ua_node = skip_root
+
         visited = set()
 
         def traverse(node: HistoryDagNode):
@@ -1989,7 +2001,7 @@ class HistoryDag:
                         yield from traverse(child)
 
         gen = traverse(self.dagroot)
-        if skip_root:
+        if skip_ua_node:
             next(gen)
         yield from gen
 
@@ -2300,6 +2312,7 @@ def history_dag_from_histories(treelist: Sequence[HistoryDag]) -> HistoryDag:
     dag.merge(treelist)
     return dag
 
+
 def history_dag_from_clade_trees(*args, **kwargs) -> HistoryDag:
     """Deprecated name for :meth:`history_dag_from_histories`"""
     return history_dag_from_histories(*args, **kwargs)
@@ -2309,13 +2322,13 @@ def history_dag_from_nodes(nodes: Sequence[HistoryDagNode]) -> HistoryDag:
     """Take an iterable containing HistoryDagNodes, and build a HistoryDag from
     those nodes."""
     # use dictionary to preserve order
-    nodes = {node.node_self(): node for node in nodes}
+    nodes = {node.empty_copy(): node for node in nodes}
     # check for UA node in passed set, and recover if present:
     ua_node = UANode(EdgeSet())
     if ua_node in nodes:
-        ua_node = nodes[ua_node].node_self()
+        ua_node = nodes[ua_node].empty_copy()
     nodes.pop(ua_node)
-    clade_dict = _under_clade_dict(nodes.keys())
+    clade_dict = _clade_union_dict(nodes.keys())
     edge_dict = {
         node: [child for clade in node.clades for child in clade_dict[clade]]
         for node in nodes

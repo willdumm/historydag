@@ -79,7 +79,7 @@ dags.append(
 
 compdags = [dag.copy() for dag in dags]
 for dag in compdags:
-    dag.add_all_allowed_edges()
+    dag.make_complete()
 dags.extend(compdags)
 
 cdags = [dag.copy() for dag in dags]
@@ -355,7 +355,7 @@ def test_indexing_comprehensive():
 def test_trim():
     for dag in dags + cdags:
         dag = dag.copy()
-        dag.add_all_allowed_edges()
+        dag.make_complete()
         dag._check_valid()
         dag.recompute_parents()
         dag._check_valid()
@@ -368,7 +368,7 @@ def test_trim():
 def test_from_nodes():
     for dag in dags + cdags:
         cdag = dag.copy()
-        cdag.add_all_allowed_edges()
+        cdag.make_complete()
         cdag.trim_optimal_weight()
         cdag._check_valid()
         wc = cdag.weight_count()
@@ -434,10 +434,10 @@ def test_sample_with_edge():
 def test_iter_covering_histories():
     for dag in dags + cdags:
         codag = dag.copy()
-        codag.add_all_allowed_edges()
+        codag.make_complete()
         trees = list(dag.iter_covering_histories())
         tdag = trees[0] | trees
-        tdag.add_all_allowed_edges()
+        tdag.make_complete()
         assert tdag.weight_count() == codag.weight_count()
 
 

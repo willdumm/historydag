@@ -54,9 +54,9 @@ def compare_dag_and_tree_parsimonies(
         s_weight == s_ete_weight
     ), "Downward sankoff on ete_Tree vs on the dag version of the tree produced different results"
 
-    s_labels = set(n.label.sequence for n in s.postorder() if not n.is_root())
+    s_labels = set(n.label.sequence for n in s.postorder() if not n.is_ua_node())
     s_ete_labels = set(
-        n.label.sequence for n in s_ete_as_dag.postorder() if not n.is_root()
+        n.label.sequence for n in s_ete_as_dag.postorder() if not n.is_ua_node()
     )
     assert (
         len(s_ete_labels - s_labels) < 1
@@ -87,7 +87,7 @@ def check_sankoff_on_dag(
     ), "Downward pass of Sankoff on dag did not yield expected score"
 
     assert (
-        dag.count_trees() == dag.copy().count_trees()
+        dag.count_histories() == dag.copy().count_histories()
     ), "Resulting DAG had invalid internal node assignments"
 
 

@@ -23,7 +23,7 @@ with open('sample_data/toy_trees.p', 'rb') as fh:
 dag = hdag.history_dag_from_etes(ete_trees, ['sequence'])
 dag.count_histories()  # 1041
 
-dag.add_all_allowed_edges()
+dag.make_complete()
 dag.count_histories()  # 3431531
 
 dag.hamming_parsimony_count()  # Shows counts of trees of different parsimony scores

@@ -42,10 +42,10 @@ def merge(first, others, accumulation_data=None, resolution=10):
 
     def compute_accum_data(dag):
         tdag = dag.copy()
-        tdag.add_all_allowed_edges()
+        tdag.make_complete()
         pscore = tdag.trim_optimal_weight(edge_weight_func=dist)
         tdag.convert_to_collapsed()
-        ntrees = tdag.count_trees()
+        ntrees = tdag.count_histories()
         return ntrees, pscore
 
     if accumulation_data is not None:
@@ -57,7 +57,7 @@ def merge(first, others, accumulation_data=None, resolution=10):
             if n in nodedict:
                 pnode = nodedict[n]
             else:
-                pnode = n.node_self()
+                pnode = n.empty_copy()
                 nodedict[n] = pnode
 
             for _, edgeset in n.clades.items():
@@ -112,7 +112,7 @@ def process_from_mat(file, refseqid, known_node_cg=frozendict({})):
         known_node = tree
 
     known_node.add_feature("mutseq", known_node_cg)
-    while not known_node.is_root():
+    while not known_node.is_ua_node():
         known_node.up.add_feature("mutseq", apply_muts(known_node.mutseq, known_node.mutations, reverse=True))
         known_node = known_node.up
     
@@ -123,7 +123,7 @@ def process_from_mat(file, refseqid, known_node_cg=frozendict({})):
     #         tree.children[0].delete(prevent_nondicotomic=False)
     # remove unifurcations
     while True:
-        to_delete = [node for node in tree.traverse() if len(node.children) == 1 and not node.is_root()]
+        to_delete = [node for node in tree.traverse() if len(node.children) == 1 and not node.is_ua_node()]
         if len(to_delete) == 0:
             break
         for node in to_delete:
@@ -265,7 +265,7 @@ def dag_to_mad_pb(dag, leaf_data_func=None, from_mutseqs=True):
     if from_mutseqs:
         refseqid, refseq = dag.refseq
         def mut_func(pnode, cnode):
-            if pnode.is_root():
+            if pnode.is_ua_node():
                 parent_seq = frozendict()
             else:
                 parent_seq = pnode.label.mutseq
@@ -275,10 +275,10 @@ def dag_to_mad_pb(dag, leaf_data_func=None, from_mutseqs=True):
             clade, _ = cladeitem
             return sorted(sorted(idx for idx in label.mutseq) for label in clade)
     else:
-        refseq = next(dag.preorder(skip_root=True)).label.sequence
+        refseq = next(dag.preorder(skip_ua_node=True)).label.sequence
         refseqid = 'unknown_seq_id'
         def mut_func(pnode, cnode):
-            if pnode.is_root():
+            if pnode.is_ua_node():
                 parent_seq = refseq
             else:
                 parent_seq = pnode.label.sequence
@@ -424,7 +424,7 @@ def summarize(dagpath, treedir, outfile, csv_data, print_header):
     wc = dag.weight_count(edge_weight_func=dist)
     data.append(("before_collapse_max_pars", max(wc.keys())))
     data.append(("before_collapse_min_pars", min(wc.keys())))
-    dag.add_all_allowed_edges()
+    dag.make_complete()
     dag.trim_optimal_weight(edge_weight_func=dist)
     dag.convert_to_collapsed()
     data.append(("n_trees", dag.count_histories()))
@@ -601,7 +601,7 @@ def reroot(new_root):
     """
     node_path = [new_root]
     curr = new_root
-    while not curr.is_root():
+    while not curr.is_ua_node():
         node_path.append(curr.up)
         curr = curr.up
 
@@ -887,7 +887,7 @@ def flatten(dag, sort_compact_genomes=False):
         return [frozenset(cg_indices[label] for label in clade) for clade in node.clades]
 
     def get_compact_genome(node):
-        if node.is_root():
+        if node.is_ua_node():
             return []
         else:
             ret = [[idx, list(bases)] for idx, bases in node.label.mutseq.items()]
@@ -978,7 +978,7 @@ def make_testcase(pickled_forest, outdir, num_trees, random_seed):
     except AttributeError:
         dag = forest
     trees = [dag.sample() for _ in range(int(num_trees))]
-    refseqs = [next(tree.preorder(skip_root=True)).label.sequence for tree in trees]
+    refseqs = [next(tree.preorder(skip_ua_node=True)).label.sequence for tree in trees]
     assert len(set(refseqs)) == 1
     # These dags have full sequence strings instead of compact genomes, which
     # is why we pass from_mutseqs to write_dag (which passes it on to
@@ -1130,7 +1130,7 @@ def distance_between_nodes(n1, n2):
     """ Returns the hamming distance between two hdag nodes that represent their sequences with
     collapsed genomes
     """
-    if n1.is_root() or n2.is_root():
+    if n1.is_ua_node() or n2.is_ua_node():
         return 0
     else:
         return distance(n1.label.mutseq, n2.label.mutseq)
@@ -1275,7 +1275,7 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
     verbose = False # NOTE: Very slow to count all the trees!
 
     print("Merging tree dag into hdag...")
-    print(f"\t{dag.count_trees()} trees before merge")
+    print(f"\t{dag.count_histories()} trees before merge")
     if verbose:
         hist = dag.weight_count(edge_weight_func=distance_between_nodes)
         for k, v in hist.items():
@@ -1290,16 +1290,16 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
 
     dag.merge([toidag])
     if verbose:
-        print(f"\t{dag.count_trees()} trees after merge")
+        print(f"\t{dag.count_histories()} trees after merge")
         hist = dag.weight_count(edge_weight_func=distance_between_nodes)
         for k, v in hist.items():
             print(k, "\t", v)
         print()
         with open(clade_dir + "/parsimony_hists/after_merge.pkl", "wb") as f:
             pickle.dump(hist, f)
-    dag.add_all_allowed_edges()
+    dag.make_complete()
     if False:   # NOTE: For many clades this is infeasible to compute in a reasonable amount of time
-        print(f"\t{dag.count_trees()} after adding edges")
+        print(f"\t{dag.count_histories()} after adding edges")
         hist = dag.weight_count(edge_weight_func=distance_between_nodes)
         for k, v in hist.items():
             print(k, "\t", v)
@@ -1315,7 +1315,7 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
         with open(clade_dir + "/trimmed_dag.pkl", "wb") as f:
             pickle.dump(dag, f)
         hist = dag.weight_count(edge_weight_func=distance_between_nodes)
-        print(f"\t{dag.count_trees()} trees after trim")
+        print(f"\t{dag.count_histories()} trees after trim")
         if verbose:
             with open(clade_dir + "/parsimony_hists/after_trim.pkl", "wb") as f:
                 pickle.dump(hist, f)
@@ -1337,7 +1337,7 @@ def annotate_support(subset_mat_file, reference_file, clade_dir, unique_seqs_fil
     
     for node in tree.traverse():
         if not node.is_leaf():
-            print(node.support, "\troot:", node.is_root())
+            print(node.support, "\troot:", node.is_ua_node())
 
     print(f"\t--- Annotation took {time.time() - begin} seconds ---")
     num_uncertain = 0
@@ -1364,7 +1364,7 @@ def annotate_ete(dag, tree):
     node2count = dag.count_nodes()
     print(f"\t--- Counting took {time.time() - start_time} seconds ---")
 
-    total_trees = dag.count_trees()
+    total_trees = dag.count_histories()
     
     print(f"hDAG contains {total_trees} trees")
 
@@ -1376,7 +1376,7 @@ def annotate_ete(dag, tree):
         if node.is_leaf():
             clade_union = frozenset([node.label.mutseq])
         else:
-            clade_union = frozenset([label.mutseq for label in node.under_clade()])
+            clade_union = frozenset([label.mutseq for label in node.clade_union()])
 
         if clade_union not in clade2support:
             clade2support[clade_union] = 0
@@ -1835,16 +1835,16 @@ def most_supported_trees(dag):
     """ Trims the DAG to only express the trees that have the highest support.
     """
     node2count = dag.count_nodes()        
-    total_trees = dag.count_trees()
+    total_trees = dag.count_histories()
     clade2support = {}
     for node, count in node2count.items():
-        if node.under_clade() not in clade2support:
-            clade2support[node.under_clade()] = 0
-        clade2support[node.under_clade()] += count / total_trees
+        if node.clade_union() not in clade2support:
+            clade2support[node.clade_union()] = 0
+        clade2support[node.clade_union()] += count / total_trees
 
     dag.trim_optimal_weight(
         start_func= lambda n: 0,
-        edge_weight_func= lambda n1, n2: log(clade2support[n2.under_clade()]),
+        edge_weight_func= lambda n1, n2: log(clade2support[n2.clade_union()]),
         accum_func= lambda weights: sum([w for w in weights]),
         optimal_func=max,
         #TODO: Add equality_func that checks first 5 decimals
@@ -1856,16 +1856,16 @@ def most_supported_trees(dag):
 def support_count(dag, clade2support=None):
     if clade2support is None:
         node2count = dag.count_nodes()        
-        total_trees = dag.count_trees()
+        total_trees = dag.count_histories()
         clade2support = {}
         for node, count in node2count.items():
-            if node.under_clade() not in clade2support:
-                clade2support[node.under_clade()] = 0
-            clade2support[node.under_clade()] += count / total_trees
+            if node.clade_union() not in clade2support:
+                clade2support[node.clade_union()] = 0
+            clade2support[node.clade_union()] += count / total_trees
     
     support_hist = Counter()
     for node in dag.postorder():
-        support_hist[clade2support[node.under_clade()]] += 1
+        support_hist[clade2support[node.clade_union()]] += 1
     return support_hist
 
 
@@ -1898,18 +1898,18 @@ def explore_most_supported_trees():
         toi_sups.append(toi_support)
 
         node2count = dag.count_nodes()        
-        total_trees = dag.count_trees()
+        total_trees = dag.count_histories()
         clade2support = {}
         for node, count in node2count.items():
-            if node.under_clade() not in clade2support:
-                clade2support[node.under_clade()] = 0
-            clade2support[node.under_clade()] += count / total_trees
+            if node.clade_union() not in clade2support:
+                clade2support[node.clade_union()] = 0
+            clade2support[node.clade_union()] += count / total_trees
         
-        num_trees_before = dag.count_trees()
+        num_trees_before = dag.count_histories()
         support_hist = support_count(dag, clade2support)
         best_sup = most_supported_trees(dag)
         best_sups.append(best_sup)
-        num_trees_after = dag.count_trees()
+        num_trees_after = dag.count_histories()
 
         print(f"\t{num_trees_before} -> {num_trees_after}\tsup: {best_sup}\ttoi_sup: {toi_support}")
         # print("\tsupport hist:", support_hist)

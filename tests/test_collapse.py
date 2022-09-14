@@ -56,9 +56,9 @@ def test_fulltree():
     dag = hdag.history_dag_from_etes([etetree], ["sequence"])
     dag.convert_to_collapsed()
     dag._check_valid()
-    assert set(deterministic_newick(tree.to_ete()) for tree in dag.get_histories()) == set(
-        {deterministic_newick(etetree2)}
-    )
+    assert set(
+        deterministic_newick(tree.to_ete()) for tree in dag.get_histories()
+    ) == set({deterministic_newick(etetree2)})
 
 
 def test_twotrees():
@@ -89,7 +89,7 @@ def test_collapse():
 def test_add_allowed_edges():
     # See that adding only edges that preserve parent labels preserves parsimony
     dag = hdag.history_dag_from_etes(trees, ["sequence"])
-    dag.add_all_allowed_edges(preserve_parent_labels=True)
+    dag.make_complete(preserve_parent_labels=True)
     dag._check_valid()
     c = dag.weight_count()
     assert min(c) == max(c)
@@ -100,7 +100,7 @@ def test_add_allowed_edges():
     collapsed_dag._check_valid()
     collapsed_dag.convert_to_collapsed()
     collapsed_dag._check_valid()
-    collapsed_dag.add_all_allowed_edges(adjacent_labels=False)
+    collapsed_dag.make_complete(adjacent_labels=False)
     collapsed_dag._check_valid()
     assert all(
         parent.label != target.label

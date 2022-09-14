@@ -6,7 +6,7 @@ import numpy as np
 import Bio.Data.IUPACData
 from itertools import product
 from historydag.dag import (
-    history_dag_from_clade_trees,
+    history_dag_from_histories,
     history_dag_from_etes,
     HistoryDag,
 )
@@ -72,7 +72,7 @@ def _get_adj_array(seq_len, transition_weights=None):
 
 
 def edge_weight_func_from_weight_matrix(n1, n2, weight_mat=None, bases=None):
-    if n1.is_root() or n2.is_root():
+    if n1.is_ua_node() or n2.is_ua_node():
         return 0
     if len(n1.label.sequence) != len(n2.label.sequence):
         raise ValueError("Sequences must have the same length!")
@@ -224,14 +224,14 @@ def sankoff_upward(
         else:
             clade_func = accum_between_clade
 
-        tree.postorder_cladetree_accum(
+        tree.postorder_history_accum(
             leaf_func=leaf_func,
             edge_func=lambda x, y: y,
             accum_within_clade=lambda x: x,
             accum_between_clade=clade_func,
             accum_above_edge=lambda x, y: y,
         )
-        return next(tree.preorder(skip_root=True))._dp_data["subtree_cost"]
+        return next(tree.preorder(skip_ua_node=True))._dp_data["subtree_cost"]
     else:
         return 0
 
@@ -302,13 +302,13 @@ def sankoff_downward(
     dag_nodes = {}
     # downward pass of Sankoff: find and assign sequence labels to each internal node
     for node in reversed(list(dag.postorder())):
-        if not (node.is_leaf() or node.is_root()):
+        if not (node.is_leaf() or node.is_ua_node()):
             node_data = {k: v for k, v in node._dp_data.items()}
             node_copies = {}
             node_children = set(node.children())
             node_parents = set(node.parents)
             for p in node_parents:
-                if p.is_root():
+                if p.is_ua_node():
                     new_seq_data = [
                         y
                         for cv in node._dp_data["cost_vectors"]
@@ -331,7 +331,7 @@ def sankoff_downward(
 
                 for nsd in new_seq_data:
                     if (nsd[-1] <= min_val) and (nsd[0] not in node_copies):
-                        new_node = node.node_self()
+                        new_node = node.empty_copy()
                         new_node.label = node.label._replace(sequence=nsd[0])
                         new_node._dp_data = deepcopy(node_data)
                         new_node._dp_data["transition_cost"] = nsd[1]
@@ -340,7 +340,7 @@ def sankoff_downward(
             for c in node_children:
                 c.parents.remove(node)
             for p in node_parents:
-                p.remove_edge_by_clade_and_id(node, node.under_clade())
+                p.remove_edge_by_clade_and_id(node, node.clade_union())
             # add all new copies of current node(with alt sequence labels) into the dag
             for new_sequence, new_node in node_copies.items():
                 if new_node in dag_nodes:
@@ -509,9 +509,9 @@ def build_tree(
     seq_len = len(next(iter(fasta_map.values())))
     ambig_seq = "?" * seq_len
     for node in tree.traverse():
-        if node.is_root() and reference_sequence is not None:
+        if node.is_ua_node() and reference_sequence is not None:
             node.add_feature("sequence", reference_sequence)
-        elif node.is_root() and reference_id is not None:
+        elif node.is_ua_node() and reference_id is not None:
             node.add_feature("sequence", fasta_map[reference_id])
         elif (not node.is_leaf()) and ignore_internal_sequences:
             node.add_feature("sequence", ambig_seq)
@@ -623,7 +623,7 @@ def build_dag_from_trees(trees):
 def summarize_dag(dag):
     """print summary information about the provided history DAG."""
     print("DAG contains")
-    print("trees: ", dag.count_trees())
+    print("trees: ", dag.count_histories())
     print("nodes: ", len(list(dag.preorder())))
     print("edges: ", sum(len(list(node.children())) for node in dag.preorder()))
     print("parsimony scores: ", dag.weight_count())
@@ -646,12 +646,12 @@ def disambiguate_history(history):
 
 def treewise_sankoff_in_dag(dag, cover_edges=False):
     """Perform tree-wise sankoff to compute labels for all nodes in the DAG."""
-    newdag = history_dag_from_clade_trees(
+    newdag = history_dag_from_histories(
         disambiguate_history(history)
         for history in dag.iter_covering_histories(cover_edges=cover_edges)
     )
     newdag.explode_nodes()
-    newdag.add_all_allowed_edges()
+    newdag.make_complete()
     newdag.trim_optimal_weight()
     newdag.convert_to_collapsed()
     return newdag

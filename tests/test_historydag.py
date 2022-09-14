@@ -123,7 +123,7 @@ def test_preserve_attr():
         attr_func=lambda n: n.name,
     )
     dag._check_valid()
-    assert all(n.attr for n in dag.preorder(skip_root=True))
+    assert all(n.attr for n in dag.preorder(skip_ua_node=True))
 
     @utils.explode_label("sequence")
     def expand_func(seq):
@@ -136,10 +136,10 @@ def test_preserve_attr():
 
     dag.explode_nodes(expand_func=expand_func)
     dag._check_valid()
-    assert all(n.attr for n in dag.preorder(skip_root=True))
+    assert all(n.attr for n in dag.preorder(skip_ua_node=True))
     dag.convert_to_collapsed()
     dag._check_valid()
-    assert all(n.attr for n in dag.preorder(skip_root=True))
+    assert all(n.attr for n in dag.preorder(skip_ua_node=True))
 
 
 def test_ete_newick_agree():

@@ -133,7 +133,7 @@ of ``explode_nodes``).
 We can find even more new trees by adding all edges which connect
 nodes whose child clades are compatible:
 
->>> dag.add_all_allowed_edges()
+>>> dag.make_complete()
 1048
 >>> dag.count_histories()
 3431531
