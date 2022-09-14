@@ -197,6 +197,7 @@ def test_expand_ambiguities():
         cdag.explode_nodes()
         print(cdag.count_trees())
         cdag.trim_optimal_weight()
+        cdag._check_valid()
         print(cdag.count_trees())
         print(cdag.weight_count())
         checkset = {
