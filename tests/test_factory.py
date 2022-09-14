@@ -79,7 +79,7 @@ dags.append(
 
 compdags = [dag.copy() for dag in dags]
 for dag in compdags:
-    dag.add_all_allowed_edges()
+    dag.make_complete()
 dags.extend(compdags)
 
 cdags = [dag.copy() for dag in dags]
@@ -91,12 +91,14 @@ def _testfactory(resultfunc, verify_func, collapse_invariant=False, accum_func=C
     for dag, cdag in zip(dags, cdags):
         # check dags
         result = resultfunc(dag)
-        verify_result = accum_func([verify_func(tree) for tree in dag.get_trees()])
+        verify_result = accum_func([verify_func(tree) for tree in dag.get_histories()])
         assert result == verify_result
 
         # check cdags
         cresult = resultfunc(cdag)
-        cverify_result = accum_func([verify_func(tree) for tree in cdag.get_trees()])
+        cverify_result = accum_func(
+            [verify_func(tree) for tree in cdag.get_histories()]
+        )
         assert cresult == cverify_result
 
         # check they agree, if collapse_invariant.
@@ -112,7 +114,7 @@ def test_valid_dags():
         for node in dag.postorder():
             for clade in node.clades:
                 for target in node.clades[clade].targets:
-                    assert target.under_clade() == clade or node.is_root()
+                    assert target.clade_union() == clade or node.is_ua_node()
 
         # each clade has a descendant edge:
         for node in dag.postorder():
@@ -133,7 +135,7 @@ def test_count_topologies():
                 features=[],
                 feature_funcs={},
             )
-            for tree in dag.get_trees()
+            for tree in dag.get_histories()
         }
         print(checkset)
         assert dag.count_topologies_fast() == len(checkset)
@@ -173,7 +175,7 @@ def test_copy():
     # Copying the DAG gives the same DAG back, or at least a DAG expressing
     # the same trees
     _testfactory(
-        lambda dag: Counter(tree.to_newick() for tree in dag.copy().get_trees()),
+        lambda dag: Counter(tree.to_newick() for tree in dag.copy().get_histories()),
         lambda tree: tree.to_newick(),
     )
 
@@ -253,17 +255,17 @@ def test_min_weight():
     )
 
 
-def test_count_trees():
-    _testfactory(lambda dag: dag.count_trees(), lambda tree: 1, accum_func=sum)
+def test_count_histories():
+    _testfactory(lambda dag: dag.count_histories(), lambda tree: 1, accum_func=sum)
 
 
-def test_count_trees_expanded():
+def test_count_histories_expanded():
     for dag in dags + cdags:
         ndag = dag.copy()
         ndag.explode_nodes()
         assert (
-            dag.count_trees(expand_func=dagutils.sequence_resolutions)
-            == ndag.count_trees()
+            dag.count_histories(expand_func=dagutils.sequence_resolutions)
+            == ndag.count_histories()
         )
 
 
@@ -315,7 +317,7 @@ def test_valid_subtrees():
         for curr_dag_index in range(0, len(history_dag)):
             next_tree = history_dag[curr_dag_index]
             assert next_tree.to_newick() in history_dag.to_newicks()
-            assert next_tree.is_clade_tree()
+            assert next_tree.is_history()
 
 
 # this should check if the indexing algorithm accurately
@@ -334,7 +336,7 @@ def test_indexing_comprehensive():
         print("number of indexed trees: " + str(len(all_dags_indexed)))
         all_dags_indexed.remove(None)
 
-        # get the set of all actual dags from the get_trees
+        # get the set of all actual dags from the get_histories
         all_dags_true = set(history_dag.to_newicks())
 
         print("actual number of subtrees: " + str(len(all_dags_true)))
@@ -353,7 +355,7 @@ def test_indexing_comprehensive():
 def test_trim():
     for dag in dags + cdags:
         dag = dag.copy()
-        dag.add_all_allowed_edges()
+        dag.make_complete()
         dag._check_valid()
         dag.recompute_parents()
         dag._check_valid()
@@ -366,7 +368,7 @@ def test_trim():
 def test_from_nodes():
     for dag in dags + cdags:
         cdag = dag.copy()
-        cdag.add_all_allowed_edges()
+        cdag.make_complete()
         cdag.trim_optimal_weight()
         cdag._check_valid()
         wc = cdag.weight_count()
@@ -432,10 +434,10 @@ def test_sample_with_edge():
 def test_iter_covering_histories():
     for dag in dags + cdags:
         codag = dag.copy()
-        codag.add_all_allowed_edges()
+        codag.make_complete()
         trees = list(dag.iter_covering_histories())
         tdag = trees[0] | trees
-        tdag.add_all_allowed_edges()
+        tdag.make_complete()
         assert tdag.weight_count() == codag.weight_count()
 
 

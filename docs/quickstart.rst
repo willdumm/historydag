@@ -11,15 +11,16 @@ A history DAG is a way to represent a collection of trees whose nodes
 sequence.
 
 In its simplest form, a history DAG may represent a single tree. To construct
-such a history DAG from a tree, we annotate each node in the tree with its child clades.
-The **clade** beneath a tree node is the set of leaf node labels
+such a history DAG from a tree, we annotate each node in the tree with its
+child clades.  The **clade** beneath a tree node is the set of leaf node labels
 reachable from that node, or the set containing the node's own label if it is
-itself a leaf. The **child clades** of a node are the set of clades
-beneath that node's children.
+itself a leaf. We also refer to this set as a node's **clade union**, since it
+is the union of the node's child clades. The **child clades** of a node are the
+set of clades beneath that node's children.
 
 After annotating each node with its child clades, a **UA (universal ancestor)
 node** is added as a parent of the original tree's root node. The resulting
-structure is an example of a history DAG which we call a **clade tree**:
+structure is an example of a history DAG which we call a **history**:
 
 |pic1| -> |pic2|
 
@@ -35,13 +36,13 @@ parent node associated to an edge, must be the same as the clade below the
 child node that the edge targets.
 
 After converting multiple trees with the same set of leaf labels to clade
-trees, those clade trees can be unioned to create a history DAG that represents
+trees, those histories can be unioned to create a history DAG that represents
 at least those trees used to create it. Any structure in the resulting history
 DAG which contains the UA node and all leaves, and has exactly one edge for
-each node-child clade pair, is a clade tree. Clade trees represent labeled
+each node-child clade pair, is a history. Histories represent labeled
 trees by the inverse of the correspondence introduced above:
 
-For example, the clade tree highlighted in red in this image:
+For example, the history highlighted in red in this image:
 
 .. image:: figures/history_dag_example.svg
    :width: 100%
@@ -105,7 +106,7 @@ Now, we will create a history DAG using the ``sequence`` attribute as the data
 for node labels:
 
 >>> dag = hdag.history_dag_from_etes(ete_trees, ['sequence'])
->>> dag.count_trees()
+>>> dag.count_histories()
 1041
 >>> dag.count_topologies()
 389
@@ -132,9 +133,9 @@ of ``explode_nodes``).
 We can find even more new trees by adding all edges which connect
 nodes whose child clades are compatible:
 
->>> dag.add_all_allowed_edges()
+>>> dag.make_complete()
 1048
->>> dag.count_trees()
+>>> dag.count_histories()
 3431531
 
 After such edge additions, all the trees in the DAG are no longer guaranteed to
@@ -191,7 +192,7 @@ Now we can trim to only the trees with 48 unique node labels:
 
 >>> dag.trim_optimal_weight(** node_count_funcs, optimal_func=min)
 
-Finally, we can sample a single clade tree from the history DAG, and make it an
+Finally, we can sample a single history from the history DAG, and make it an
 ete tree for further rendering/processing:
 
 >>> t = dag.sample().to_ete()
@@ -208,7 +209,7 @@ index-order:
 Another method for fetching all trees in the dag is provided, but the order
 will not match index order:
 
->>> scrambled_trees = list(dag.get_trees())
+>>> scrambled_trees = list(dag.get_histories())
 
 
 History DAGs can be merged using the :meth:`historydag.HistoryDag.merge`

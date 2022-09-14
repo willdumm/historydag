@@ -538,7 +538,7 @@ def _cli_parsimony_score_from_files(
 def summarize_dag(dag):
     """print summary information about the provided history DAG."""
     print("DAG contains")
-    print("trees: ", dag.count_trees())
+    print("trees: ", dag.count_histories())
     print("nodes: ", len(list(dag.preorder())))
     print("edges: ", sum(len(list(node.children())) for node in dag.preorder()))
     print("parsimony scores: ", dag.weight_count())

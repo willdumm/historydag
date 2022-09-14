@@ -72,7 +72,7 @@ def test_node_counts():
         node2count = dag.count_nodes()
         for node in node2count.keys():
             ground_truth = sum(
-                [node in set(tree.postorder()) for tree in dag.get_trees()]
+                [node in set(tree.postorder()) for tree in dag.get_histories()]
             )
             # print(
             #     f"\t node2count[node] = {node2count[node]} \t ground_truth = {ground_truth}"
@@ -90,8 +90,8 @@ def test_collapsed_node_counts():
         for node in node2count.keys():
             ground_truth = sum(
                 [
-                    node in set([n.under_clade() for n in tree.postorder()])
-                    for tree in dag.get_trees()
+                    node in set([n.clade_union() for n in tree.postorder()])
+                    for tree in dag.get_histories()
                 ]
             )
             print(
@@ -109,7 +109,7 @@ def test_edge_counts():
 
         for parent, node in edge2count.keys():
             ground_truth = 0
-            for tree in dag.get_trees():
+            for tree in dag.get_histories():
                 for curr_parent in tree.postorder():
                     if curr_parent != parent:
                         continue

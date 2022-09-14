@@ -6,7 +6,7 @@ from .dag import (  # noqa
     from_newick,
     history_dag_from_newicks,
     history_dag_from_etes,
-    history_dag_from_clade_trees,
+    history_dag_from_histories,
 )
 
 from . import _version

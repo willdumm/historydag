@@ -62,7 +62,7 @@ def access_nodefield_default(fieldname: str, default: Any) -> Any:
         default: A value that should be returned if one of the arguments is the DAG UA node.
 
     For example, instead of
-    `lambda n1, n2: default if n1.is_root() or n2.is_root() else func(n1.label.fieldname, n2.label.fieldname)`,
+    `lambda n1, n2: default if n1.is_ua_node() or n2.is_ua_node() else func(n1.label.fieldname, n2.label.fieldname)`,
     this wrapper allows one to write `access_nodefield_default(fieldname, default)(func)`.
     """
 
@@ -111,7 +111,7 @@ def ignore_uanode(default: Any) -> Callable[[F], F]:
         @wraps(func)
         def wrapper(*args: "HistoryDagNode", **kwargs: Any):
             for node in args:
-                if node.is_root():
+                if node.is_ua_node():
                     return default
             else:
                 return func(*args, **kwargs)
@@ -473,15 +473,15 @@ def make_newickcountfuncs(
     )
 
 
-def _cladetree_method(method):
+def _history_method(method):
     """HistoryDagNode method decorator to ensure that the method is only run on
-    history DAGs which are clade trees."""
+    history DAGs which are histories."""
 
     @wraps(method)
     def wrapper(self, *args, **kwargs):
-        if not self.is_clade_tree():
+        if not self.is_history():
             raise ValueError(
-                "to_newick requires the history DAG to be a clade tree. "
+                "to_newick requires the history DAG to be a history. "
                 "To extract newicks from a general DAG, see to_newicks"
             )
         else:
