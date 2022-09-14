@@ -171,6 +171,22 @@ def wrapped_hamming_distance(s1, s2) -> int:
     return hamming_distance(s1, s2)
 
 
+def hamming_distance_leaf_ambiguous(n1, n2):
+    """Same as wrapped_hamming_distance, but correctly calculates parsimony
+    scores if leaf nodes have ambiguous sequences."""
+    if n2.is_leaf():
+        # Then its sequence may be ambiguous
+        s1 = n1.label.sequence
+        s2 = n2.label.sequence
+        if len(s1) != len(s2):
+            raise ValueError("Sequences must have the same length!")
+        return sum(
+            pbase not in ambiguous_dna_values[cbase] for pbase, cbase in zip(s1, s2)
+        )
+    else:
+        return wrapped_hamming_distance(n1, n2)
+
+
 def is_ambiguous(sequence: str) -> bool:
     """Returns whether the provided sequence contains IUPAC nucleotide
     ambiguity codes."""
@@ -392,6 +408,17 @@ hamming_distance_countfuncs = AddFuncDict(
 """Provides functions to count hamming distance parsimony.
 For use with :meth:`historydag.HistoryDag.weight_count`."""
 
+node_countfuncs = AddFuncDict(
+    {
+        "start_func": lambda n: 0,
+        "edge_weight_func": lambda n1, n2: 1,
+        "accum_func": sum,
+    },
+    name="NodeCount",
+)
+"""Provides functions to count the number of nodes in trees.
+For use with :meth:`historydag.HistoryDag.weight_count`."""
+
 
 def make_newickcountfuncs(
     name_func=lambda n: "unnamed",
@@ -591,3 +618,14 @@ class StrState(str):
 
     def __setstate__(self, statedict):
         self.state = statedict["state"]
+
+
+def load_fasta(fastapath):
+    fasta_records = []
+    with open(fastapath, "r") as fh:
+        for line in fh:
+            if line[0] == ">":
+                fasta_records.append([line[1:].strip(), ""])
+            else:
+                fasta_records[-1][-1] += line.strip()
+    return dict(fasta_records)

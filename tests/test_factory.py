@@ -2,8 +2,18 @@ import ete3
 import pickle
 import historydag.dag as hdag
 import historydag.utils as dagutils
-from collections import Counter
+from collections import Counter, namedtuple
 import pytest
+import random
+
+
+def normalize_counts(counter):
+    n = len(list(counter.elements()))
+    return ([num / n for _, num in counter.items()], (n / len(counter)) / n)
+
+
+def is_close(f1, f2, tol=0.03):
+    return abs(f1 - f2) < tol
 
 
 def deterministic_newick(tree: ete3.TreeNode) -> str:
@@ -96,6 +106,8 @@ def _testfactory(resultfunc, verify_func, collapse_invariant=False, accum_func=C
 
 def test_valid_dags():
     for dag in dags + cdags:
+        dag._check_valid()
+        dag.copy()._check_valid()
         # each edge is allowed:
         for node in dag.postorder():
             for clade in node.clades:
@@ -336,3 +348,110 @@ def test_indexing_comprehensive():
         assert set(history_dag.to_newicks()) == set(
             {tree.to_newick() for tree in history_dag}
         )
+
+
+def test_trim():
+    for dag in dags + cdags:
+        dag = dag.copy()
+        dag.add_all_allowed_edges()
+        dag._check_valid()
+        dag.recompute_parents()
+        dag._check_valid()
+        dag.trim_optimal_weight()
+        dag._check_valid()
+        dag.convert_to_collapsed()
+        dag._check_valid()
+
+
+def test_from_nodes():
+    for dag in dags + cdags:
+        cdag = dag.copy()
+        cdag.add_all_allowed_edges()
+        cdag.trim_optimal_weight()
+        cdag._check_valid()
+        wc = cdag.weight_count()
+        ndag = hdag.history_dag_from_nodes(cdag.preorder())
+        ndag._check_valid()
+        ndag.trim_optimal_weight()
+        ndag._check_valid()
+        print(ndag.to_graphviz())
+        assert wc == ndag.weight_count()
+
+
+def test_sample_with_node():
+    random.seed(1)
+    dag = dags[-1]
+    dag.make_uniform()
+    node_to_count = dag.count_nodes()
+    min_count = min(node_to_count.values())
+    least_supported_nodes = [
+        node for node, val in node_to_count.items() if val == min_count
+    ]
+    for node in least_supported_nodes:
+        tree_samples = [dag.sample_with_node(node) for _ in range(min_count * 5)]
+        tree_samples[0]._check_valid()
+        tree_newicks = {tree.to_newick() for tree in tree_samples}
+        # We sampled all trees possible containing the node
+        assert len(tree_newicks) == min_count
+        # All trees sampled contained the node
+        assert all(node in set(tree.preorder()) for tree in tree_samples)
+        # # trees containing the node were sampled uniformly
+        # # (This is slow but seems to work)
+        # norms, avg = normalize_counts(Counter(tree.to_newick() for tree in tree_samples))
+        # print(norms)
+        # assert all(is_close(norm, avg) for norm in norms)
+
+
+def test_sample_with_edge():
+    random.seed(1)
+    dag = dags[-1]
+    dag.recompute_parents()
+    node_to_count = dag.count_nodes()
+    min_count = min(node_to_count.values())
+    least_supported_nodes = [
+        node for node, val in node_to_count.items() if val == min_count
+    ]
+    node = least_supported_nodes[0]
+
+    def edges(dag):
+        eset = set()
+        for node in dag.preorder():
+            for child in node.children():
+                eset.add((node, child))
+        return eset
+
+    for parent in node.parents:
+        edge = (parent, node)
+        tree_samples = [dag.sample_with_edge(edge) for _ in range(min_count * 5)]
+        tree_samples[0]._check_valid()
+        # We sampled all trees possible containing the node
+        # All trees sampled contained the node
+        assert all(edge in edges(tree) for tree in tree_samples)
+
+
+def test_iter_covering_histories():
+    for dag in dags + cdags:
+        codag = dag.copy()
+        codag.add_all_allowed_edges()
+        trees = list(dag.iter_covering_histories())
+        tdag = trees[0] | trees
+        tdag.add_all_allowed_edges()
+        assert tdag.weight_count() == codag.weight_count()
+
+
+def test_iter_covering_histories_edges():
+    for dag in dags + cdags:
+        trees = list(dag.iter_covering_histories(cover_edges=True))
+        tdag = trees[0] | trees
+        assert tdag.weight_count() == dag.weight_count()
+        assert set(tdag.to_newicks()) == set(dag.to_newicks())
+
+
+def test_relabel():
+    dag = dags[-1]
+    Label = namedtuple("Label", ["sequence", "newthing"])
+    ndag = dag.relabel(lambda n: Label(n.label.sequence, len(list(n.children()))))
+    Label = namedtuple("Label", ["sequence"])
+    odag = ndag.relabel(lambda n: Label(n.label.sequence))
+    odag._check_valid()
+    assert dag.weight_count() == odag.weight_count()

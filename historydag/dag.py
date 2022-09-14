@@ -28,6 +28,16 @@ from historydag.utils import Weight, Label, UALabel, prod
 from historydag.counterops import counter_sum, counter_prod
 
 
+def _under_clade_dict(nodeseq: Sequence["HistoryDagNode"]) -> Dict:
+    clade_dict: Dict[FrozenSet[Label], List[HistoryDagNode]] = {}
+    for node in nodeseq:
+        under_clade = node.under_clade()
+        if under_clade not in clade_dict:
+            clade_dict[under_clade] = []
+        clade_dict[node.under_clade()].append(node)
+    return clade_dict
+
+
 class HistoryDagNode:
     r"""A recursive representation of a history DAG object
     - a dictionary keyed by clades (frozensets) containing EdgeSet objects
@@ -212,14 +222,19 @@ class HistoryDagNode:
             parent.remove_edge_by_clade_and_id(self, self.under_clade())
         self.removed = True
 
-    def _sample(self) -> "HistoryDagNode":
+    def _sample(self, edge_selector=lambda n: True) -> "HistoryDagNode":
         r"""Samples a clade tree (a sub-history DAG containing the root and all
         leaf nodes). Returns a new HistoryDagNode object."""
         sample = self.node_self()
         for clade, eset in self.clades.items():
-            sampled_target, target_weight = eset.sample()
+            mask = [edge_selector((self, target)) for target in eset.targets]
+            sampled_target, target_weight = eset.sample(mask=mask)
+            sampled_target_subsample = sampled_target._sample(
+                edge_selector=edge_selector
+            )
+            sampled_target_subsample.parents = set([self])
             sample.clades[clade].add_to_edgeset(
-                sampled_target._sample(),
+                sampled_target_subsample,
                 weight=target_weight,
             )
         return sample
@@ -447,6 +462,61 @@ class HistoryDag:
         self.dagroot = node_postorder[-1]
         self.attr = serial_dict["attr"]
 
+    def _check_valid(self) -> bool:
+        """Check that this HistoryDag complies with all the conditions of the
+        definition."""
+        # Traversal checks if a node has been visited by its id, which makes it
+        # suitable for these checks.
+        po = list(self.postorder())
+        node_set = set(po)
+
+        # ***Node instances are unique (And therefore leaves are uniquely labeled also):
+        if len(po) != len(node_set):
+            raise ValueError("Node instances are not unique")
+
+        # ***All nodes are reachable from the UA node: this is proven by the
+        # structure of the postorder traversal; if a node is visited, then it's
+        # reachable by following directed edges downward. (parent sets aren't
+        # used in the traversal)
+
+        for node in po:
+            if not node.is_root():
+                for clade, eset in node.clades.items():
+                    for child in eset.targets:
+                        # ***Parent clade equals child clade union for all edges:
+                        if child.under_clade() != clade:
+                            raise ValueError(
+                                "Parent clade does not equal child clade union"
+                            )
+
+        for node in po:
+            for clade, eset in node.clades.items():
+                # ***At least one edge descends from each node-clade pair:
+                if len(eset.targets) == 0:
+                    raise ValueError("Found a clade with no child edges")
+                # ...and there are no duplicate children:
+                if len(eset.targets) != len(set(eset.targets)):
+                    raise ValueError(
+                        "Duplicate child edges found descending from the same clade"
+                    )
+                # ...and the eset._targetset set is correct
+                if eset._targetset != set(eset.targets):
+                    raise ValueError("eset._targetset doesn't match eset.targets")
+
+        parents = {node: [] for node in po}
+        for node in po:
+            for child in node.children():
+                parents[child].append(node)
+        for node in po:
+            # ... and parent sets are correct:
+            if node.parents != set(parents[node]):
+                raise ValueError("Found an incorrect parent set")
+            # ... and there are no duplicate parents:
+            if len(parents[node]) != len(set(parents[node])):
+                raise ValueError("Found duplicate parents")
+
+        return True
+
     def serialize(self) -> bytes:
         return pickle.dumps(self.__getstate__())
 
@@ -461,14 +531,119 @@ class HistoryDag:
         for cladetree in self.dagroot._get_trees():
             yield HistoryDag(cladetree)
 
-    def sample(self) -> "HistoryDag":
+    def get_leaves(self) -> Generator["HistoryDag", None, None]:
+        """Return a generator containing all leaf nodes in the history DAG."""
+        return (node for node in self.postorder() if node.is_leaf())
+
+    def num_nodes(self) -> int:
+        """Return the number of nodes in the DAG, not counting the UA node."""
+        return sum(1 for _ in self.preorder(skip_root=True))
+
+    def num_leaves(self) -> int:
+        """Return the number of leaf nodes in the DAG."""
+        return sum(1 for _ in self.get_leaves())
+
+    def sample(self, edge_selector=lambda e: True) -> "HistoryDag":
         r"""Samples a history from the history DAG.
         (A history is a sub-history DAG containing the root and all
         leaf nodes)
         For reproducibility, set ``random.seed`` before sampling.
 
+        When there is an option, edges pointing to nodes on which `selection_func` is True
+        will always be chosen.
+
         Returns a new HistoryDag object."""
-        return HistoryDag(self.dagroot._sample())
+        return HistoryDag(self.dagroot._sample(edge_selector=edge_selector))
+
+    def nodes_above_node(self, node) -> Set[HistoryDagNode]:
+        """Return a set of nodes from which the passed node is reachable along
+        directed edges."""
+        self.recompute_parents()
+        mask_true = set()
+        nodequeue = {node}
+        while len(nodequeue) > 0:
+            curr_node = nodequeue.pop()
+            if curr_node not in mask_true:
+                nodequeue.update(curr_node.parents)
+                mask_true.add(curr_node)
+        return mask_true
+
+    def sample_with_node(self, node) -> "HistoryDag":
+        """Samples a history which contains ``node`` from the history DAG.
+
+        Sampling is likely unbiased from the distribution of trees in
+        the DAG, conditioned on each sampled tree containing the passed
+        node. However, if unbiased sampling from the conditional
+        distribution is important, this should be tested.
+        """
+
+        mask_true = self.nodes_above_node(node)
+
+        def edge_selector(edge):
+            return edge[-1] in mask_true
+
+        return self.sample(edge_selector=edge_selector)
+
+    def sample_with_edge(self, edge) -> "HistoryDag":
+        """Samples a history which contains ``edge`` (a tuple of
+        HistoryDagNodes) from the history DAG.
+
+        Sampling is likely unbiased from the distribution of trees in
+        the DAG, conditioned on each sampled tree containing the passed
+        edge. However, if unbiased sampling from the conditional
+        distribution is important, this should be tested.
+        """
+        mask_true = self.nodes_above_node(edge[0])
+
+        def edge_selector(inedge):
+            return inedge[-1] in mask_true or inedge == edge
+
+        return self.sample(edge_selector=edge_selector)
+
+    def iter_covering_histories(
+        self, cover_edges=False
+    ) -> Generator["HistoryDag", None, None]:
+        """Samples a sequence of histories which together contain all nodes in
+        the history DAG.
+
+        Histories are sampled using :meth:`sample_with_node`, starting
+        with the nodes which are contained in the fewest of the DAG's
+        histories. The sequence of trees is therefore non-deterministic
+        unless ``random.seed`` is set.
+        """
+        node_counts = self.count_nodes()
+        node_list = sorted(node_counts.keys(), key=lambda n: node_counts[n])
+        visited = set()
+        if cover_edges:
+            part_list = [
+                (parent, child) for parent in node_list for child in parent.children()
+            ]
+            sample_func = self.sample_with_edge
+
+            def update_visited(tree):
+                visited.update(
+                    set(
+                        (parent, child)
+                        for parent in tree.preorder()
+                        for child in parent.children()
+                    )
+                )
+
+        else:
+            part_list = node_list
+            sample_func = self.sample_with_node
+
+            def update_visited(tree):
+                visited.update(set(tree.preorder()))
+
+        for part in part_list:
+            if part not in visited:
+                tree = sample_func(part)
+                olen = len(visited)
+                update_visited(tree)
+                # At least part must have been added.
+                assert len(visited) > olen
+                yield tree
 
     def unlabel(self) -> "HistoryDag":
         """Sets all internal node labels to be identical, and merges nodes so
@@ -488,6 +663,52 @@ class HistoryDag:
         ret = newdag.sample()
         ret.merge(newdag)
         return ret
+
+    def relabel(self, relabel_func: Callable[[HistoryDagNode], Label]) -> "HistoryDag":
+        """Return a new HistoryDag with labels modified according to a provided
+        function.
+
+        `relabel_func` should take a node and return the new label
+        appropriate for that node.
+        """
+
+        leaf_label_dict = {leaf.label: relabel_func(leaf) for leaf in self.get_leaves()}
+        if len(leaf_label_dict) != len(set(leaf_label_dict.keys())):
+            raise RuntimeError(
+                "relabeling function maps multiple leaf nodes to the same new label"
+            )
+
+        def remove_abundance_clade(old_clade):
+            return frozenset(leaf_label_dict[old_label] for old_label in old_clade)
+
+        def remove_abundance_node(old_node):
+            if old_node.is_root():
+                return UANode(
+                    EdgeSet(
+                        [
+                            remove_abundance_node(old_child)
+                            for old_child in old_node.children()
+                        ]
+                    )
+                )
+            else:
+                clades = {
+                    remove_abundance_clade(old_clade): EdgeSet(
+                        [
+                            remove_abundance_node(old_child)
+                            for old_child in old_eset.targets
+                        ],
+                        weights=old_eset.weights,
+                        probs=old_eset.probs,
+                    )
+                    for old_clade, old_eset in old_node.clades.items()
+                }
+                return HistoryDagNode(relabel_func(old_node), clades, None)
+
+        newdag = HistoryDag(remove_abundance_node(self.dagroot))
+        # do any necessary collapsing
+        newdag = newdag.sample() | newdag
+        return newdag
 
     def is_clade_tree(self) -> bool:
         """Returns whether history DAG is a clade tree.
@@ -561,9 +782,6 @@ class HistoryDag:
             The number of edges added to the history DAG
         """
         n_added = 0
-        clade_dict: Dict[FrozenSet[Label], List[HistoryDagNode]] = {
-            node.under_clade(): [] for node in self.postorder()
-        }
         if preserve_parent_labels is True:
             self.recompute_parents()
             uplabels = {
@@ -571,11 +789,8 @@ class HistoryDag:
                 for node in self.postorder()
             }
 
-        # discard root node
-        gen = self.preorder()
-        next(gen)
-        for node in gen:
-            clade_dict[node.under_clade()].append(node)
+        clade_dict = _under_clade_dict(self.preorder(skip_root=True))
+        clade_dict[self.dagroot.under_clade()] = []
 
         for node in self.postorder():
             if new_from_root is False and node.is_root():
@@ -1537,16 +1752,16 @@ class HistoryDag:
                     for index, target in enumerate(eset.targets)
                 ]
                 optimalweight = optimal_func([weight for weight, _, _ in weightlist])
-                newtargets = []
-                newweights = []
                 for weight, target, index in weightlist:
-                    if eq_func(weight, optimalweight):
-                        newtargets.append(target)
-                        newweights.append(eset.weights[index])
-                eset.targets = newtargets
-                eset.weights = newweights
+                    if not eq_func(weight, optimalweight):
+                        eset.remove_from_edgeset_byid(target)
                 n = len(eset.targets)
-                eset.probs = [1.0 / n] * n
+                if n == 0:
+                    raise ValueError(
+                        f"Value returned by ``optimal_func`` {optimal_func} is not in the "
+                        f"list of weights passed to that function, according to eq_func {eq_func}"
+                    )
+                eset.set_edge_stats(probs=[1.0 / n] * n)
         self.recompute_parents()
         return opt_weight
 
@@ -1743,36 +1958,60 @@ class EdgeSet:
         probs: Optional[List[float]] = None,
     ):
         r"""Takes no arguments, or an ordered iterable containing target nodes"""
-        if len(args) > 1:
-            raise TypeError(f"Expected at most one argument, got {len(args)}")
-        elif args:
-            self.targets = list(args[0])
-            n = len(self.targets)
-            if weights is not None:
-                self.weights = weights
-            else:
-                self.weights = [0] * n
-
-            if probs is not None:
-                self.probs = probs
-            else:
-                self.probs = [float(1) / n] * n
+        if len(args) == 0:
+            targets = []
+        elif len(args) == 1:
+            targets = args[0]
         else:
-            self.targets = []
-            self.weights = []
-            self.probs = []
-            self._targetset = set()
-
-        self._targetset = set(self.targets)
-        if not len(self._targetset) == len(self.targets):
-            raise TypeError("First argument may not contain duplicate target nodes")
-        # Should probably also check to see that all passed lists have same length
+            raise TypeError(
+                f"__init__() takes 0 or 1 positional arguments but {len(args)} were given."
+            )
+        self.set_targets(targets, weights, probs)
 
     def __iter__(self):
         return (
             (self.targets[i], self.weights[i], self.probs[i])
             for i in range(len(self.targets))
         )
+
+    def set_targets(self, targets, weights=None, probs=None):
+        """Set the target nodes of this node.
+
+        If no weights or probabilities are provided, then these will be
+        set to 0 and 1/n, respectively.
+        """
+        n = len(targets)
+        if len(set(targets)) != n:
+            raise ValueError(
+                f"duplicate target nodes provided: {len(set(targets))} out of {len(targets)} unique."
+            )
+
+        self.targets = targets
+        self._targetset = set(targets)
+        if weights is None:
+            weights = [0] * n
+        if probs is None:
+            if n == 0:
+                probs = []
+            else:
+                probs = [float(1) / n] * n
+        self.set_edge_stats(weights, probs)
+
+    def set_edge_stats(self, weights=None, probs=None):
+        """Set the edge weights and/or probabilities of this EdgeSet."""
+        n = len(self.targets)
+        if weights is not None:
+            if len(weights) != n:
+                raise ValueError(
+                    "length of provided weights list must match number of target nodes"
+                )
+            self.weights = weights
+        if probs is not None:
+            if len(probs) != n:
+                raise ValueError(
+                    "length of provided probabilities list must match number of target nodes"
+                )
+            self.probs = probs
 
     def shallowcopy(self) -> "EdgeSet":
         """Return an identical EdgeSet object, which points to the same target
@@ -1792,12 +2031,17 @@ class EdgeSet:
             self.weights.pop(idx_to_remove)
             self._targetset = set(self.targets)
 
-    def sample(self) -> Tuple[HistoryDagNode, float]:
-        """Returns a randomly sampled child edge, and its corresponding
-        weight."""
-        index = random.choices(list(range(len(self.targets))), weights=self.probs, k=1)[
-            0
-        ]
+    def sample(self, mask=None) -> Tuple[HistoryDagNode, float]:
+        """Returns a randomly sampled child edge, and its corresponding weight.
+
+        When possible, only edges pointing to child nodes on which
+        ``selection_function`` evaluates to True will be sampled.
+        """
+        if sum(mask) == 0:
+            weights = self.probs
+        else:
+            weights = [factor * prob for factor, prob in zip(mask, self.probs)]
+        index = random.choices(list(range(len(self.targets))), weights=weights, k=1)[0]
         return (self.targets[index], self.weights[index])
 
     def add_to_edgeset(self, target, weight=0, prob=None, prob_norm=True) -> bool:
@@ -2001,10 +2245,35 @@ def history_dag_from_etes(
     )
 
 
-def history_dag_from_clade_trees(treelist: List[HistoryDag]) -> HistoryDag:
+def history_dag_from_clade_trees(treelist: Sequence[HistoryDag]) -> HistoryDag:
     """Build a history DAG from a list of history DAGs which are clade
     trees."""
-    # merge checks that all clade trees have the same leaf label set.
-    dag = treelist[0].copy()
-    dag.merge(treelist[1:])
+    dag = next(iter(treelist))
+    dag.merge(treelist)
     return dag
+
+
+def history_dag_from_nodes(nodes: Sequence[HistoryDagNode]) -> HistoryDag:
+    """Take an iterable containing HistoryDagNodes, and build a HistoryDag from
+    those nodes."""
+    # use dictionary to preserve order
+    nodes = {node.node_self(): node for node in nodes}
+    # check for UA node in passed set, and recover if present:
+    ua_node = UANode(EdgeSet())
+    if ua_node in nodes:
+        ua_node = nodes[ua_node].node_self()
+    nodes.pop(ua_node)
+    clade_dict = _under_clade_dict(nodes.keys())
+    edge_dict = {
+        node: [child for clade in node.clades for child in clade_dict[clade]]
+        for node in nodes
+    }
+    children = {node: "" for _, children in edge_dict.items() for node in children}
+    source_nodes = set(nodes) - set(children.keys())
+    edge_dict[ua_node] = list(source_nodes)
+
+    for node, children in edge_dict.items():
+        for child in children:
+            node.add_edge(child)
+
+    return HistoryDag(ua_node)
