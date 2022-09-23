@@ -4,6 +4,7 @@ import pickle
 import graphviz as gv
 import ete3
 import random
+import sys
 from typing import (
     List,
     Callable,
@@ -22,6 +23,8 @@ from typing import (
 )
 from collections import Counter
 from copy import deepcopy
+
+from numpy import double
 
 from historydag import utils
 from historydag.utils import Weight, Label, UALabel, prod
@@ -194,6 +197,48 @@ class HistoryDagNode:
                 prob_norm=prob_norm,
             )
 
+    def trim_optimal_min_weight_recursive(
+        self,
+        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
+        edge_weight_func: Callable[
+            ["HistoryDagNode", "HistoryDagNode"], Weight
+        ] = utils.wrapped_hamming_distance,
+        accum_func: Callable[[List[Weight]], Weight] = sum,
+        optimal_func: Callable[[List[Weight]], Weight] = min,
+        max_weight: Weight = None,
+        eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
+    ) -> Weight:
+        if self.is_leaf():  # base case - the node is a leaf
+            return self
+        else:
+            history = self.node_self()
+            total_sum = 0
+            for clade, eset in self.clades.items():
+                weightlist = [
+                    (
+                        accum_func([target._dp_data, edge_weight_func(self, target)]),
+                        target,
+                        index,
+                    )
+                    for index, target in enumerate(eset.targets)
+                ]
+
+                # get the minimum score of a subtree using the under the other clades
+                weight_under_clade = []
+                for weight, target, _ in weightlist:
+                    weight_under_clade.append(weight)
+                total_sum = total_sum + min(weight_under_clade)
+                min_score_other = self._dp_data - min(weight_under_clade)
+                # print("min_score_other: " + str(min_score_other))
+
+                for weight, target, index in weightlist: # this is looping through all the edges under clade
+                    # print("max weight: "  +str(max_weight))
+                    if accum_func([weight, min_score_other]) <= max_weight:
+                        history.clades[clade].add_to_edgeset(
+                            target.trim_optimal_min_weight_recursive(start_func, edge_weight_func, accum_func, optimal_func, max_weight - min_score_other - edge_weight_func(self, target), eq_func)
+                        )
+            return history
+
     def _get_subhistory_by_subid(self, subid: int) -> "HistoryDagNode":
         r"""Returns the subtree below the current HistoryDagNode corresponding to the given index"""
         if self.is_leaf():  # base case - the node is a leaf
@@ -204,7 +249,7 @@ class HistoryDagNode:
             # get the subtree for each of the clades
             for clade, eset in self.clades.items():
                 # get the sum of subtrees of the edges for this clade
-                num_subtrees = 0  # is this the right way to get the number of edges?
+                num_subtrees = 0
                 for child, weight, _ in eset:
                     num_subtrees = num_subtrees + child._dp_data
                 curr_index = subid % num_subtrees
@@ -384,6 +429,27 @@ class HistoryDag:
             raise IndexError
         self.count_histories()
         return HistoryDag(self.dagroot._get_subhistory_by_subid(key))
+
+    def trim_optimal_min_weight(self,
+        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
+        edge_weight_func: Callable[
+            [HistoryDagNode, HistoryDagNode], Weight
+        ] = utils.wrapped_hamming_distance,
+        accum_func: Callable[[List[Weight]], Weight] = sum,
+        optimal_func: Callable[[List[Weight]], Weight] = min,
+        max_weight: Weight = None,
+        eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
+    ) -> Weight:
+        opt_weight = self.optimal_weight_annotate(
+            start_func=start_func,
+            edge_weight_func=edge_weight_func,
+            accum_func=accum_func,
+            optimal_func=optimal_func,
+        )
+        if max_weight is None:
+            max_weight = opt_weight
+        self.dagroot = self.dagroot.trim_optimal_min_weight_recursive(start_func, edge_weight_func, accum_func, optimal_func, max_weight, eq_func)
+        return opt_weight
 
     def __len__(self) -> int:
         return self.count_histories()
@@ -1757,6 +1823,9 @@ class HistoryDag:
 
     # ######## End Abstract DP method derivatives ########
 
+    # def
+
+
     def trim_optimal_weight(
         self,
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
@@ -1765,6 +1834,7 @@ class HistoryDag:
         ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
+        # max_weight: Weight = None,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
     ) -> Weight:
         """Trims the DAG to only express trees with optimal weight. This is
@@ -1788,6 +1858,7 @@ class HistoryDag:
                 one, like min.
             eq_func: A function which tests equality, taking a pair of weights and returning a bool.
         """
+        # print(max_weight)
         opt_weight = self.optimal_weight_annotate(
             start_func=start_func,
             edge_weight_func=edge_weight_func,
@@ -1795,7 +1866,11 @@ class HistoryDag:
             optimal_func=optimal_func,
         )
         for node in self.preorder():
+            print("for loop over nodes")
             for clade, eset in node.clades.items():
+                print('for loop over clades')
+                # for index, target in enumerate(eset.targets):
+                #     print("for loop over edges")
                 weightlist = [
                     (
                         accum_func([target._dp_data, edge_weight_func(node, target)]),

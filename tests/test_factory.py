@@ -1,3 +1,4 @@
+from ctypes.util import find_library
 import ete3
 import pickle
 import historydag.dag as hdag
@@ -457,3 +458,40 @@ def test_relabel():
     odag = ndag.relabel(lambda n: Label(n.label.sequence))
     odag._check_valid()
     assert dag.weight_count() == odag.weight_count()
+
+def test_trim_weight():
+    for history_dag in dags+cdags:
+        history_dag = (dags+cdags)[6] 
+        # print(history_dag.to_newicks())
+        counter = history_dag.weight_count()
+        max_weight_passed = list(counter.keys())[int(len(counter.keys()) / 2)]
+
+        #  history_dag.render(filename='img/g1')
+        # history_dag.to_graphviz().view("img.png")
+        print("weight count before trimming:")
+        print(history_dag.weight_count())
+        print("max weight passed in:")
+        print(max_weight_passed)
+        opt_weight = history_dag.trim_optimal_min_weight(max_weight = max_weight_passed)
+        print("weight count after trimming:")
+
+        print(history_dag.weight_count())
+        all_subtrees = history_dag.get_trees()
+        trees_to_merge = []
+        for tree in all_subtrees:
+            # print("parsimony count")
+            # print(tree.weight_count())
+            if list(tree.weight_count().keys())[0] <= max_weight_passed:
+                trees_to_merge.append(tree)
+        final_subtree = hdag.history_dag_from_clade_trees(trees_to_merge)
+        print("weight count of tree made by merging subtrees with max weight:")
+        print(final_subtree.weight_count())
+        # print("^that")
+        difference = (set(history_dag.to_newicks()) - set(final_subtree.to_newicks()))
+        print("number of subtrees included in tree after trimming but not after merging: " +str(len(difference)))
+        difference2 = (set(final_subtree.to_newicks()) - set(history_dag.to_newicks()))
+        print("number of subtrees included in tree after mergeing but not trimming: " + str(len(difference2)))
+        assert set(final_subtree.to_newicks()) == set(history_dag.to_newicks())
+        print("passed!")
+        # break
+    # assert 0 == 1
