@@ -472,7 +472,8 @@ def test_trim_weight():
         print(history_dag.weight_count())
         print("max weight passed in:")
         print(max_weight_passed)
-        opt_weight = history_dag.trim_optimal_min_weight(max_weight = max_weight_passed)
+        opt_weight = history_dag.trim_within_range(max_weight=max_weight_passed)
+        history_dag._check_valid()
         print("weight count after trimming:")
 
         print(history_dag.weight_count())
