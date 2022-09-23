@@ -199,8 +199,8 @@ class HistoryDagNode:
 
     def _trim_within_range_recursive(
         self,
-        max_weight: Weight,
         min_weight: Weight,
+        max_weight: Weight,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
         ] = utils.wrapped_hamming_distance,
@@ -230,7 +230,7 @@ class HistoryDagNode:
 
                 to_keep = []
                 for (minweight, maxweight), edgeweight, target in weightlist: # this is looping through all the edges under clade
-                    if (maxweight <= max_weight_this_clade and minweight >= min_weight_this_clade):
+                    if (minweight <= max_weight_this_clade and maxweight >= min_weight_this_clade):
                         target._trim_within_range_recursive(
                             min_weight_this_clade - edgeweight,
                             max_weight_this_clade - edgeweight,
