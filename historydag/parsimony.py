@@ -122,9 +122,7 @@ def sankoff_upward(
 
     if isinstance(tree, ete3.TreeNode):
         seq_len = len(next(tree.iter_leaves()).sequence)
-        adj_arr = _get_adj_array(
-            seq_len, transition_weights=transition_weights
-        )
+        adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
 
         # First pass of Sankoff: compute cost vectors
         for node in tree.traverse(strategy="postorder"):
@@ -158,7 +156,8 @@ def sankoff_upward(
                 seq_len = len(n.label.sequence)
                 break
         adj_arr = _get_adj_array(
-            seq_len, transition_weights=transition_weights,
+            seq_len,
+            transition_weights=transition_weights,
         )
 
         def children_cost(child_cost_vectors):
@@ -199,7 +198,7 @@ def sankoff_upward(
 
         def accum_between_clade_with_filtering(clade_data):
             cost_vectors = []
-            min_cost = float("inf")*np.ones((seq_len,))
+            min_cost = float("inf") * np.ones((seq_len,))
             # iterate over each possible combination of edge choice across clades
             for choice in product(*clade_data):
                 # compute every possible combination of cost vectors for the given edge choice
@@ -354,6 +353,7 @@ def sankoff_downward(
     # still need to trim the dag since the final addition of all
     # parents/children to new nodes can yield suboptimal choices
     if transition_weights is not None:
+
         def weight_func(x, y):
             return edge_weight_func_from_weight_matrix(x, y, adj_arr[0], bases)
 

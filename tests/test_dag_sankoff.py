@@ -57,9 +57,7 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
     ), "DAG Sankoff missed a label that occurs in the tree Sankoff."
 
 
-def check_sankoff_on_dag(
-    dag, expected_score, transition_weights=None
-):
+def check_sankoff_on_dag(dag, expected_score, transition_weights=None):
     # perform upward sweep of sankoff to calculate overall parsimony score and assign cost vectors to internal nodes
     upward_pass_min_cost = dag_parsimony.sankoff_upward(
         dag, transition_weights=transition_weights
