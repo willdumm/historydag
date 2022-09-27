@@ -125,8 +125,9 @@ def sankoff_upward(
                 return char
 
     if isinstance(tree, ete3.TreeNode):
+        seq_len = len(next(tree.iter_leaves()).sequence)
         adj_arr = _get_adj_array(
-            len(tree.sequence), transition_weights=transition_weights
+            seq_len, transition_weights=transition_weights
         )
 
         # First pass of Sankoff: compute cost vectors
@@ -155,11 +156,13 @@ def sankoff_upward(
         return np.sum(np.min(tree.cost_vector, axis=1))
 
     elif isinstance(tree, HistoryDag):
-        # squash all duplicated nodes in the unlabeled historydag, since they will get expanded out with new labels.
-        tree.convert_to_collapsed()
+        seq_len = 0
+        for n in tree.postorder():
+            if n.is_leaf():
+                seq_len = len(n.label.sequence)
+                break
         adj_arr = _get_adj_array(
-            len(next(tree.postorder()).label.sequence),
-            transition_weights=transition_weights,
+            seq_len, transition_weights=transition_weights,
         )
 
         def children_cost(child_cost_vectors):
@@ -270,7 +273,11 @@ def sankoff_downward(
         )
 
     # save the field names/types of the label datatype for this dag
-    seq_len = len(next(dag.postorder()).label.sequence)
+    seq_len = 0
+    for n in dag.postorder():
+        if n.is_leaf():
+            seq_len = len(n.label.sequence)
+            break
     adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
 
     def compute_sequence_data(cost_vector):
@@ -359,7 +366,6 @@ def sankoff_downward(
     # still need to trim the dag since the final addition of all
     # parents/children to new nodes can yield suboptimal choices
     if transition_weights is not None:
-
         def weight_func(x, y):
             return edge_weight_func_from_weight_matrix(x, y, adj_arr[0], bases)
 
@@ -408,8 +414,8 @@ def disambiguate(
     else:
         random.setstate(random_state)
 
-    seq_len = len(tree.sequence)
-    adj_arr = _get_adj_array(len(tree.sequence), transition_weights=transition_weights)
+    seq_len = len(next(tree.iter_leaves()).sequence)
+    adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
     if compute_cvs:
         sankoff_upward(tree, gap_as_char=gap_as_char)
     # Second pass of Sankoff: choose bases

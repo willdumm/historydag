@@ -7,11 +7,10 @@ import historydag.parsimony as dag_parsimony
 def compare_dag_and_tree_parsimonies(
     dag, transition_weights=None, filter_min_score=True
 ):
-    dag.recompute_parents()
-    dag.convert_to_collapsed()
 
     # extract sample tree
-    s = dag.sample()
+    s = dag.sample().copy()
+    s.recompute_parents()
     # convert to ete3.Tree format
     s_ete = s.to_ete()
 
@@ -95,6 +94,8 @@ def test_sankoff_on_dag():
     with open("sample_data/toy_trees.p", "rb") as f:
         ete_trees = pickle.load(f)
     dg = hdag.history_dag_from_etes(ete_trees, ["sequence"])
+    dg.recompute_parents()
+    dg.convert_to_collapsed()
 
     tw_options = [
         (75, None),
