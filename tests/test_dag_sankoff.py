@@ -4,9 +4,7 @@ import historydag as hdag
 import historydag.parsimony as dag_parsimony
 
 
-def compare_dag_and_tree_parsimonies(
-    dag, transition_weights=None, filter_min_score=True
-):
+def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
 
     # extract sample tree
     s = dag.sample().copy()
@@ -15,9 +13,7 @@ def compare_dag_and_tree_parsimonies(
     s_ete = s.to_ete()
 
     # compute cost vectors for sample tree in dag and in ete3.Tree format to compare
-    a = dag_parsimony.sankoff_upward(
-        s, transition_weights=transition_weights, filter_min_score=filter_min_score
-    )
+    a = dag_parsimony.sankoff_upward(s, transition_weights=transition_weights)
     b = dag_parsimony.sankoff_upward(s_ete, transition_weights=transition_weights)
     assert (
         a == b
@@ -28,7 +24,6 @@ def compare_dag_and_tree_parsimonies(
         s,
         compute_cvs=False,
         transition_weights=transition_weights,
-        filter_min_score=filter_min_score,
     )
     s_ete = dag_parsimony.disambiguate(
         s_ete, compute_cvs=False, transition_weights=transition_weights
@@ -63,11 +58,11 @@ def compare_dag_and_tree_parsimonies(
 
 
 def check_sankoff_on_dag(
-    dag, expected_score, transition_weights=None, filter_min_score=True
+    dag, expected_score, transition_weights=None
 ):
     # perform upward sweep of sankoff to calculate overall parsimony score and assign cost vectors to internal nodes
     upward_pass_min_cost = dag_parsimony.sankoff_upward(
-        dag, transition_weights=transition_weights, filter_min_score=filter_min_score
+        dag, transition_weights=transition_weights
     )
     assert np.isclose(
         [upward_pass_min_cost], [expected_score]
@@ -77,7 +72,6 @@ def check_sankoff_on_dag(
     downward_pass_min_cost = dag_parsimony.sankoff_downward(
         dag,
         transition_weights=transition_weights,
-        filter_min_score=filter_min_score,
         compute_cvs=False,
     )
     dag._check_valid()
@@ -126,13 +120,5 @@ def test_sankoff_on_dag():
     ]
 
     for (w, tw) in tw_options:
-        check_sankoff_on_dag(
-            dg.copy(), w, transition_weights=tw, filter_min_score=False
-        )
-        check_sankoff_on_dag(dg.copy(), w, transition_weights=tw, filter_min_score=True)
-        compare_dag_and_tree_parsimonies(
-            dg.copy(), transition_weights=tw, filter_min_score=False
-        )
-        compare_dag_and_tree_parsimonies(
-            dg.copy(), transition_weights=tw, filter_min_score=True
-        )
+        check_sankoff_on_dag(dg.copy(), w, transition_weights=tw)
+        compare_dag_and_tree_parsimonies(dg.copy(), transition_weights=tw)
