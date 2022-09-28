@@ -199,42 +199,38 @@ class HistoryDagNode:
 
     def _trim_within_range_recursive(
         self,
-        min_weight: Weight,
         max_weight: Weight,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = utils.wrapped_hamming_distance,
+        ],
     ) -> Weight:
 
         if self.is_leaf():  # base case - the node is a leaf
             return
         else:
-            node_min_weight, node_max_weight = self._dp_data
+            node_min_weight = self._dp_data
             for clade, eset in self.clades.items():
                 weightlist = []
                 for target in eset.targets:
                     edgeweight = edge_weight_func(self, target)
-                    weightlist.append(((target._dp_data[0] + edgeweight, target._dp_data[1] + edgeweight),
+                    weightlist.append((target._dp_data + edgeweight,
                                        edgeweight,
                                        target))
 
-                # By assuming a minimum/maximum weight edge is chosen for all other
-                # clades, we compute the maximum/minimum weight of a subtree below this
+                # By assuming a minimum weight edge is chosen for all other
+                # clades, we compute the maximum weight of a subtree below this
                 # clade
-                min_weight_under_clade = min(minweight for (minweight, _), _, _ in weightlist)
-                max_weight_under_clade = max(maxweight for (_, maxweight), _, _ in weightlist)
-                # The sum of minimum/maximum scores beneath all other clades is
+                min_weight_under_clade = min(minweight for minweight, _, _ in weightlist)
+                # The sum of minimum scores beneath all other clades is
                 # quantity in parentheses:
-                min_weight_this_clade = min_weight - (node_max_weight - max_weight_under_clade)
-                max_weight_this_clade = max_weight - (node_min_weight - min_weight_under_clade)
+                max_weight_allowed_clade = max_weight - (node_min_weight - min_weight_under_clade)
 
                 to_keep = []
-                for (minweight, maxweight), edgeweight, target in weightlist: # this is looping through all the edges under clade
-                    if (minweight <= max_weight_this_clade and maxweight >= min_weight_this_clade):
+                for minweight, edgeweight, target in weightlist: # this is looping through all the edges under clade
+                    if minweight <= max_weight_allowed_clade:
                         target._trim_within_range_recursive(
-                            min_weight_this_clade - edgeweight,
-                            max_weight_this_clade - edgeweight,
-                            edge_weight_func=edge_weight_func,
+                            max_weight_allowed_clade - edgeweight,
+                            edge_weight_func,
                         )
                         to_keep.append(target)
                 eset.set_targets(to_keep)
@@ -431,8 +427,7 @@ class HistoryDag:
         return HistoryDag(self.dagroot._get_subhistory_by_subid(key))
 
     def trim_within_range(self,
-        min_weight=None,
-        max_weight=None,
+        max_weight,
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
@@ -443,26 +438,9 @@ class HistoryDag:
         Supports totally ordered weights, accumulated by addition. A weight type must implement
         all ordering operators properly, as well as + and -, and addition and subtraction must
         respect the ordering. That is, if a < b, then a + c < b + c for any c (including negative c)"""
-        annotate_kwargs = utils.AddFuncDict(
-            {"start_func": start_func,
-             "edge_weight_func": edge_weight_func,
-             "accum_func": sum}
-        )
-        # Keep track of weight twice, the first will be minimum, the second the maximum:
-        kwargs = annotate_kwargs + annotate_kwargs
-        opt_range = self.optimal_weight_annotate(
-            **kwargs,
-            optimal_func = lambda weightlist: (min(weight for weight, _ in weightlist),
-                                               max(weight for weight, _ in weightlist))
-        )
-        mindagweight, maxdagweight = opt_range
-        if min_weight is None:
-            min_weight = mindagweight
-        if max_weight is None:
-            max_weight = maxdagweight
-
+        self.optimal_weight_annotate(start_func=start_func,
+                                     edge_weight_func=edge_weight_func)
         self.dagroot._trim_within_range_recursive(
-            min_weight,
             max_weight,
             edge_weight_func=edge_weight_func,
         )
