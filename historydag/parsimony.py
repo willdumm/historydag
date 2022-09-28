@@ -198,7 +198,7 @@ def sankoff_upward(
 
         def accum_between_clade_with_filtering(clade_data):
             cost_vectors = []
-            min_cost = float("inf") * np.ones((seq_len,))
+            min_cost = float("inf")
             # iterate over each possible combination of edge choice across clades
             for choice in product(*clade_data):
                 # compute every possible combination of cost vectors for the given edge choice
@@ -207,15 +207,15 @@ def sankoff_upward(
                     *[c._dp_data["cost_vectors"] for c in choice]
                 ):
                     cv = children_cost(cost_vector_combination)
-                    cost = np.min(cv, axis=1)
-                    if any(cost < min_cost):
-                        min_cost = np.minimum(cost, min_cost)
+                    cost = np.sum(np.min(cv, axis=1))
+                    if cost < min_cost:
+                        min_cost = cost
                         cost_vectors = [cv]
-                    elif all(cost <= min_cost) and not any(
+                    elif cost <= min_cost and not any(
                         [np.array_equal(cv, other_cv) for other_cv in cost_vectors]
                     ):
                         cost_vectors.append(cv)
-            return {"cost_vectors": cost_vectors, "subtree_cost": np.sum(min_cost)}
+            return {"cost_vectors": cost_vectors, "subtree_cost": min_cost}
 
         compute_val = tree.postorder_history_accum(
             leaf_func=leaf_func,
