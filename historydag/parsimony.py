@@ -159,6 +159,7 @@ def sankoff_upward(
             seq_len,
             transition_weights=transition_weights,
         )
+        max_transition_cost = np.amax(adj_arr) * seq_len
 
         def children_cost(child_cost_vectors):
             costs = []
@@ -180,22 +181,6 @@ def sankoff_upward(
                 "subtree_cost": 0,
             }
 
-        def accum_between_clade(clade_data):
-            cost_vectors = []
-            min_cost = float("inf")
-            # iterate over each possible combination of edge choice across clades
-            for choice in product(*clade_data):
-                # compute every possible combination of cost vectors for the given edge choice
-                # (each child node has possibly multiple cost vectors that are all optimal)
-                for cost_vector_combination in product(
-                    *[c._dp_data["cost_vectors"] for c in choice]
-                ):
-                    cv = children_cost(cost_vector_combination)
-                    min_cost = min(min_cost, np.sum(np.min(cv, axis=1)))
-                    if not any([np.array_equal(cv, cv2) for cv2 in cost_vectors]):
-                        cost_vectors.append(cv)
-            return {"cost_vectors": cost_vectors, "subtree_cost": min_cost}
-
         def accum_between_clade_with_filtering(clade_data):
             cost_vectors = []
             min_cost = float("inf")
@@ -208,12 +193,13 @@ def sankoff_upward(
                 ):
                     cv = children_cost(cost_vector_combination)
                     cost = np.sum(np.min(cv, axis=1))
-                    if cost < min_cost:
+                    if (cost + max_transition_cost) < min_cost:
                         min_cost = cost
                         cost_vectors = [cv]
-                    elif cost <= min_cost and not any(
+                    elif cost <= (min_cost + max_transition_cost) and not any(
                         [np.array_equal(cv, other_cv) for other_cv in cost_vectors]
                     ):
+                        min_cost = min(cost, min_cost)
                         cost_vectors.append(cv)
             return {"cost_vectors": cost_vectors, "subtree_cost": min_cost}
 
