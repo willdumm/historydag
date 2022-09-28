@@ -15,9 +15,10 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
     # compute cost vectors for sample tree in dag and in ete3.Tree format to compare
     a = dag_parsimony.sankoff_upward(s, transition_weights=transition_weights)
     b = dag_parsimony.sankoff_upward(s_ete, transition_weights=transition_weights)
-    assert (
-        a == b
-    ), "Upward Sankoff on ete_Tree vs on the dag version of the tree produced different results: %lf from the dag and %lf from the ete_Tree"%(a, b)
+    assert a == b, (
+        "Upward Sankoff on ete_Tree vs on the dag version of the tree produced different results: "
+        + "%lf from the dag and %lf from the ete_Tree" % (a, b)
+    )
 
     # calculate sequences for internal nodes using Sankoff for both formats of sample tree
     s_weight = dag_parsimony.sankoff_downward(
@@ -44,9 +45,10 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
         )
     else:
         s_ete_weight = s_ete_as_dag.optimal_weight_annotate()
-    assert (
-        s_weight == s_ete_weight
-    ), "Downward sankoff on ete_Tree vs on the dag version of the tree produced different results: %lf from the dag and %lf from the ete_Tree"%(s_weight, s_ete_weight)
+    assert s_weight == s_ete_weight, (
+        "Downward sankoff on ete_Tree vs on the dag version of the tree produced different results: "
+        + "%lf from the dag and %lf from the ete_Tree" % (s_weight, s_ete_weight)
+    )
 
     s_labels = set(n.label.sequence for n in s.postorder() if not n.is_ua_node())
     s_ete_labels = set(
@@ -62,9 +64,10 @@ def check_sankoff_on_dag(dag, expected_score, transition_weights=None):
     upward_pass_min_cost = dag_parsimony.sankoff_upward(
         dag, transition_weights=transition_weights
     )
-    assert np.isclose(
-        [upward_pass_min_cost], [expected_score]
-    ), "Upward pass of Sankoff on dag did not yield expected score: computed %lf, but expected %lf"%(upward_pass_min_cost, expected_score)
+    assert np.isclose([upward_pass_min_cost], [expected_score]), (
+        "Upward pass of Sankoff on dag did not yield expected score: computed %lf, but expected %lf"
+        % (upward_pass_min_cost, expected_score)
+    )
 
     # perform downward sweep of sankoff to calculate all possible internal node sequences.
     downward_pass_min_cost = dag_parsimony.sankoff_downward(
@@ -73,9 +76,10 @@ def check_sankoff_on_dag(dag, expected_score, transition_weights=None):
         compute_cvs=False,
     )
     dag._check_valid()
-    assert np.isclose(
-        [downward_pass_min_cost], [expected_score]
-    ), "Downward pass of Sankoff on dag did not yield expected score: computed %lf, but expected %lf"%(downward_pass_min_cost, expected_score)
+    assert np.isclose([downward_pass_min_cost], [expected_score]), (
+        "Downward pass of Sankoff on dag did not yield expected score: computed %lf, but expected %lf"
+        % (downward_pass_min_cost, expected_score)
+    )
 
     assert (
         dag.count_histories() == dag.copy().count_histories()
