@@ -466,8 +466,6 @@ def test_trim_weight():
     counter = history_dag.weight_count()
     max_weight_passed = list(counter.keys())[int(len(counter.keys()) / 2)]
 
-    #  history_dag.render(filename='img/g1')
-    # history_dag.to_graphviz().view("img.png")
     print("weight count before trimming:")
     print(counter)
     print("max weight passed in:")
@@ -476,7 +474,7 @@ def test_trim_weight():
     trees_to_merge = [tree.copy() for tree in history_dag if tree.optimal_weight_annotate() <= max_weight_passed]
     true_subdag = hdag.history_dag_from_clade_trees(trees_to_merge)
 
-    opt_weight = history_dag.trim_within_range(max_weight = max_weight_passed)
+    opt_weight = history_dag.trim_within_range(min_weight = 0, max_weight = max_weight_passed)
     print("weight count after trimming:")
     print(history_dag.weight_count())
     print("weight count expected:")
