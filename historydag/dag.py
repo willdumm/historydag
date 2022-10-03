@@ -1,6 +1,7 @@
 """A module providing the class HistoryDag, and supporting functions."""
 
 import pickle
+from math import log
 import graphviz as gv
 import ete3
 import random
@@ -138,6 +139,10 @@ class HistoryDagNode:
     def is_root(self) -> bool:
         """Deprecated name for :meth:`is_ua_node`"""
         return self.is_ua_node()
+
+    def is_history_root(self) -> bool:
+        """Return whether node is a root of any histories in the DAG."""
+        return any(n.is_ua_node() for n in self.parents)
 
     def child_clades(self) -> frozenset:
         """Returns the node's child clades, or a frozenset containing a
@@ -1625,8 +1630,6 @@ class HistoryDag:
                 clade2support[node.clade_union()] = 0
             clade2support[node.clade_union()] += count / total_trees
 
-        from math import log
-
         self.trim_optimal_weight(
             start_func=lambda n: 0,
             edge_weight_func=lambda n1, n2: log(clade2support[n2.clade_union()]),
@@ -1754,6 +1757,36 @@ class HistoryDag:
                 accum_above_edge=lambda n, e: e,
             ).values()
         )[0]
+
+    def optimal_rf_distance(
+        self,
+        history: "HistoryDag",
+        rooted: bool = False,
+        optimal_func: Callable[[List[Weight]], Weight] = min,
+    ):
+        """Returns the optimal (min or max) RF distance to a given history.
+
+        The given history must be on the same taxa as all trees in the DAG.
+        Since computing reference splits is expensive, it is better to use
+        :meth:``optimal_weight_annotate`` and :meth:``utils.make_rfdistance_countfuncs``
+        instead of making multiple calls to this method with the same reference
+        history.
+        """
+        kwargs = utils.make_rfdistance_countfuncs(history, rooted=rooted)
+        return self.optimal_weight_annotate(**kwargs, optimal_func=optimal_func)
+
+    def count_rf_distances(self, history: "HistoryDag", rooted: bool = False):
+        """Returns a Counter containing all RF distances to a given history.
+
+        The given history must be on the same taxa as all trees in the DAG.
+
+        Since computing reference splits is expensive, it is better to use
+        :meth:``weight_count`` and :meth:``utils.make_rfdistance_countfuncs``
+        instead of making multiple calls to this method with the same reference
+        history.
+        """
+        kwargs = utils.make_rfdistance_countfuncs(history, rooted=rooted)
+        return self.weight_count(**kwargs)
 
     # ######## End Abstract DP method derivatives ########
 
