@@ -12,7 +12,8 @@ new_seq = "A" * seq_len
 
 
 def test_inserting_leafnode_at_nearest_leaf():
-    dag_with_leaf_added = dag.add_node_at_nearest_leaf("A" * seq_len)
+    dag_with_leaf_added = dag.copy()
+    dag_with_leaf_added.add_node_at_nearest_leaf("A" * seq_len)
     assert dag_with_leaf_added._check_valid()
 
     # check we successfully added one new node
@@ -22,7 +23,8 @@ def test_inserting_leafnode_at_nearest_leaf():
 
 
 def test_inserting_leafnode_everywhere():
-    dag_with_leaf_added_everywhere = dag.add_node_at_all_possible_places("A" * seq_len)
+    dag_with_leaf_added_everywhere = dag.copy()
+    dag_with_leaf_added_everywhere.add_node_at_all_possible_places("A" * seq_len)
     assert dag_with_leaf_added_everywhere._check_valid()
 
     num_leaf = len([x for x in dag.postorder() if x.is_leaf()])

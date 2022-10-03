@@ -1979,102 +1979,124 @@ class HistoryDag:
             [HistoryDagNode, HistoryDagNode], Weight
         ] = utils.wrapped_hamming_distance,
     ):
+        """Inserts a sequence into the dag in such a way that every tree in the
+        dag now contains that node.
 
-        # distance_func = lambda x, y: sum([xx != yy for xx, yy in zip(x, y)])):
-
+        This method adds the new sequence as a sibling of the leaf
+        node that achieves the minimum distance to the new sequence. The
+        resulting dag has nodecount incremented by 1, and potentially
+        many more trees, since it is re-built using
+        :meth:``history_dag_from_nodes`` which adds all allowed edges.
+        """
         postorder = list(self.postorder())
-        if any(
+        if not any(
             [
                 new_leaf_id == getattr(n.label, id_name)
                 for n in postorder
                 if not n.is_ua_node()
             ]
         ):
-            return self.copy()
 
-        # make sure all connections are correctly built before manipulating dag
-        self.recompute_parents()
+            # make sure all connections are correctly built before manipulating dag
+            self.recompute_parents()
 
-        # create a new node to hold the new_leaf_id
-        new_leaf = empty_node(
-            next(self.postorder()).label._replace(**{id_name: new_leaf_id}), {}, None
-        )
+            # create a new node to hold the new_leaf_id
+            new_leaf = empty_node(
+                next(self.postorder()).label._replace(**{id_name: new_leaf_id}),
+                {},
+                None,
+            )
 
-        # find closest leaf neighbor(s)
-        leaf_nodes = [n for n in postorder if n.is_leaf()]
-        leaf_dists = [distance_func(n, new_leaf) for n in leaf_nodes]
-        nearest_leaf = leaf_nodes[leaf_dists.index(min(leaf_dists))]
+            # find closest leaf neighbor(s)
+            leaf_nodes = [n for n in postorder if n.is_leaf()]
+            leaf_dists = [distance_func(n, new_leaf) for n in leaf_nodes]
+            nearest_leaf = leaf_nodes[leaf_dists.index(min(leaf_dists))]
 
-        dagnodes = {new_leaf: new_leaf}
-        # iterate over nodes in the dag to create a new copy
-        for node in postorder:
-            # if the node is an ancestor of the neighboring leaf node, add the new_node as descendant
-            if (nearest_leaf.label in node.clade_union()) and (nearest_leaf != node):
-                # check first if the new_node should be added as a separate clade/child pair
-                if node in list(nearest_leaf.parents):
-                    clades = [c for c in node.child_clades()] + [
-                        frozenset([new_leaf.label])
-                    ]
+            dagnodes = {new_leaf: new_leaf}
+            # iterate over nodes in the dag to create a new copy
+            for node in postorder:
+                # if the node is an ancestor of the neighboring leaf node, add the new_node as descendant
+                if (nearest_leaf.label in node.clade_union()) and (
+                    nearest_leaf != node
+                ):
+                    oldnode = node
+                    # check first if the new_node should be added as a separate clade/child pair
+                    if node in list(nearest_leaf.parents):
+                        node.clades[frozenset([new_leaf.label])] = EdgeSet([new_leaf])
+                    else:
+                        (old_clade, old_edgeset) = [
+                            (c, e)
+                            for c, e in node.clades.items()
+                            if nearest_leaf.label in c
+                        ][0]
+                        new_clade = frozenset(old_clade | {new_leaf.label})
+                        node.clades.pop(old_clade)
+                        node.clades[new_clade] = old_edgeset
+                    dagnodes[oldnode] = node
                 else:
-                    clades = [
-                        c
-                        if nearest_leaf.label not in c
-                        else frozenset(c | {new_leaf.label})
-                        for c in node.child_clades()
-                    ]
-                nodecopy = empty_node(node.label, clades, None)
-                dagnodes[node] = nodecopy
-            else:
-                nodecopy = node.empty_copy()
-                dagnodes[node] = nodecopy
-        return history_dag_from_nodes(dict(dagnodes).values())
+                    dagnodes[node] = node
 
-    def add_node_at_all_possible_places(self, new_leaf_id, id_name="sequence"):
+        for node in self.postorder():
+            for clade, edgeset in node.clades.items():
+                edgeset.set_targets([dagnodes[n] for n in edgeset.targets])
+        self.recompute_parents()
+
+    def add_node_at_all_possible_places(self, new_leaf_id, id_name: str = "sequence"):
+        """Inserts a sequence into the dag such that every tree in the dag now
+        contains that new node.
+
+        This method adds the new node as a leaf node by connecting it
+        as a child of every non-leaf node in the original dag. The
+        resulting dag has one new node corresponding to the added
+        sequence as well as copies of all internal nodes corresponding
+        to parents (and more ancestral nodes) to the added sequence.
+        """
         postorder = list(self.postorder())
-        if any(
+        if not any(
             [
                 new_leaf_id == getattr(n.label, id_name)
                 for n in postorder
                 if not n.is_ua_node()
             ]
         ):
-            return self.copy()
-        # make sure all connections are correctly built before manipulating dag
-        self.recompute_parents()
+            # make sure all connections are correctly built before manipulating dag
+            self.recompute_parents()
 
-        # create a new node corresponding to new_sequence
-        new_leaf = empty_node(
-            next(self.postorder()).label._replace(**{id_name: new_leaf_id}), {}, None
-        )
+            # create a new node corresponding to new_sequence
+            new_leaf = empty_node(
+                next(self.postorder()).label._replace(**{id_name: new_leaf_id}),
+                {},
+                None,
+            )
 
-        dagnodes = {new_leaf: new_leaf}
-        for node in postorder:
-            if not (node.is_leaf() or node.is_ua_node()):
-                # create a copy of the node that has new_leaf as a direct child
-                clades = [c for c in node.clades] + [frozenset([new_leaf.label])]
-                node_copy_as_parent = empty_node(node.label, clades, None)
-                dagnodes[node_copy_as_parent] = node_copy_as_parent
+            dagnodes = {new_leaf: new_leaf}
+            for node in postorder:
+                if not (node.is_leaf() or node.is_ua_node()):
+                    # create a copy of the node that has new_leaf as a direct child
+                    clades = [c for c in node.clades] + [frozenset([new_leaf.label])]
+                    node_copy_as_parent = empty_node(node.label, clades, None)
+                    dagnodes[node_copy_as_parent] = node_copy_as_parent
 
-                # for each child clade, create a copy of the node as an ancestor
-                # of new_leaf through that clade
-                for clade in node.clades:
-                    if len(clade) > 1:
-                        clades = [
-                            c if c != clade else frozenset(clade | {new_leaf.label})
-                            for c in node.clades
-                        ]
-                        node_copy_as_ancestor = empty_node(node.label, clades, None)
-                        dagnodes[node_copy_as_ancestor] = node_copy_as_ancestor
+                    # for each child clade, create a copy of the node as an ancestor
+                    # of new_leaf through that clade
+                    for clade in node.clades:
+                        if len(clade) > 1:
+                            clades = [
+                                c if c != clade else frozenset(clade | {new_leaf.label})
+                                for c in node.clades
+                            ]
+                            node_copy_as_ancestor = empty_node(node.label, clades, None)
+                            dagnodes[node_copy_as_ancestor] = node_copy_as_ancestor
 
-                # if the current node is internal to any trees in the dag, then keep
-                # a copy of the node that does not have new_node as a descendant
-                if not any([p.is_ua_node() for p in node.parents]):
+                    # if the current node is internal to any trees in the dag, then keep
+                    # a copy of the node that does not have new_node as a descendant
+                    if not any([p.is_ua_node() for p in node.parents]):
+                        nodecopy = node.empty_copy()
+                        dagnodes[nodecopy] = nodecopy
+                else:
                     nodecopy = node.empty_copy()
                     dagnodes[nodecopy] = nodecopy
-            else:
-                nodecopy = node.empty_copy()
-                dagnodes[nodecopy] = nodecopy
-        return history_dag_from_nodes(dict(dagnodes))
+            self.__init__(history_dag_from_nodes(dict(dagnodes)).dagroot)
 
     # ######## DAG Traversal Methods ########
 
