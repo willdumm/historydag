@@ -53,3 +53,15 @@ def test_inserting_leafnode_everywhere():
         len(list(dag_with_leaf_added_everywhere.postorder()))
         == expected_num_with_all_additions
     ), "failed to add expected set of new nodes"
+
+
+def test_inserting_leafnode_at_closest_spot():
+    dag_with_leaf_added_closer = dag.copy()
+    dag_with_leaf_added_closer.insert_node("A" * seq_len)
+    assert dag_with_leaf_added_closer._check_valid()
+
+    # check we successfully added one new node
+    assert (
+        len(list(dag_with_leaf_added_closer.postorder()))
+        == len(list(dag.postorder())) + 1
+    ), "failed to add one node successfully"

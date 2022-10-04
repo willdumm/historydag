@@ -2002,9 +2002,7 @@ class HistoryDag:
 
             # create a new node to hold the new_leaf_id
             new_leaf = empty_node(
-                next(self.postorder()).label._replace(**{id_name: new_leaf_id}),
-                {},
-                None,
+                postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
             )
 
             # find closest leaf neighbor(s)
@@ -2045,8 +2043,8 @@ class HistoryDag:
         """Inserts a sequence into the dag such that every tree in the dag now
         contains that new node.
 
-        This method adds the new node as a leaf node by connecting it
-        as a child of every non-leaf node in the original dag. The
+        This method adds the new node as a leaf node by connecting it as
+        a child of every non-leaf node in the original dag. The
         resulting dag has one new node corresponding to the added
         sequence as well as copies of all internal nodes corresponding
         to parents (and more ancestral nodes) to the added sequence.
@@ -2064,9 +2062,7 @@ class HistoryDag:
 
             # create a new node corresponding to new_sequence
             new_leaf = empty_node(
-                next(self.postorder()).label._replace(**{id_name: new_leaf_id}),
-                {},
-                None,
+                postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
             )
 
             dagnodes = {new_leaf: new_leaf}
@@ -2097,6 +2093,134 @@ class HistoryDag:
                     nodecopy = node.empty_copy()
                     dagnodes[nodecopy] = nodecopy
             self.__init__(history_dag_from_nodes(dict(dagnodes)).dagroot)
+
+    def insert_node(
+        self,
+        new_leaf_id,
+        id_name: str = "sequence",
+        dist: Callable[
+            [HistoryDagNode, HistoryDagNode], Weight
+        ] = utils.wrapped_hamming_distance,
+    ):
+        self.recompute_parents()
+        postorder = list(self.postorder())
+        new_node = empty_node(
+            postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
+        )
+
+        def insert_node_as_sibling(node, sib):
+            updated_nodes = {node: node}
+            for parent in sib.parents:
+                if node.label not in parent.clade_union():
+                    old_parent = parent
+                    parent.clades[frozenset([node.label])] = EdgeSet([node])
+                    updated_nodes[old_parent] = parent
+                    for ancestor in self.postorder_above(parent):
+                        old_ancestor = ancestor
+                        for clade, edgeset in old_ancestor.clades.items():
+                            if (sib.label in clade) and not (node.label in clade):
+                                new_clade = frozenset(clade | {node.label})
+                                ancestor.clades.pop(clade)
+                                ancestor.clades[new_clade] = EdgeSet(
+                                    [
+                                        t
+                                        if t not in updated_nodes
+                                        else updated_nodes[t]
+                                        for t, _, _ in edgeset
+                                    ]
+                                )
+                                break
+                        updated_nodes[old_ancestor] = ancestor
+            return updated_nodes
+
+        def find_min_dist_nodes(new_node, node_set):
+            return_set = []
+            min_dist = float("inf")
+            for node in node_set:
+                if not node.is_root():
+                    this_dist = dist(node, new_node)
+                    if this_dist < min_dist:
+                        return_set = [node]
+                        min_dist = this_dist
+                    elif this_dist <= min_dist:
+                        return_set.append(node)
+            return return_set
+
+        def incompatible(n1, n2):
+            if n1.is_root() or n2.is_root():
+                return False
+            if any([n1.clade_union() <= B for B in n2.child_clades()]):
+                return False
+            if any([n2.clade_union() <= B for B in n1.child_clades()]):
+                return False
+            if (
+                (n1.clade_union() == n2.clade_union())
+                or any(
+                    [
+                        len([B for B in n1.clades if len(A.intersection(B)) > 0]) == 2
+                        for A in n2.clades
+                    ]
+                )
+                or any(
+                    [
+                        len([B for B in n2.clades if len(A.intersection(B)) > 0]) == 2
+                        for A in n1.clades
+                    ]
+                )
+            ):
+                return True
+            return False
+
+        def incompatible_set(node, nodeset):
+            for leaf in node.clade_union():
+                pathdag = [
+                    n
+                    for n in self.leaf_path_uncertainty_dag(leaf)
+                    if (n in nodeset and incompatible(n, node))
+                ]
+                yield from pathdag
+
+        incompatible_nodes_so_far = set(postorder)
+        changed_nodes = {}
+        while len(incompatible_nodes_so_far) > 0:
+            min_dist_nodes = find_min_dist_nodes(new_node, incompatible_nodes_so_far)
+            for other_node in min_dist_nodes:
+                if not other_node.is_leaf():
+                    for child in incompatible_nodes_so_far.intersection(
+                        other_node.children()
+                    ):
+                        changed_nodes.update(insert_node_as_sibling(new_node, child))
+                        incompatible_nodes_so_far = set(
+                            incompatible_set(child, incompatible_nodes_so_far)
+                        )
+
+        for node in self.postorder():
+            for clade, edgeset in node.clades.items():
+                edgeset.set_targets(
+                    [
+                        n if n not in changed_nodes else changed_nodes[n]
+                        for n in edgeset.targets
+                    ]
+                )
+        self.recompute_parents()
+
+    def postorder_above(self, node_as_leaf):
+        def follow_up(node):
+            for p in node.parents:
+                yield from follow_up(p)
+            yield node
+
+        ancestor_set = set(follow_up(node_as_leaf))
+        visited = set()
+
+        def traverse(node: HistoryDagNode):
+            visited.add(id(node))
+            for child in node.children():
+                if (not id(child) in visited) and (node_as_leaf.label in ancestor_set):
+                    yield from traverse(child)
+            yield node
+
+        yield from traverse(self.dagroot)
 
     # ######## DAG Traversal Methods ########
 
