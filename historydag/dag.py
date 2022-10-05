@@ -2034,10 +2034,10 @@ class HistoryDag:
                 else:
                     dagnodes[node] = node
 
-        for node in self.postorder():
-            for clade, edgeset in node.clades.items():
-                edgeset.set_targets([dagnodes[n] for n in edgeset.targets])
-        self.recompute_parents()
+            for node in self.postorder():
+                for clade, edgeset in node.clades.items():
+                    edgeset.set_targets([dagnodes[n] for n in edgeset.targets])
+            self.recompute_parents()
 
     def add_node_at_all_possible_places(self, new_leaf_id, id_name: str = "sequence"):
         """Inserts a sequence into the dag such that every tree in the dag now
@@ -2102,90 +2102,128 @@ class HistoryDag:
             [HistoryDagNode, HistoryDagNode], Weight
         ] = utils.wrapped_hamming_distance,
     ):
-        self.recompute_parents()
+        """Inserts a sequence into the DAG as a child of the dagnode(s)
+        realizing the minimum overall distance between sequences, and then adds
+        the same new sequence to the dag as a child of other nodes in such a
+        way as to guarantee that every tree in the DAG now contains the new
+        sequence.
+
+        The choice of other nodes is computed by looking at the set of
+        nodes that are `incompatible` with the first minimizing node.
+        For a full description of this, see :meth: `incompatible`.
+        """
         postorder = list(self.postorder())
-        new_node = empty_node(
-            postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
-        )
+        if not any(
+            [
+                new_leaf_id == getattr(n.label, id_name)
+                for n in postorder
+                if not n.is_ua_node()
+            ]
+        ):
+            self.recompute_parents()
+            new_node = empty_node(
+                postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
+            )
 
-        def insert_node_as_sibling(node, sib):
-            updated_nodes = {node: node}
-            for parent in sib.parents:
-                if node.label not in parent.clade_union():
-                    old_parent = parent
-                    parent.clades[frozenset([node.label])] = EdgeSet([node])
-                    updated_nodes[old_parent] = parent
-                    for ancestor in self.postorder_above(parent):
-                        old_ancestor = ancestor
-                        for clade, edgeset in old_ancestor.clades.items():
-                            if (sib.label in clade) and not (node.label in clade):
-                                new_clade = frozenset(clade | {node.label})
-                                ancestor.clades.pop(clade)
-                                ancestor.clades[new_clade] = EdgeSet(
-                                    [
-                                        t
-                                        if t not in updated_nodes
-                                        else updated_nodes[t]
-                                        for t, _, _ in edgeset
-                                    ]
-                                )
-                                break
-                        updated_nodes[old_ancestor] = ancestor
-            return updated_nodes
+            def insert_node_as_sibling(node, sib):
+                updated_nodes = {node: node}
+                for parent in sib.parents:
+                    if node.label not in parent.clade_union():
+                        old_parent = parent
+                        parent.clades[frozenset([node.label])] = EdgeSet([node])
+                        updated_nodes[old_parent] = parent
+                        for ancestor in self.postorder_above(parent):
+                            old_ancestor = ancestor
+                            for clade, edgeset in old_ancestor.clades.items():
+                                if (sib.label in clade) and not (node.label in clade):
+                                    new_clade = frozenset(clade | {node.label})
+                                    ancestor.clades.pop(clade)
+                                    ancestor.clades[new_clade] = EdgeSet(
+                                        [
+                                            t
+                                            if t not in updated_nodes
+                                            else updated_nodes[t]
+                                            for t, _, _ in edgeset
+                                        ]
+                                    )
+                                    break
+                            updated_nodes[old_ancestor] = ancestor
+                return updated_nodes
 
-        def find_min_dist_nodes(new_node, node_set):
-            return_set = []
-            min_dist = float("inf")
-            for node in node_set:
-                if not node.is_root():
-                    this_dist = dist(node, new_node)
-                    if this_dist < min_dist:
-                        return_set = [node]
-                        min_dist = this_dist
-                    elif this_dist <= min_dist:
-                        return_set.append(node)
-            return return_set
+            def find_min_dist_nodes(new_node, node_set, dist):
+                """Finds the set of nodes in arg `node_set` that realize the
+                minimum distance to `new_node`"""
+                return_set = []
+                min_dist = float("inf")
+                for node in node_set:
+                    if not node.is_ua_node():
+                        this_dist = dist(node, new_node)
+                        if this_dist < min_dist:
+                            return_set = [node]
+                            min_dist = this_dist
+                        elif this_dist <= min_dist:
+                            return_set.append(node)
+                return return_set
 
-        def incompatible(n1, n2):
-            if n1.is_root() or n2.is_root():
-                return False
-            if any([n1.clade_union() <= B for B in n2.child_clades()]):
-                return False
-            if any([n2.clade_union() <= B for B in n1.child_clades()]):
-                return False
-            if (
-                (n1.clade_union() == n2.clade_union())
-                or any(
+            def incompatible(n1, n2):
+                """Checks if nodes n1 and n2 are `incompatible` in the sense
+                that, based on their clade sets, they cannot both come from the
+                same tree in the DAG.
+
+                Note that, just because 2 nodes might be compatible does
+                not mean that they actually are in the same tree. Merely
+                that they could be.
+                """
+                if n1 == n2:
+                    return False
+                if n1.is_root() or n2.is_root():
+                    return False
+                if any([n1.clade_union() <= B for B in n2.child_clades()]):
+                    return False
+                if any([n2.clade_union() <= B for B in n1.child_clades()]):
+                    return False
+                if n1.clade_union() == n2.clade_union():
+                    return True
+                if any(
                     [
                         len([B for B in n1.clades if len(A.intersection(B)) > 0]) == 2
                         for A in n2.clades
                     ]
-                )
-                or any(
+                ):
+                    return True
+                if any(
                     [
                         len([B for B in n2.clades if len(A.intersection(B)) > 0]) == 2
                         for A in n1.clades
                     ]
+                ):
+                    return True
+                return False
+
+            def incompatible_set(node, nodeset):
+                """Returns the set of all nodes incompatible to `node` that
+                satisfy the conditions: 1.
+
+                incompatible nodes lie in the path between the leaf
+                nodes reachable by arg `node` and the UA, 2. only the
+                subset of incompatible nodes that are also in the set of
+                nodes arg `nodeset`
+                """
+                for leaf in node.clade_union():
+                    pathdag = [
+                        n
+                        for n in self.leaf_path_uncertainty_dag(leaf)
+                        if (n in nodeset and incompatible(n, node))
+                    ]
+                    yield from pathdag
+
+            incompatible_nodes_so_far = set(postorder)
+            changed_nodes = {}
+            while len(incompatible_nodes_so_far) > 0:
+                min_dist_nodes = find_min_dist_nodes(
+                    new_node, incompatible_nodes_so_far, dist
                 )
-            ):
-                return True
-            return False
-
-        def incompatible_set(node, nodeset):
-            for leaf in node.clade_union():
-                pathdag = [
-                    n
-                    for n in self.leaf_path_uncertainty_dag(leaf)
-                    if (n in nodeset and incompatible(n, node))
-                ]
-                yield from pathdag
-
-        incompatible_nodes_so_far = set(postorder)
-        changed_nodes = {}
-        while len(incompatible_nodes_so_far) > 0:
-            min_dist_nodes = find_min_dist_nodes(new_node, incompatible_nodes_so_far)
-            for other_node in min_dist_nodes:
-                if not other_node.is_leaf():
+                for other_node in min_dist_nodes:
                     for child in incompatible_nodes_so_far.intersection(
                         other_node.children()
                     ):
@@ -2193,16 +2231,22 @@ class HistoryDag:
                         incompatible_nodes_so_far = set(
                             incompatible_set(child, incompatible_nodes_so_far)
                         )
+                    if other_node.is_leaf():
+                        changed_nodes.update(
+                            insert_node_as_sibling(new_node, other_node)
+                        )
+                        incompatible_nodes_so_far = set(
+                            incompatible_set(other_node, incompatible_nodes_so_far)
+                        )
 
-        for node in self.postorder():
-            for clade, edgeset in node.clades.items():
-                edgeset.set_targets(
-                    [
-                        n if n not in changed_nodes else changed_nodes[n]
-                        for n in edgeset.targets
-                    ]
-                )
-        self.recompute_parents()
+            for node in self.postorder():
+                for clade, edgeset in node.clades.items():
+                    edgeset.set_targets(
+                        [
+                            n if n not in changed_nodes else changed_nodes[n]
+                            for n in edgeset.targets
+                        ]
+                    )
 
     def postorder_above(self, node_as_leaf):
         def follow_up(node):
