@@ -2120,10 +2120,6 @@ class HistoryDag:
                 if not n.is_ua_node()
             ]
         ):
-            self.recompute_parents()
-            new_node = empty_node(
-                postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
-            )
 
             def insert_node_as_sibling(node, sib):
                 updated_nodes = {node: node}
@@ -2217,6 +2213,10 @@ class HistoryDag:
                     ]
                     yield from pathdag
 
+            self.recompute_parents()
+            new_node = empty_node(
+                postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
+            )
             incompatible_nodes_so_far = set(postorder)
             changed_nodes = {}
             while len(incompatible_nodes_so_far) > 0:
@@ -2231,14 +2231,6 @@ class HistoryDag:
                         incompatible_nodes_so_far = set(
                             incompatible_set(child, incompatible_nodes_so_far)
                         )
-                    if other_node.is_leaf():
-                        changed_nodes.update(
-                            insert_node_as_sibling(new_node, other_node)
-                        )
-                        incompatible_nodes_so_far = set(
-                            incompatible_set(other_node, incompatible_nodes_so_far)
-                        )
-
             for node in self.postorder():
                 for clade, edgeset in node.clades.items():
                     edgeset.set_targets(
@@ -2249,6 +2241,13 @@ class HistoryDag:
                     )
 
     def postorder_above(self, node_as_leaf):
+        """Recursive postorder traversal of the history DAG, starting at a
+        (possiblly internal) node.
+
+        Returns:
+            Generator on nodes that lie on any path between node_as_leaf and UA node
+        """
+
         def follow_up(node):
             for p in node.parents:
                 yield from follow_up(p)
