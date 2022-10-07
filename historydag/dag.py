@@ -1971,74 +1971,6 @@ class HistoryDag:
                     child.remove_node(nodedict=nodedict)
         self.recompute_parents()
 
-    def add_node_at_nearest_leaf(
-        self,
-        new_leaf_id,
-        id_name: str = "sequence",
-        distance_func: Callable[
-            [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
-    ):
-        """Inserts a sequence into the dag in such a way that every tree in the
-        dag now contains that node.
-
-        This method adds the new sequence as a sibling of the leaf
-        node that achieves the minimum distance to the new sequence. The
-        resulting dag has nodecount incremented by 1, and potentially
-        many more trees, since it is re-built using
-        :meth:``history_dag_from_nodes`` which adds all allowed edges.
-        """
-        postorder = list(self.postorder())
-        if not any(
-            [
-                new_leaf_id == getattr(n.label, id_name)
-                for n in postorder
-                if not n.is_ua_node()
-            ]
-        ):
-
-            # make sure all connections are correctly built before manipulating dag
-            self.recompute_parents()
-
-            # create a new node to hold the new_leaf_id
-            new_leaf = empty_node(
-                postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
-            )
-
-            # find closest leaf neighbor(s)
-            leaf_nodes = [n for n in postorder if n.is_leaf()]
-            leaf_dists = [distance_func(n, new_leaf) for n in leaf_nodes]
-            nearest_leaf = leaf_nodes[leaf_dists.index(min(leaf_dists))]
-
-            dagnodes = {new_leaf: new_leaf}
-            # iterate over nodes in the dag to create a new copy
-            for node in postorder:
-                # if the node is an ancestor of the neighboring leaf node, add the new_node as descendant
-                if (nearest_leaf.label in node.clade_union()) and (
-                    nearest_leaf != node
-                ):
-                    oldnode = node
-                    # check first if the new_node should be added as a separate clade/child pair
-                    if node in list(nearest_leaf.parents):
-                        node.clades[frozenset([new_leaf.label])] = EdgeSet([new_leaf])
-                    else:
-                        (old_clade, old_edgeset) = [
-                            (c, e)
-                            for c, e in node.clades.items()
-                            if nearest_leaf.label in c
-                        ][0]
-                        new_clade = frozenset(old_clade | {new_leaf.label})
-                        node.clades.pop(old_clade)
-                        node.clades[new_clade] = old_edgeset
-                    dagnodes[oldnode] = node
-                else:
-                    dagnodes[node] = node
-
-            for node in self.postorder():
-                for clade, edgeset in node.clades.items():
-                    edgeset.set_targets([dagnodes[n] for n in edgeset.targets])
-            self.recompute_parents()
-
     def add_node_at_all_possible_places(self, new_leaf_id, id_name: str = "sequence"):
         """Inserts a sequence into the dag such that every tree in the dag now
         contains that new node.
@@ -2142,7 +2074,6 @@ class HistoryDag:
                                             for t, _, _ in edgeset
                                         ]
                                     )
-                                    break
                             updated_nodes[old_ancestor] = ancestor
                 return updated_nodes
 
@@ -2224,13 +2155,23 @@ class HistoryDag:
                     new_node, incompatible_nodes_so_far, dist
                 )
                 for other_node in min_dist_nodes:
-                    for child in incompatible_nodes_so_far.intersection(
-                        other_node.children()
-                    ):
-                        changed_nodes.update(insert_node_as_sibling(new_node, child))
-                        incompatible_nodes_so_far = set(
-                            incompatible_set(child, incompatible_nodes_so_far)
-                        )
+                    if other_node in incompatible_nodes_so_far:
+                        incompatible_nodes_so_far.remove(other_node)
+                        if other_node.is_leaf():
+                            if len(changed_nodes) < 1:
+                                insert_node_as_sibling(new_node, other_node)
+                                incompatible_nodes_so_far = set()
+                        else:
+                            child = incompatible_nodes_so_far.intersection(
+                                other_node.children()
+                            ).pop()
+                            changed_nodes.update(
+                                insert_node_as_sibling(new_node, child)
+                            )
+                            incompatible_nodes_so_far = set(
+                                incompatible_set(child, incompatible_nodes_so_far)
+                            )
+
             for node in self.postorder():
                 for clade, edgeset in node.clades.items():
                     edgeset.set_targets(
@@ -2239,6 +2180,8 @@ class HistoryDag:
                             for n in edgeset.targets
                         ]
                     )
+
+    # ######## DAG Traversal Methods ########
 
     def postorder_above(self, node_as_leaf):
         """Recursive postorder traversal of the history DAG, starting at a
@@ -2264,8 +2207,6 @@ class HistoryDag:
             yield node
 
         yield from traverse(self.dagroot)
-
-    # ######## DAG Traversal Methods ########
 
     def postorder(
         self, include_root: bool = True

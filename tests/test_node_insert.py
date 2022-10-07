@@ -11,18 +11,6 @@ seq_len = len(next(dag.postorder()).label.sequence)
 new_seq = "A" * seq_len
 
 
-def test_inserting_leafnode_at_nearest_leaf():
-    dag_with_leaf_added = dag.copy()
-    dag_with_leaf_added.add_node_at_nearest_leaf("A" * seq_len)
-    dag_with_leaf_added.recompute_parents()
-    assert dag_with_leaf_added._check_valid()
-
-    # check we successfully added one new node
-    assert (
-        len(list(dag_with_leaf_added.postorder())) == len(list(dag.postorder())) + 1
-    ), "failed to add one node successfully"
-
-
 def test_inserting_leafnode_everywhere():
     dag_with_leaf_added_everywhere = dag.copy()
     dag_with_leaf_added_everywhere.add_node_at_all_possible_places("A" * seq_len)
