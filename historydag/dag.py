@@ -526,7 +526,7 @@ class HistoryDag:
                         # ***Parent clade equals child clade union for all edges:
                         if child.clade_union() != clade:
                             raise ValueError(
-                                "Parent clade does not equal child clade union"
+                                "Parent clade does not equal child clade union: "
                             )
 
         for node in po:
@@ -1108,32 +1108,46 @@ class HistoryDag:
                 node.remove_node(nodedict=nodedict)
         return len(new_nodes)
 
-    def leaf_path_uncertainty_dag(self, leaf_label):
+    def leaf_path_uncertainty_dag(self, leaf_label, format_as_nodes=False):
         """Compute the DAG of possible paths leading to `leaf_label`.
 
         Args:
             leaf_label: The node label of the leaf of interest
-
+            format_as_nodes: bool
+                If True, then return dict with keys/values containing HistoryDagNodes.
+                If False, then return dict with keys/values containing node labels
         Returns:
-            parent_dictionary: A dictionary keyed by node labels, with sets
-                of possible parent node labels.
+            parent_dictionary: A dictionary keyed by node labels (alt. nodes), with sets
+                of possible parent node labels (alt. possible parent nodes).
         """
-        parent_dictionary = {
-            node.label: set()
-            for node in self.dagroot.children()
-            if leaf_label in node.clade_union()
-        }
-
-        for node in self.preorder(skip_ua_node=True):
-            for clade, eset in node.clades.items():
-                if leaf_label in clade:
-                    for cnode in eset.targets:
-                        if cnode.label not in parent_dictionary:
-                            parent_dictionary[cnode.label] = set()
-                        # exclude self loops in label space
-                        if node.label != cnode.label:
-                            parent_dictionary[cnode.label].add(node.label)
-
+        if format_as_nodes:
+            parent_dictionary = {
+                node: set()
+                for node in self.dagroot.children()
+                if leaf_label in node.clade_union()
+            }
+            for node in self.preorder(skip_ua_node=True):
+                for clade, eset in node.clades.items():
+                    if leaf_label in clade:
+                        for cnode in eset.targets:
+                            if cnode not in parent_dictionary:
+                                parent_dictionary[cnode] = set()
+                            parent_dictionary[cnode].add(node)
+        else:
+            parent_dictionary = {
+                node.label: set()
+                for node in self.dagroot.children()
+                if leaf_label in node.clade_union()
+            }
+            for node in self.preorder(skip_ua_node=True):
+                for clade, eset in node.clades.items():
+                    if leaf_label in clade:
+                        for cnode in eset.targets:
+                            if cnode.label not in parent_dictionary:
+                                parent_dictionary[cnode.label] = set()
+                            # exclude self loops in label space
+                            if node.label != cnode.label:
+                                parent_dictionary[cnode.label].add(node.label)
         return parent_dictionary
 
     def leaf_path_uncertainty_graphviz_collapse(
@@ -2044,53 +2058,47 @@ class HistoryDag:
         nodes that are `incompatible` with the first minimizing node.
         For a full description of this, see :meth: `incompatible`.
         """
-        postorder = list(self.postorder())
-        if not any(
-            [
-                new_leaf_id == getattr(n.label, id_name)
-                for n in postorder
-                if not n.is_ua_node()
-            ]
-        ):
+        # all nodes in the dag except for the UA
+        postorder = list(self.postorder())[:-1]
+        if not any([new_leaf_id == getattr(n.label, id_name) for n in postorder]):
 
             def insert_node_as_sibling(node, sib):
-                updated_nodes = {node: node}
+                altered_nodes = {}
+
+                def follow_up(node, old_node_cu):
+                    for p in node.parents:
+                        if old_node_cu in p.clades:
+                            old_p = p
+                            p_clade_union = p.clade_union()
+                            edgeset = p.clades.pop(old_node_cu)
+                            p.clades[node.clade_union()] = edgeset
+                            altered_nodes[old_p] = p
+                            follow_up(p, p_clade_union)
+
                 for parent in sib.parents:
                     if node.label not in parent.clade_union():
                         old_parent = parent
+                        parent_clade_union = parent.clade_union()
                         parent.clades[frozenset([node.label])] = EdgeSet([node])
-                        updated_nodes[old_parent] = parent
-                        for ancestor in self.postorder_above(parent):
-                            old_ancestor = ancestor
-                            for clade, edgeset in old_ancestor.clades.items():
-                                if (sib.label in clade) and not (node.label in clade):
-                                    new_clade = frozenset(clade | {node.label})
-                                    ancestor.clades.pop(clade)
-                                    ancestor.clades[new_clade] = EdgeSet(
-                                        [
-                                            t
-                                            if t not in updated_nodes
-                                            else updated_nodes[t]
-                                            for t, _, _ in edgeset
-                                        ]
-                                    )
-                            updated_nodes[old_ancestor] = ancestor
-                return updated_nodes
+                        altered_nodes[old_parent] = parent
+                        follow_up(parent, parent_clade_union)
+
+                return altered_nodes
 
             def find_min_dist_nodes(new_node, node_set, dist):
                 """Finds the set of nodes in arg `node_set` that realize the
-                minimum distance to `new_node`"""
+                minimum distance to `new_node` (sort so that leaf nodes are at
+                the end of the list)"""
                 return_set = []
                 min_dist = float("inf")
                 for node in node_set:
-                    if not node.is_ua_node():
-                        this_dist = dist(node, new_node)
-                        if this_dist < min_dist:
-                            return_set = [node]
-                            min_dist = this_dist
-                        elif this_dist <= min_dist:
-                            return_set.append(node)
-                return return_set
+                    this_dist = dist(node, new_node)
+                    if this_dist < min_dist:
+                        return_set = [(node.is_leaf(), node)]
+                        min_dist = this_dist
+                    elif this_dist <= min_dist:
+                        return_set.append((node.is_leaf(), node))
+                return list(zip(*sorted(return_set)))[1]
 
             def incompatible(n1, n2):
                 """Checks if nodes n1 and n2 are `incompatible` in the sense
@@ -2101,9 +2109,9 @@ class HistoryDag:
                 not mean that they actually are in the same tree. Merely
                 that they could be.
                 """
-                if n1 == n2:
-                    return False
                 if n1.is_root() or n2.is_root():
+                    return False
+                if n1 == n2:
                     return False
                 if any([n1.clade_union() <= B for B in n2.child_clades()]):
                     return False
@@ -2139,7 +2147,9 @@ class HistoryDag:
                 for leaf in node.clade_union():
                     pathdag = [
                         n
-                        for n in self.leaf_path_uncertainty_dag(leaf)
+                        for n in self.leaf_path_uncertainty_dag(
+                            leaf, format_as_nodes=True
+                        )
                         if (n in nodeset and incompatible(n, node))
                     ]
                     yield from pathdag
@@ -2148,8 +2158,8 @@ class HistoryDag:
             new_node = empty_node(
                 postorder[0].label._replace(**{id_name: new_leaf_id}), {}, None
             )
-            incompatible_nodes_so_far = set(postorder)
             changed_nodes = {}
+            incompatible_nodes_so_far = set(postorder)
             while len(incompatible_nodes_so_far) > 0:
                 min_dist_nodes = find_min_dist_nodes(
                     new_node, incompatible_nodes_so_far, dist
@@ -2159,27 +2169,34 @@ class HistoryDag:
                         incompatible_nodes_so_far.remove(other_node)
                         if other_node.is_leaf():
                             if len(changed_nodes) < 1:
-                                insert_node_as_sibling(new_node, other_node)
+                                changed_nodes.update(
+                                    insert_node_as_sibling(new_node, other_node)
+                                )
                                 incompatible_nodes_so_far = set()
                         else:
-                            child = incompatible_nodes_so_far.intersection(
-                                other_node.children()
-                            ).pop()
+                            child = list(other_node.children())[0]
                             changed_nodes.update(
                                 insert_node_as_sibling(new_node, child)
                             )
                             incompatible_nodes_so_far = set(
-                                incompatible_set(child, incompatible_nodes_so_far)
+                                incompatible_set(
+                                    child,
+                                    [
+                                        x
+                                        if x not in changed_nodes
+                                        else changed_nodes[x]
+                                        for x in incompatible_nodes_so_far
+                                    ],
+                                )
                             )
 
-            for node in self.postorder():
-                for clade, edgeset in node.clades.items():
-                    edgeset.set_targets(
-                        [
-                            n if n not in changed_nodes else changed_nodes[n]
-                            for n in edgeset.targets
-                        ]
-                    )
+            for clade, edgeset in self.dagroot.clades.items():
+                edgeset.set_targets(
+                    [
+                        n if n not in changed_nodes else changed_nodes[n]
+                        for n in edgeset.targets
+                    ]
+                )
 
     # ######## DAG Traversal Methods ########
 
@@ -2190,19 +2207,13 @@ class HistoryDag:
         Returns:
             Generator on nodes that lie on any path between node_as_leaf and UA node
         """
-
-        def follow_up(node):
-            for p in node.parents:
-                yield from follow_up(p)
-            yield node
-
-        ancestor_set = set(follow_up(node_as_leaf))
+        ancestor_set = self.nodes_above_node(node_as_leaf)
         visited = set()
 
         def traverse(node: HistoryDagNode):
             visited.add(id(node))
             for child in node.children():
-                if (not id(child) in visited) and (node_as_leaf.label in ancestor_set):
+                if (not id(child) in visited) and (child in ancestor_set):
                     yield from traverse(child)
             yield node
 
