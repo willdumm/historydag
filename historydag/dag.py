@@ -2085,6 +2085,28 @@ class HistoryDag:
 
                 return altered_nodes
 
+            def insert_node_as_child(node, parent):
+                altered_nodes = {}
+
+                def follow_up(node, old_node_cu):
+                    for p in node.parents:
+                        if old_node_cu in p.clades:
+                            old_p = p
+                            p_clade_union = p.clade_union()
+                            edgeset = p.clades.pop(old_node_cu)
+                            p.clades[node.clade_union()] = edgeset
+                            altered_nodes[old_p] = p
+                            follow_up(p, p_clade_union)
+
+                if node.label not in parent.clade_union():
+                    old_parent = parent
+                    parent_clade_union = parent.clade_union()
+                    parent.clades[frozenset([node.label])] = EdgeSet([node])
+                    altered_nodes[old_parent] = parent
+                    follow_up(parent, parent_clade_union)
+
+                return altered_nodes
+
             def find_min_dist_nodes(new_node, node_set, dist):
                 """Finds the set of nodes in arg `node_set` that realize the
                 minimum distance to `new_node` (sort so that leaf nodes are at
@@ -2117,23 +2139,7 @@ class HistoryDag:
                     return False
                 if any([n2.clade_union() <= B for B in n1.child_clades()]):
                     return False
-                if n1.clade_union() == n2.clade_union():
-                    return True
-                if any(
-                    [
-                        len([B for B in n1.clades if len(A.intersection(B)) > 0]) == 2
-                        for A in n2.clades
-                    ]
-                ):
-                    return True
-                if any(
-                    [
-                        len([B for B in n2.clades if len(A.intersection(B)) > 0]) == 2
-                        for A in n1.clades
-                    ]
-                ):
-                    return True
-                return False
+                return True
 
             def incompatible_set(node, nodeset):
                 """Returns the set of all nodes incompatible to `node` that
@@ -2166,7 +2172,6 @@ class HistoryDag:
                 )
                 for other_node in min_dist_nodes:
                     if other_node in incompatible_nodes_so_far:
-                        incompatible_nodes_so_far.remove(other_node)
                         if other_node.is_leaf():
                             if len(changed_nodes) < 1:
                                 changed_nodes.update(
@@ -2174,21 +2179,17 @@ class HistoryDag:
                                 )
                                 incompatible_nodes_so_far = set()
                         else:
-                            child = list(other_node.children())[0]
-                            changed_nodes.update(
-                                insert_node_as_sibling(new_node, child)
-                            )
+                            incompatible_nodes_so_far.remove(other_node)
                             incompatible_nodes_so_far = set(
-                                incompatible_set(
-                                    child,
-                                    [
-                                        x
-                                        if x not in changed_nodes
-                                        else changed_nodes[x]
-                                        for x in incompatible_nodes_so_far
-                                    ],
-                                )
+                                incompatible_set(other_node, incompatible_nodes_so_far)
                             )
+                            changed_nodes.update(
+                                insert_node_as_child(new_node, other_node)
+                            )
+                            incompatible_nodes_so_far = [
+                                x if x not in changed_nodes else changed_nodes[x]
+                                for x in incompatible_nodes_so_far
+                            ]
 
             for clade, edgeset in self.dagroot.clades.items():
                 edgeset.set_targets(
