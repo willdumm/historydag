@@ -21,7 +21,7 @@ from typing import (
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from historydag.dag import HistoryDagNode
+    from historydag.dag import HistoryDagNode, HistoryDag
 
 Weight = Any
 Label = Union[NamedTuple, "UALabel"]
@@ -418,6 +418,126 @@ node_countfuncs = AddFuncDict(
 )
 """Provides functions to count the number of nodes in trees.
 For use with :meth:`historydag.HistoryDag.weight_count`."""
+
+
+def make_rfdistance_countfuncs(ref_tree: "HistoryDag", rooted: bool = False):
+    """Provides functions to compute RF distances of trees in a DAG, relative
+    to a fixed reference tree.
+
+    Args:
+        ref_tree: A tree with respect to which Robinson-Foulds distance will be computed.
+        rooted: If False, use edges' splits for RF distance computation. Otherwise, use
+            the clade below each edge.
+
+    The reference tree must have the same taxa as all the trees in the DAG.
+
+    This calculation relies on the observation that the symmetric distance between
+    the splits A in a tree in the DAG, and the splits B in the reference tree, can
+    be computed as:
+    |A ^ B| = |A U B| - |A n B| = |A - B| + |B| - |A n B|
+
+    As long as tree edges are in bijection with splits, this can be computed without
+    constructing the set A by considering each edge's split independently.
+
+    In order to accommodate multiple edges with the same split in a tree with root
+    bifurcation, we keep track of the contribution of such edges separately.
+
+    The weight type is a tuple wrapped in an IntState object. The first tuple value `a` is the
+    contribution of edges which are not part of a root bifurcation, where edges whose splits are in B
+    contribute `-1`, and edges whose splits are not in B contribute `-1`, and the second tuple
+    value `b` is the contribution of the edges which are part of a root bifurcation. The value
+    of the IntState is computed as `a + sign(b) + |B|`, which on the UA node of the hDAG gives RF distance.
+    """
+    taxa = frozenset(n.label for n in ref_tree.get_leaves())
+
+    if not rooted:
+
+        def split(node):
+            cu = node.clade_union()
+            return frozenset({cu, taxa - cu})
+
+        ref_splits = frozenset(split(node) for node in ref_tree.preorder())
+        # Remove above-root split, which doesn't map to any tree edge:
+        ref_splits = ref_splits - {
+            frozenset({taxa, frozenset()}),
+        }
+        shift = len(ref_splits)
+
+        n_taxa = len(taxa)
+
+        def is_history_root(n):
+            return len(list(n.clade_union())) == n_taxa
+
+        def sign(n):
+            return (-1) * (n < 0) + (n > 0)
+
+        def summer(tupseq):
+            a, b = 0, 0
+            for ia, ib in tupseq:
+                a += ia
+                b += ib
+            return (a, b)
+
+        def make_intstate(tup):
+            return IntState(tup[0] + shift + sign(tup[1]), state=tup)
+
+        def edge_func(n1, n2):
+            spl = split(n2)
+            if n1.is_ua_node():
+                return make_intstate((0, 0))
+            if len(n1.clades) == 2 and is_history_root(n1):
+                if spl in ref_splits:
+                    return make_intstate((0, -1))
+                else:
+                    return make_intstate((0, 1))
+            else:
+                if spl in ref_splits:
+                    return make_intstate((-1, 0))
+                else:
+                    return make_intstate((1, 0))
+
+        kwargs = AddFuncDict(
+            {
+                "start_func": lambda n: make_intstate((0, 0)),
+                "edge_weight_func": edge_func,
+                "accum_func": lambda wlist: make_intstate(
+                    summer(w.state for w in wlist)
+                ),
+            },
+            name="RF_unrooted_distance",
+        )
+    else:
+        ref_cus = frozenset(
+            node.clade_union() for node in ref_tree.preorder(skip_ua_node=True)
+        )
+        ref_cus = ref_cus - {
+            taxa,
+        }
+        shift = len(ref_cus)
+        print(ref_cus)
+        print(shift)
+
+        def make_intstate(n):
+            return IntState(n + shift, state=n)
+
+        def edge_func(n1, n2):
+            if n1.is_ua_node():
+                return make_intstate(0)
+            if n2.clade_union() in ref_cus:
+                return make_intstate(-1)
+            else:
+                return make_intstate(1)
+
+        kwargs = AddFuncDict(
+            {
+                "start_func": lambda n: make_intstate(0),
+                "edge_weight_func": edge_func,
+                "accum_func": lambda wlist: make_intstate(sum(w.state for w in wlist)),
+            },
+            name="RF_rooted_distance",
+        )
+
+    return kwargs
 
 
 def make_newickcountfuncs(
