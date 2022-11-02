@@ -11,6 +11,12 @@ from .dag import (  # noqa
 
 from . import _version
 
-from . import parsimony  # noqa
+from . import (  # noqa
+    utils,
+    parsimony,
+    mutation_annotated_dag,
+    sequence_dag,
+    compact_genome,
+)
 
 __version__ = _version.get_versions()["version"]

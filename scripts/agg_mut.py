@@ -112,7 +112,7 @@ def process_from_mat(file, refseqid, known_node_cg=frozendict({})):
         known_node = tree
 
     known_node.add_feature("mutseq", known_node_cg)
-    while not known_node.is_ua_node():
+    while not known_node.is_root():
         known_node.up.add_feature("mutseq", apply_muts(known_node.mutseq, known_node.mutations, reverse=True))
         known_node = known_node.up
     
@@ -123,7 +123,7 @@ def process_from_mat(file, refseqid, known_node_cg=frozendict({})):
     #         tree.children[0].delete(prevent_nondicotomic=False)
     # remove unifurcations
     while True:
-        to_delete = [node for node in tree.traverse() if len(node.children) == 1 and not node.is_ua_node()]
+        to_delete = [node for node in tree.traverse() if len(node.children) == 1 and not node.is_root()]
         if len(to_delete) == 0:
             break
         for node in to_delete:

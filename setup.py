@@ -21,5 +21,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.7",
-    install_requires=["six", "PyQt5", "ete3", "biopython", "graphviz"],
+    install_requires=["six", "PyQt5", "ete3", "biopython", "graphviz", "frozendict", "protobuf"],
 )

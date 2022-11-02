@@ -5,6 +5,7 @@ from math import log
 import graphviz as gv
 import ete3
 import random
+import warnings
 from typing import (
     List,
     Callable,
@@ -375,13 +376,152 @@ class HistoryDag:
     Args:
         dagroot: The root node of the history DAG
         attr: An attribute to contain data which will be preserved by copying (default and empty dict)
+
+
+    Subclassing HistoryDag:
+    HistoryDag may be subclassed without overriding __init__, by defining a `_required_label_fields` class variable
+    for any subclasses.
+
+    The value of `_required_label_fields` should be a dictionary keyed by label fields that are expected by methods
+    of the subclass. Each dictionary entry shall be of the form `required_field: [(from_fields, conversion_func), ...]`, where
+    the dict value is a list of tuples, with each `conversion_func` a function mapping `HistoryDagNode`s to the value of
+    that node label's `required_field` field, and `from_fields` a tuple containing all label fields expected by that function.
+
+    Keyword arguments passed to :meth:`HistoryDag.from_history_dag` will be passed to conversion functions provided in the
+    appropriate subclass's `_required_label_fields` attribute. Be sure to document each subclass, including available
+    conversion functions and their keywords, in each subclass's docstring.
     """
+    _required_label_fields = dict()
+
+    @classmethod
+    def from_history_dag(
+        cls, dag: "HistoryDag", label_fields: Sequence[str] = None, **kwargs
+    ):
+        """Converts HistoryDag instances between subclasses of HistoryDag. No
+        copy is performed, so the passed `dag` will in general be modified.
+
+        Args:
+            dag: A HistoryDag (or subclass) instance
+            label_fields: A list specifying the order of label fields in node labels on the resulting HistoryDag
+            kwargs: Any additional arguments required for label conversions. For details, see the class docstring
+                for the subclass into which the conversion is taking place.
+
+        Returns:
+            The converted HistoryDag object, carrying the type from which this static method was called.
+            After conversion to the new HistoryDag subclass ``to_cls``, the following will be true about node labels:
+                * If passed ``label_fields`` is None, then existing label fields will be preserved, except that missing
+                  required label fields will be recovered if possible, and the existing label fields used to recover
+                  them will be omitted. Recovered label fields will appear before the existing label fields.
+                * If passed ``label_fields`` is not None, then it must include all fields expected in node labels
+                  in the converted history DAG object, otherwise an exception will be raised.
+                * Converted node label field order will match the order of passed ``label_fields``.
+                * All label fields passed in ``label_fields`` will be included
+                  in converted node labels, if possible. Otherwise, an exception will be raised.
+        """
+        if label_fields is not None:
+            label_fields = list(label_fields)
+        required_fields_set = set(cls._required_label_fields.keys())
+        if label_fields is not None and (
+            not required_fields_set.issubset(set(label_fields))
+        ):
+            # This would be handled by __init__ anyway, but this prevents
+            # any changes from being applied first and provides better
+            # error message
+            raise ValueError(
+                "If passed, `label_fields` must contain all required label fields"
+                f"for {cls.__name__}: {', '.join(required_fields_set)}"
+            )
+        if label_fields == dag.label_fields or (
+            label_fields is None and required_fields_set.issubset(set(dag.label_fields))
+        ):
+            # No label modification is needed
+            return cls(dag.dagroot, dag.attr)
+
+        def get_existing_field(fieldname: str):
+            def get_field(node: HistoryDagNode, **kwargs):
+                return getattr(node.label, fieldname)
+
+            return get_field
+
+        def raise_unable_error(fieldname: str):
+            message = ""
+            if label_fields is not None and fieldname in label_fields:
+                message += f" Label field '{fieldname}' is not present in existing label fields."
+            else:
+                message += (
+                    f"Unable to convert {dag.__class__.__name__} with label fields {dag.label_fields} to {cls.__name__}"
+                    f", which requires label field '{fieldname}'."
+                )
+            if fieldname in required_fields_set:
+                message += (
+                    " Automatic conversion from label fields"
+                    f" {' or '.join([str(converttuple[0]) for converttuple in cls._required_label_fields[fieldname]])}"
+                    " is supported."
+                )
+            raise TypeError(message)
+
+        precursor_fields = set()
+
+        def find_conversion_func(fieldname: str):
+            print(fieldname, set(dag.label_fields))
+            if fieldname in dag.label_fields:
+                return (fieldname, get_existing_field(fieldname))
+            elif fieldname in required_fields_set:
+                for from_fields, conversion_func in cls._required_label_fields[
+                    fieldname
+                ]:
+                    if set(from_fields).issubset(set(dag.label_fields)):
+                        precursor_fields.update(from_fields)
+                        return (fieldname, conversion_func)
+            raise_unable_error(fieldname)
+
+        convert_funcs = []
+
+        if label_fields is None:
+            # keep all existing fields, except those used to recover missing
+            # required fields:
+            added_fields = set()
+            for field in cls._required_label_fields.keys():
+                if field not in dag.label_fields and field not in added_fields:
+                    convert_funcs.append(find_conversion_func(field))
+                    added_fields.add(field)
+            for field in dag.label_fields:
+                if field not in added_fields and field not in precursor_fields:
+                    convert_funcs.append(find_conversion_func(field))
+                    added_fields.add(field)
+        else:
+            for field in label_fields:
+                convert_funcs.append(find_conversion_func(field))
+
+        print(convert_funcs)
+        Label = NamedTuple(
+            "Label", [(converttuple[0], Any) for converttuple in convert_funcs]
+        )
+
+        print(dir(Label))
+
+        def relabel_func(node):
+            labeldata = [
+                converttuple[1](node, **kwargs) for converttuple in convert_funcs
+            ]
+            return Label(*labeldata)
+
+        newdag = dag.relabel(relabel_func, relax_type=True)
+        return cls(newdag.dagroot, dag.attr)
 
     def __init__(self, dagroot: HistoryDagNode, attr: Any = {}):
-        assert isinstance(dagroot, UANode)  # for typing
+        assert isinstance(dagroot, UANode)
         self.attr = attr
         self.dagroot = dagroot
-        self.current = 0
+        try:
+            self.label_fields = next(self.dagroot.children()).label._fields
+        except StopIteration:
+            self.label_fields = tuple()
+        for field in self.__class__._required_label_fields:
+            if field not in self.label_fields:
+                raise TypeError(
+                    f"An instance of {self.__class__.__name__} must have node labels containing a '{field}' field."
+                )
 
     def __eq__(self, other: object) -> bool:
         # Eventually this can be done by comparing bytestrings, but we need
@@ -400,7 +540,7 @@ class HistoryDag:
         if not (key >= 0 and key < length):
             raise IndexError
         self.count_histories()
-        return HistoryDag(self.dagroot._get_subhistory_by_subid(key))
+        return self.__class__(self.dagroot._get_subhistory_by_subid(key))
 
     def trim_within_range(
         self,
@@ -579,6 +719,7 @@ class HistoryDag:
         node_list: List[Tuple] = serial_dict["node_list"]
         edge_list: List[Tuple[int, int, float, float]] = serial_dict["edge_list"]
         label_fields: Tuple[str] = serial_dict["label_fields"]
+        self.label_fields = label_fields
         Label = NamedTuple("Label", [(label, any) for label in label_fields])  # type: ignore
 
         def unpack_labels(labelset):
@@ -673,7 +814,7 @@ class HistoryDag:
         be slightly faster, but possibly more memory intensive.
         """
         for history in self.dagroot._get_subhistories():
-            yield HistoryDag(history)
+            yield self.__class__(history)
 
     def get_trees(self) -> Generator["HistoryDag", None, None]:
         """Deprecated name for :meth:`get_histories`"""
@@ -701,7 +842,7 @@ class HistoryDag:
 
         Returns a new HistoryDag object.
         """
-        return HistoryDag(self.dagroot._sample(edge_selector=edge_selector))
+        return self.__class__(self.dagroot._sample(edge_selector=edge_selector))
 
     def nodes_above_node(self, node) -> Set[HistoryDagNode]:
         """Return a set of nodes from which the passed node is reachable along
@@ -797,7 +938,7 @@ class HistoryDag:
         """Sets all internal node labels to be identical, and merges nodes so
         that all histories in the DAG have unique topologies."""
 
-        newdag = self.copy()
+        newdag = HistoryDag.from_history_dag(self.copy())
         model_label = next(self.preorder(skip_ua_node=True)).label
         # initialize empty/default value for each item in model_label
         field_values = tuple(type(item)() for item in model_label)
@@ -812,12 +953,19 @@ class HistoryDag:
         ret.merge(newdag)
         return ret
 
-    def relabel(self, relabel_func: Callable[[HistoryDagNode], Label]) -> "HistoryDag":
+    def relabel(
+        self, relabel_func: Callable[[HistoryDagNode], Label], relax_type=False
+    ) -> "HistoryDag":
         """Return a new HistoryDag with labels modified according to a provided
         function.
 
-        `relabel_func` should take a node and return the new label
-        appropriate for that node.
+        Args:
+            relabel_func: A function which takes a node and returns the new label
+                appropriate for that node. The relabel_func should return a consistent
+                NamedTuple type with name Label. That is, all returned labels
+                should have matching `_fields` attribute.
+            relax_type: Whether to require the returned HistoryDag to be of the same subclass as self.
+                If True, the returned HistoryDag will be of the abstract type `HistoryDag`
         """
 
         leaf_label_dict = {leaf.label: relabel_func(leaf) for leaf in self.get_leaves()}
@@ -826,26 +974,20 @@ class HistoryDag:
                 "relabeling function maps multiple leaf nodes to the same new label"
             )
 
-        def remove_abundance_clade(old_clade):
+        def relabel_clade(old_clade):
             return frozenset(leaf_label_dict[old_label] for old_label in old_clade)
 
-        def remove_abundance_node(old_node):
+        def relabel_node(old_node):
             if old_node.is_ua_node():
                 return UANode(
                     EdgeSet(
-                        [
-                            remove_abundance_node(old_child)
-                            for old_child in old_node.children()
-                        ]
+                        [relabel_node(old_child) for old_child in old_node.children()]
                     )
                 )
             else:
                 clades = {
-                    remove_abundance_clade(old_clade): EdgeSet(
-                        [
-                            remove_abundance_node(old_child)
-                            for old_child in old_eset.targets
-                        ],
+                    relabel_clade(old_clade): EdgeSet(
+                        [relabel_node(old_child) for old_child in old_eset.targets],
                         weights=old_eset.weights,
                         probs=old_eset.probs,
                     )
@@ -853,7 +995,10 @@ class HistoryDag:
                 }
                 return HistoryDagNode(relabel_func(old_node), clades, None)
 
-        newdag = HistoryDag(remove_abundance_node(self.dagroot))
+        if relax_type:
+            newdag = HistoryDag(relabel_node(self.dagroot))
+        else:
+            newdag = self.__class__(relabel_node(self.dagroot))
         # do any necessary collapsing
         newdag = newdag.sample() | newdag
         return newdag
@@ -895,9 +1040,9 @@ class HistoryDag:
         nodedict = {n: n for n in selforder}
 
         for other in trees:
-            if not self.dagroot == other.dagroot:
+            if not self.label_fields == other.label_fields:
                 raise ValueError(
-                    f"The given HistoryDag must be a root node on identical taxa.\n{self.dagroot}\nvs\n{other.dagroot}"
+                    f"The given HistoryDag must contain identical label fields.\n{self.label_fields}\nvs\n{other.label_fields}"
                 )
             otherorder = other.postorder()
             # hash and __eq__ are implemented for nodes, but we need to retrieve
@@ -1551,11 +1696,13 @@ class HistoryDag:
         )
 
     def hamming_parsimony_count(self):
-        """Count the hamming parsimony scores of all trees in the history DAG.
-
-        Returns a Counter with integer keys.
-        """
-        return self.weight_count(**utils.hamming_distance_countfuncs)
+        """Deprecated in favor of
+        :meth:`sequence_dag.SequenceHistoryDag.hamming_parsimony_count`."""
+        warnings.warn(
+            "`HistoryDag.hamming_parsimony_count` is deprecated in favor of"
+            " `sequence_dag.SequenceHistoryDag.hamming_parsimony_count`."
+        )
+        return self.weight_count()
 
     def to_newicks(self, **kwargs):
         """Returns a list of extended newick strings formed with label fields.
