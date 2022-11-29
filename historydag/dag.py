@@ -463,7 +463,6 @@ class HistoryDag:
         precursor_fields = set()
 
         def find_conversion_func(fieldname: str):
-            print(fieldname, set(dag.label_fields))
             if fieldname in dag.label_fields:
                 return (fieldname, get_existing_field(fieldname))
             elif fieldname in required_fields_set:
@@ -493,12 +492,9 @@ class HistoryDag:
             for field in label_fields:
                 convert_funcs.append(find_conversion_func(field))
 
-        print(convert_funcs)
         Label = NamedTuple(
             "Label", [(converttuple[0], Any) for converttuple in convert_funcs]
         )
-
-        print(dir(Label))
 
         def relabel_func(node):
             labeldata = [
@@ -964,6 +960,7 @@ class HistoryDag:
                 appropriate for that node. The relabel_func should return a consistent
                 NamedTuple type with name Label. That is, all returned labels
                 should have matching `_fields` attribute.
+                No two leaf nodes may be mapped to the same new label.
             relax_type: Whether to require the returned HistoryDag to be of the same subclass as self.
                 If True, the returned HistoryDag will be of the abstract type `HistoryDag`
         """
@@ -1296,6 +1293,7 @@ class HistoryDag:
     def explode_nodes(
         self,
         expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
+        expand_node_func: Callable[[HistoryDagNode], Iterable[Label]] = None,
         expandable_func: Callable[[Label], bool] = None,
     ) -> int:
         r"""Explode nodes according to a provided function. Adds copies of each
@@ -1303,10 +1301,13 @@ class HistoryDag:
         children as the original node.
 
         Args:
-            expand_func: A function that takes a node label, and returns an iterable
+            expand_func: (Deprecated) A function that takes a node label, and returns an iterable
                 containing 'exploded' or 'disambiguated' labels corresponding to the original.
                 The wrapper :meth:`utils.explode_label` is provided to make such a function
                 easy to write.
+            expand_node_func: A function that takes a node and returns an iterable
+                containing 'exploded' or 'disambiguated' labels corresponding to the
+                node. If provided, expand_func will be ignored.
             expandable_func: A function that takes a node label, and returns whether the
                 iterable returned by calling expand_func on that label would contain more
                 than one item.
@@ -1315,28 +1316,36 @@ class HistoryDag:
             The number of new nodes added to the history DAG.
         """
 
+        if expand_node_func is None:
+
+            def expand_node_func(node):
+                return expand_func(node.label)
+
         if expandable_func is None:
 
-            def is_ambiguous(label):
+            def is_ambiguous(node):
                 # Check if expand_func(label) has at least two items, without
                 # exhausting the (arbitrarily expensive) generator
-                return len(list(zip([1, 2], expand_func(label)))) > 1
+                return len(list(zip([1, 2], expand_node_func(node)))) > 1
 
         else:
-            is_ambiguous = expandable_func
+
+            def is_ambiguous(node):
+                return expandable_func(node.label)
 
         self.recompute_parents()
         nodedict = {node: node for node in self.postorder()}
         nodeorder = list(self.postorder())
         new_nodes = set()
         for node in nodeorder:
-            if not node.is_ua_node() and is_ambiguous(node.label):
+            if not node.is_ua_node() and is_ambiguous(node):
                 if node.is_leaf():
                     raise ValueError(
-                        "Passed expand_func would explode a leaf node. "
+                        "Passed expand_func or expand_node_func would"
+                        " explode a leaf node. "
                         "Leaf nodes may not be exploded."
                     )
-                for resolution in expand_func(node.label):
+                for resolution in expand_node_func(node):
                     newnodetemp = node.empty_copy()
                     newnodetemp.label = resolution
                     if newnodetemp in nodedict:

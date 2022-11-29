@@ -14,6 +14,7 @@ def test_load_protobuf():
     dag.to_protobuf_file(test_filename)
     ndag = load_MAD_protobuf_file(test_filename)
     ndag._check_valid()
+    ndag.convert_to_collapsed()
     assert dag.weight_count() == ndag.weight_count()
 
 

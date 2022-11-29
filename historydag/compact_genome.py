@@ -24,6 +24,24 @@ class CompactGenome:
     def __eq__(self, other):
         return (self.mutations, self.reference) == (other.mutations, other.reference)
 
+    def __le__(self, other: object) -> bool:
+        if isinstance(other, CompactGenome):
+            return sorted(self.mutations.items()) <= sorted(other.mutations.items())
+        else:
+            raise NotImplementedError
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, CompactGenome):
+            return sorted(self.mutations.items()) < sorted(other.mutations.items())
+        else:
+            raise NotImplementedError
+
+    def __gt__(self, other: object) -> bool:
+        return not self.__le__(other)
+
+    def __ge__(self, other: object) -> bool:
+        return not self.__lt__(other)
+
     def __repr__(self):
         return f"CompactGenome({self.mutations}, '{self.reference}')"
 

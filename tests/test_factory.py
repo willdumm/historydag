@@ -1,5 +1,6 @@
 import ete3
 import pickle
+import historydag
 import historydag.dag as hdag
 import historydag.utils as dagutils
 from collections import Counter, namedtuple
@@ -271,9 +272,10 @@ def test_count_histories_expanded():
 
 def test_count_weights_expanded():
     for dag in dags + cdags:
-        ndag = dag.copy()
+        ndag = historydag.sequence_dag.SequenceHistoryDag.from_history_dag(dag.copy())
+        odag = ndag.copy()
         ndag.explode_nodes()
-        assert dag.hamming_parsimony_count() == ndag.weight_counts_with_ambiguities()
+        assert odag.hamming_parsimony_count() == ndag.weight_counts_with_ambiguities()
 
 
 def test_topology_decompose():

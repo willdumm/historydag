@@ -489,9 +489,9 @@ def build_tree(
     seq_len = len(next(iter(fasta_map.values())))
     ambig_seq = "?" * seq_len
     for node in tree.traverse():
-        if node.is_ua_node() and reference_sequence is not None:
+        if node.is_root() and reference_sequence is not None:
             node.add_feature("sequence", reference_sequence)
-        elif node.is_ua_node() and reference_id is not None:
+        elif node.is_root() and reference_id is not None:
             node.add_feature("sequence", fasta_map[reference_id])
         elif (not node.is_leaf()) and ignore_internal_sequences:
             node.add_feature("sequence", ambig_seq)
