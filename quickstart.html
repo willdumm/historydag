@@ -14,7 +14,9 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -65,8 +67,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Quickstart</li>
+      <li><a href="index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">Quickstart</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -76,35 +78,36 @@
            <div itemprop="articleBody">
              
   <section id="quickstart">
-<h1>Quickstart<a class="headerlink" href="#quickstart" title="Permalink to this headline"></a></h1>
+<h1>Quickstart<a class="headerlink" href="#quickstart" title="Permalink to this heading"></a></h1>
 <p>This minimal example showcases some features of the history DAG, and provides
 a conceptual introduction to the data structure.</p>
 <section id="the-data-structure">
-<h2>The data structure<a class="headerlink" href="#the-data-structure" title="Permalink to this headline"></a></h2>
+<h2>The data structure<a class="headerlink" href="#the-data-structure" title="Permalink to this heading"></a></h2>
 <p>A history DAG is a way to represent a collection of trees whose nodes
 (including internal nodes) each carry label data, such as a nucleotide
 sequence.</p>
 <p>In its simplest form, a history DAG may represent a single tree. To construct
-such a history DAG from a tree, we annotate each node in the tree with its child clades.
-The <strong>clade</strong> beneath a tree node is the set of leaf node labels
+such a history DAG from a tree, we annotate each node in the tree with its
+child clades.  The <strong>clade</strong> beneath a tree node is the set of leaf node labels
 reachable from that node, or the set containing the node’s own label if it is
-itself a leaf. The <strong>child clades</strong> of a node are the set of clades
-beneath that node’s children.</p>
+itself a leaf. We also refer to this set as a node’s <strong>clade union</strong>, since it
+is the union of the node’s child clades. The <strong>child clades</strong> of a node are the
+set of clades beneath that node’s children.</p>
 <p>After annotating each node with its child clades, a <strong>UA (universal ancestor)
 node</strong> is added as a parent of the original tree’s root node. The resulting
-structure is an example of a history DAG which we call a <strong>clade tree</strong>:</p>
+structure is an example of a history DAG which we call a <strong>history</strong>:</p>
 <p><a class="reference internal" href="_images/history_0.svg"><img alt="pic1" src="_images/history_0.svg" width="45%" /></a> -&gt; <a class="reference internal" href="_images/fulltree_0.svg"><img alt="pic2" src="_images/fulltree_0.svg" width="45%" /></a></p>
 <p>Notice that edges in the history DAG are associated not just to a parent node,
 but to a specific child clade of their parent node. The child clade of the
 parent node associated to an edge, must be the same as the clade below the
 child node that the edge targets.</p>
 <p>After converting multiple trees with the same set of leaf labels to clade
-trees, those clade trees can be unioned to create a history DAG that represents
+trees, those histories can be unioned to create a history DAG that represents
 at least those trees used to create it. Any structure in the resulting history
 DAG which contains the UA node and all leaves, and has exactly one edge for
-each node-child clade pair, is a clade tree. Clade trees represent labeled
+each node-child clade pair, is a history. Histories represent labeled
 trees by the inverse of the correspondence introduced above:</p>
-<p>For example, the clade tree highlighted in red in this image:</p>
+<p>For example, the history highlighted in red in this image:</p>
 <a class="reference internal image-reference" href="_images/history_dag_example.svg"><img alt="_images/history_dag_example.svg" src="_images/history_dag_example.svg" width="100%" /></a>
 <p>represents this internally labeled tree:</p>
 <a class="reference internal image-reference" href="_images/history.svg"><img alt="_images/history.svg" src="_images/history.svg" width="50%" /></a>
@@ -117,7 +120,7 @@ panel.</p>
 <a class="reference internal image-reference" href="_images/historyDAG_findsmore.png"><img alt="_images/historyDAG_findsmore.png" src="_images/historyDAG_findsmore.png" style="width: 100%;" /></a>
 </section>
 <section id="installing">
-<h2>Installing<a class="headerlink" href="#installing" title="Permalink to this headline"></a></h2>
+<h2>Installing<a class="headerlink" href="#installing" title="Permalink to this heading"></a></h2>
 <p>Although the package is not on PyPI, installation is straightforward:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">pip install https://github.com/matsengrp/historydag/archive/refs/heads/main.zip</span>
 </pre></div>
@@ -129,7 +132,7 @@ panel.</p>
 </div>
 </section>
 <section id="using-the-package">
-<h2>Using the package<a class="headerlink" href="#using-the-package" title="Permalink to this headline"></a></h2>
+<h2>Using the package<a class="headerlink" href="#using-the-package" title="Permalink to this heading"></a></h2>
 <p>In this package, the history DAG is a recursive data structure consisting of
 <code class="xref py py-class docutils literal notranslate"><span class="pre">historydag.HistoryDagNode</span></code> objects storing label, clade, and adjacency
 data. Each history DAG is wrapped in a user-facing <cite>historydag.HistoryDag</cite>
@@ -150,7 +153,7 @@ we can load this data and create a history DAG:</p>
 <p>Now, we will create a history DAG using the <code class="docutils literal notranslate"><span class="pre">sequence</span></code> attribute as the data
 for node labels:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span> <span class="o">=</span> <span class="n">hdag</span><span class="o">.</span><span class="n">history_dag_from_etes</span><span class="p">(</span><span class="n">ete_trees</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;sequence&#39;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">count_trees</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">count_histories</span><span class="p">()</span>
 <span class="go">1041</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">count_topologies</span><span class="p">()</span>
 <span class="go">389</span>
@@ -176,9 +179,9 @@ according to these codes:</p>
 of <code class="docutils literal notranslate"><span class="pre">explode_nodes</span></code>).</p>
 <p>We can find even more new trees by adding all edges which connect
 nodes whose child clades are compatible:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">add_all_allowed_edges</span><span class="p">()</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">make_complete</span><span class="p">()</span>
 <span class="go">1048</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">count_trees</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">count_histories</span><span class="p">()</span>
 <span class="go">3431531</span>
 </pre></div>
 </div>
@@ -204,8 +207,8 @@ individually collapsing all the trees represented in the DAG.</p>
 <span class="go">1054</span>
 </pre></div>
 </div>
-<p>The method <code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.hamming_parsimony_count()</span></code> calls a more
-flexible method, <code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.weight_count()</span></code>, which takes three
+<p>The method <a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag.hamming_parsimony_count" title="historydag.HistoryDag.hamming_parsimony_count"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.hamming_parsimony_count()</span></code></a> calls a more
+flexible method, <a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag.weight_count" title="historydag.HistoryDag.weight_count"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.weight_count()</span></code></a>, which takes three
 functions as keyword arguments, which specify how weights are calculated up
 each tree:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">weight_count</span><span class="p">(</span><span class="o">**</span> <span class="n">hdag</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">hamming_distance_countfuncs</span><span class="p">)</span>
@@ -213,7 +216,7 @@ each tree:</p>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">hdag.utils.hamming_distance_countfuncs</span></code> is an instance of
-<code class="xref py py-class docutils literal notranslate"><span class="pre">historydag.utils.AddFuncDict</span></code>, a dictionary subclass provided to
+<a class="reference internal" href="stubs/historydag.utils.html#historydag.utils.AddFuncDict" title="historydag.utils.AddFuncDict"><code class="xref py py-class docutils literal notranslate"><span class="pre">historydag.utils.AddFuncDict</span></code></a>, a dictionary subclass provided to
 contain the functions necessary to count and trim by custom tree weights.
 The class implements addition, combining weight count function arguments as new
 functions which count weights jointly as tuples.
@@ -235,13 +238,31 @@ nodes in each tree, at the same time:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dag</span><span class="o">.</span><span class="n">trim_optimal_weight</span><span class="p">(</span><span class="o">**</span> <span class="n">node_count_funcs</span><span class="p">,</span> <span class="n">optimal_func</span><span class="o">=</span><span class="nb">min</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Finally, we can sample a single clade tree from the history DAG, and make it an
+<p>Finally, we can sample a single history from the history DAG, and make it an
 ete tree for further rendering/processing:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">t</span> <span class="o">=</span> <span class="n">dag</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span><span class="o">.</span><span class="n">to_ete</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>The <code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.to_ete()</span></code> method allows full control over
+<p>The <a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag.to_ete" title="historydag.HistoryDag.to_ete"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.to_ete()</span></code></a> method allows full control over
 mapping of history DAG node attributes to <code class="xref py py-class docutils literal notranslate"><span class="pre">ete3.Tree</span></code> node attributes.</p>
+<p>We can also retrieve trees in the history DAG by index, and iterate in
+index-order:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">t</span> <span class="o">=</span> <span class="n">dag</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_ete</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trees</span> <span class="o">=</span> <span class="p">[</span><span class="n">tree</span> <span class="k">for</span> <span class="n">tree</span> <span class="ow">in</span> <span class="n">dag</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Another method for fetching all trees in the dag is provided, but the order
+will not match index order:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">scrambled_trees</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dag</span><span class="o">.</span><span class="n">get_histories</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>History DAGs can be merged using the <a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag.merge" title="historydag.HistoryDag.merge"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.merge()</span></code></a>
+method, or equivalently using the <code class="docutils literal notranslate"><span class="pre">or</span></code> operator. This supports merging with
+sequences of history DAGs.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">newdag</span> <span class="o">=</span> <span class="n">dag</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">|</span> <span class="n">dag</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">newdag</span> <span class="o">=</span> <span class="n">dag</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">|</span> <span class="p">(</span><span class="n">dag</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+</pre></div>
+</div>
 </section>
 </section>
 

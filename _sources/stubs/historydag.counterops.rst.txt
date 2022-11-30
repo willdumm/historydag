@@ -1,0 +1,30 @@
+﻿historydag.counterops
+=====================
+
+.. automodule:: historydag.counterops
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      counter_prod
+      counter_sum
+   
+   
+
+   
+   
+   
+
+   
+   
+   
+
+
+

@@ -1,0 +1,84 @@
+﻿historydag.HistoryDag
+=====================
+
+.. currentmodule:: historydag
+
+.. autoclass:: HistoryDag
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~HistoryDag.__init__
+      ~HistoryDag.add_all_allowed_edges
+      ~HistoryDag.add_node_at_all_possible_places
+      ~HistoryDag.convert_to_collapsed
+      ~HistoryDag.copy
+      ~HistoryDag.count_edges
+      ~HistoryDag.count_histories
+      ~HistoryDag.count_nodes
+      ~HistoryDag.count_paths_to_leaf
+      ~HistoryDag.count_rf_distances
+      ~HistoryDag.count_topologies
+      ~HistoryDag.count_topologies_fast
+      ~HistoryDag.count_trees
+      ~HistoryDag.explode_nodes
+      ~HistoryDag.from_history_dag
+      ~HistoryDag.get_histories
+      ~HistoryDag.get_leaves
+      ~HistoryDag.get_topologies
+      ~HistoryDag.get_trees
+      ~HistoryDag.hamming_parsimony_count
+      ~HistoryDag.insert_node
+      ~HistoryDag.internal_avg_parents
+      ~HistoryDag.is_clade_tree
+      ~HistoryDag.is_history
+      ~HistoryDag.iter_covering_histories
+      ~HistoryDag.label_uncertainty_summary
+      ~HistoryDag.leaf_path_uncertainty_dag
+      ~HistoryDag.leaf_path_uncertainty_dag_no_collapse
+      ~HistoryDag.leaf_path_uncertainty_graphviz
+      ~HistoryDag.leaf_path_uncertainty_graphviz_collapse
+      ~HistoryDag.leaf_path_uncertainty_graphviz_no_collapse
+      ~HistoryDag.make_complete
+      ~HistoryDag.make_uniform
+      ~HistoryDag.merge
+      ~HistoryDag.most_supported_trees
+      ~HistoryDag.nodes_above_node
+      ~HistoryDag.num_leaves
+      ~HistoryDag.num_nodes
+      ~HistoryDag.optimal_rf_distance
+      ~HistoryDag.optimal_weight_annotate
+      ~HistoryDag.postorder
+      ~HistoryDag.postorder_above
+      ~HistoryDag.postorder_cladetree_accum
+      ~HistoryDag.postorder_history_accum
+      ~HistoryDag.preorder
+      ~HistoryDag.recompute_parents
+      ~HistoryDag.relabel
+      ~HistoryDag.sample
+      ~HistoryDag.sample_with_edge
+      ~HistoryDag.sample_with_node
+      ~HistoryDag.serialize
+      ~HistoryDag.summary
+      ~HistoryDag.to_ete
+      ~HistoryDag.to_graphviz
+      ~HistoryDag.to_newick
+      ~HistoryDag.to_newicks
+      ~HistoryDag.trim_below_weight
+      ~HistoryDag.trim_optimal_weight
+      ~HistoryDag.trim_topology
+      ~HistoryDag.trim_within_range
+      ~HistoryDag.unlabel
+      ~HistoryDag.weight_count
+      ~HistoryDag.weight_counts_with_ambiguities
+   
+   
+
+   
+   
+   
