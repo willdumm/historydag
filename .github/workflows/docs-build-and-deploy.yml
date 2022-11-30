@@ -1,22 +1,23 @@
 name: Docs build and deploy
+
 on:
+  release:
+    types: [published]
   workflow_dispatch:
-  push:
-    branches:
-      - master
+
 jobs:
   build-and-deploy:
     concurrency: ci-${{ github.ref }} # Recommended if you intend to make multiple deployments in quick succession.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Pandoc
         uses: r-lib/actions/setup-pandoc@v2
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
 
