@@ -1,3 +1,4 @@
 gctree
 __pycache__
 *.egg-info
+_ignore
