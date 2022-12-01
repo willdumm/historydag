@@ -42,7 +42,9 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../api.html">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">Description</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html#classes">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html#functions">Functions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api.html#modules">Modules</a></li>
 </ul>
 
@@ -494,8 +496,11 @@
 
 
 <div class="viewcode-block" id="make_rfdistance_countfuncs"><a class="viewcode-back" href="../../stubs/historydag.utils.html#historydag.utils.make_rfdistance_countfuncs">[docs]</a><span class="k">def</span> <span class="nf">make_rfdistance_countfuncs</span><span class="p">(</span><span class="n">ref_tree</span><span class="p">:</span> <span class="s2">&quot;HistoryDag&quot;</span><span class="p">,</span> <span class="n">rooted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Provides functions to compute RF distances of trees in a DAG, relative</span>
+    <span class="sd">&quot;&quot;&quot;Provides functions to compute Robinson-Foulds (RF) distances of trees in a DAG, relative</span>
 <span class="sd">    to a fixed reference tree.</span>
+
+<span class="sd">    We use :meth:`ete3.TreeNode.robinson_foulds` as the reference implementation for both</span>
+<span class="sd">    rooted and unrooted RF distance.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        ref_tree: A tree with respect to which Robinson-Foulds distance will be computed.</span>
@@ -507,7 +512,7 @@
 <span class="sd">    This calculation relies on the observation that the symmetric distance between</span>
 <span class="sd">    the splits A in a tree in the DAG, and the splits B in the reference tree, can</span>
 <span class="sd">    be computed as:</span>
-<span class="sd">    |A ^ B| = |A U B| - |A n B| = |A - B| + |B| - |A n B|</span>
+<span class="sd">    ``|A ^ B| = |A U B| - |A n B| = |A - B| + |B| - |A n B|``</span>
 
 <span class="sd">    As long as tree edges are in bijection with splits, this can be computed without</span>
 <span class="sd">    constructing the set A by considering each edge&#39;s split independently.</span>

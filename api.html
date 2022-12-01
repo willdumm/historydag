@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classes &mdash; historydag  documentation</title>
+  <title>Description &mdash; historydag  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -45,12 +45,28 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Classes</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Description</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#classes">Classes</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="stubs/historydag.HistoryDag.html">historydag.HistoryDag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.HistoryDagNode.html">historydag.HistoryDagNode</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="#functions">Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.from_tree.html">historydag.from_tree</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.empty_node.html">historydag.empty_node</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.from_newick.html">historydag.from_newick</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.history_dag_from_newicks.html">historydag.history_dag_from_newicks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.history_dag_from_etes.html">historydag.history_dag_from_etes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.history_dag_from_histories.html">historydag.history_dag_from_histories</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="#modules">Modules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.dag.html">historydag.dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.sequence_dag.html">historydag.sequence_dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.mutation_annotated_dag.html">historydag.mutation_annotated_dag</a></li>
 <li class="toctree-l2"><a class="reference internal" href="stubs/historydag.utils.html">historydag.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.parsimony.html">historydag.parsimony</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stubs/historydag.compact_genome.html">historydag.compact_genome</a></li>
 <li class="toctree-l2"><a class="reference internal" href="stubs/historydag.counterops.html">historydag.counterops</a></li>
 </ul>
 </li>
@@ -70,7 +86,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home"></a></li>
-      <li class="breadcrumb-item active">Classes</li>
+      <li class="breadcrumb-item active">Description</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -79,10 +95,25 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <p>Python API for the <code class="docutils literal notranslate"><span class="pre">historydag</span></code> package</p>
+  <section id="description">
+<h1>Description<a class="headerlink" href="#description" title="Permalink to this heading"></a></h1>
+<p>This page documents the API for the <code class="docutils literal notranslate"><span class="pre">historydag</span></code> package.
+The fundamental data structure implemented here is the <a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag" title="historydag.HistoryDag"><code class="xref py py-class docutils literal notranslate"><span class="pre">HistoryDag</span></code></a>.
+This data structure provides efficient storage for collections of trees with
+internal node labels. In this package, we refer to such a tree as a _history_.
+A history can be represented as a tree-shaped <a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag" title="historydag.HistoryDag"><code class="xref py py-class docutils literal notranslate"><span class="pre">HistoryDag</span></code></a> object.</p>
+<p>This package provides functions for:</p>
+<ul class="simple">
+<li><p>creating histories from tree data,</p></li>
+<li><p>merging histories together to create history DAGs,</p></li>
+<li><p>doing efficient computation on collections of histories stored in history DAGs, and</p></li>
+<li><p>accessing histories contained in a history DAG, and exporting them to other
+tree formats.</p></li>
+</ul>
+</section>
 <section id="classes">
 <h1>Classes<a class="headerlink" href="#classes" title="Permalink to this heading"></a></h1>
-<p>Top level classes.</p>
+<p>Top level classes, promoted from the <code class="docutils literal notranslate"><span class="pre">dag</span></code> module.</p>
 <table class="autosummary longtable docutils align-default">
 <colgroup>
 <col style="width: 10%" />
@@ -91,6 +122,39 @@
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag" title="historydag.HistoryDag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HistoryDag</span></code></a>(dagroot[, attr])</p></td>
 <td><p>An object to represent a collection of internally labeled trees.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stubs/historydag.HistoryDagNode.html#historydag.HistoryDagNode" title="historydag.HistoryDagNode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HistoryDagNode</span></code></a>(label, clades, attr)</p></td>
+<td><p>A recursive representation of a history DAG object.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="functions">
+<h1>Functions<a class="headerlink" href="#functions" title="Permalink to this heading"></a></h1>
+<p>Top level functions, promoted from the <code class="docutils literal notranslate"><span class="pre">dag</span></code> module.</p>
+<table class="autosummary longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.from_tree.html#historydag.from_tree" title="historydag.from_tree"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_tree</span></code></a>(treeroot, label_features[, ...])</p></td>
+<td><p>Build a tree-shaped <a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag" title="historydag.HistoryDag"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag()</span></code></a> (a 'history') object from the provided tree data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stubs/historydag.empty_node.html#historydag.empty_node" title="historydag.empty_node"><code class="xref py py-obj docutils literal notranslate"><span class="pre">empty_node</span></code></a>(label, clades[, attr])</p></td>
+<td><p>Return a HistoryDagNode with the given label and clades, with no children.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.from_newick.html#historydag.from_newick" title="historydag.from_newick"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_newick</span></code></a>(tree, label_features[, ...])</p></td>
+<td><p>Make a history DAG using a newick string.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stubs/historydag.history_dag_from_newicks.html#historydag.history_dag_from_newicks" title="historydag.history_dag_from_newicks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">history_dag_from_newicks</span></code></a>(newicklist, ...[, ...])</p></td>
+<td><p>Build a history DAG from a list of newick strings.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.history_dag_from_etes.html#historydag.history_dag_from_etes" title="historydag.history_dag_from_etes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">history_dag_from_etes</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Deprecated name for <code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.history_dag_from_trees()</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stubs/historydag.history_dag_from_histories.html#historydag.history_dag_from_histories" title="historydag.history_dag_from_histories"><code class="xref py py-obj docutils literal notranslate"><span class="pre">history_dag_from_histories</span></code></a>(treelist)</p></td>
+<td><p>Build a history DAG from a list of history DAGs which are histories.</p></td>
 </tr>
 </tbody>
 </table>
@@ -103,10 +167,25 @@
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.utils.html#module-historydag.utils" title="historydag.utils"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.dag.html#module-historydag.dag" title="historydag.dag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dag</span></code></a></p></td>
+<td><p>A module providing the class HistoryDag, and supporting functions.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stubs/historydag.sequence_dag.html#module-historydag.sequence_dag" title="historydag.sequence_dag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sequence_dag</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.mutation_annotated_dag.html#module-historydag.mutation_annotated_dag" title="historydag.mutation_annotated_dag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mutation_annotated_dag</span></code></a></p></td>
+<td><p>This module allows the loading and manipulation of Larch mutation annotated DAG protobuf files.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stubs/historydag.utils.html#module-historydag.utils" title="historydag.utils"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils</span></code></a></p></td>
 <td><p>Utility functions and classes for working with HistoryDag objects.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="stubs/historydag.counterops.html#module-historydag.counterops" title="historydag.counterops"><code class="xref py py-obj docutils literal notranslate"><span class="pre">counterops</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.parsimony.html#module-historydag.parsimony" title="historydag.parsimony"><code class="xref py py-obj docutils literal notranslate"><span class="pre">parsimony</span></code></a></p></td>
+<td><p>A module implementing Sankoff Algorithm.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stubs/historydag.compact_genome.html#module-historydag.compact_genome" title="historydag.compact_genome"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compact_genome</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="stubs/historydag.counterops.html#module-historydag.counterops" title="historydag.counterops"><code class="xref py py-obj docutils literal notranslate"><span class="pre">counterops</span></code></a></p></td>
 <td><p>Functions for manipulating <a class="reference external" href="https://docs.python.org/3/library/collections.html#collections.Counter" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">collections.Counter</span></code></a> objects.</p></td>
 </tr>
 </tbody>

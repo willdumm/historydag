@@ -1,0 +1,44 @@
+﻿historydag.parsimony
+====================
+
+.. automodule:: historydag.parsimony
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      build_dag_from_trees
+      build_tree
+      build_trees_from_files
+      disambiguate
+      disambiguate_history
+      edge_weight_func_from_weight_matrix
+      hamming_distance
+      load_fasta
+      parsimony_score
+      parsimony_scores_from_files
+      parsimony_scores_from_topologies
+      remove_invariant_sites
+      sankoff_downward
+      sankoff_upward
+      summarize_dag
+      treewise_sankoff_in_dag
+   
+   
+
+   
+   
+   
+
+   
+   
+   
+
+
+

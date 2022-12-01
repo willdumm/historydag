@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>historydag.sequence_dag &mdash; historydag  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="historydag.mutation_annotated_dag" href="historydag.mutation_annotated_dag.html" />
+    <link rel="prev" title="historydag.dag" href="historydag.dag.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> historydag
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">Description</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html#classes">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html#functions">Functions</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html#modules">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="historydag.dag.html">historydag.dag</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">historydag.sequence_dag</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.sequence_dag.ambiguous_hamming_distance"><code class="docutils literal notranslate"><span class="pre">ambiguous_hamming_distance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.sequence_dag.leaf_ambiguous_hamming_distance_countfuncs"><code class="docutils literal notranslate"><span class="pre">leaf_ambiguous_hamming_distance_countfuncs</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.sequence_dag.SequenceHistoryDag"><code class="docutils literal notranslate"><span class="pre">SequenceHistoryDag</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.sequence_dag.SequenceHistoryDag.hamming_parsimony_count"><code class="docutils literal notranslate"><span class="pre">SequenceHistoryDag.hamming_parsimony_count()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag"><code class="docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.weight_count"><code class="docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag.weight_count()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.optimal_weight_annotate"><code class="docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag.optimal_weight_annotate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_optimal_weight"><code class="docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag.trim_optimal_weight()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_within_range"><code class="docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag.trim_within_range()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_below_weight"><code class="docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag.trim_below_weight()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.insert_node"><code class="docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag.insert_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.hamming_parsimony_count"><code class="docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag.hamming_parsimony_count()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.mutation_annotated_dag.html">historydag.mutation_annotated_dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.utils.html">historydag.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.parsimony.html">historydag.parsimony</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.compact_genome.html">historydag.compact_genome</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.counterops.html">historydag.counterops</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">historydag</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">Description</a></li>
+      <li class="breadcrumb-item active">historydag.sequence_dag</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-historydag.sequence_dag">
+<span id="historydag-sequence-dag"></span><h1>historydag.sequence_dag<a class="headerlink" href="#module-historydag.sequence_dag" title="Permalink to this heading"></a></h1>
+<p class="rubric">Module Attributes</p>
+<table class="autosummary longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.sequence_dag.leaf_ambiguous_hamming_distance_countfuncs" title="historydag.sequence_dag.leaf_ambiguous_hamming_distance_countfuncs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">leaf_ambiguous_hamming_distance_countfuncs</span></code></a></p></td>
+<td><p>Provides functions to count hamming distance parsimony when leaf sequences may be ambiguous.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.sequence_dag.ambiguous_hamming_distance" title="historydag.sequence_dag.ambiguous_hamming_distance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ambiguous_hamming_distance</span></code></a>(node1, node2)</p></td>
+<td><p>Returns the hamming distance between node1.label.sequence and node2.label.sequence.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">nonleaf_sequence_resolutions</span></code>(node)</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag" title="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AmbiguousLeafSequenceHistoryDag</span></code></a>(dagroot[, attr])</p></td>
+<td><p>A HistoryDag subclass with node labels containing full nucleotide sequences.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.sequence_dag.SequenceHistoryDag" title="historydag.sequence_dag.SequenceHistoryDag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SequenceHistoryDag</span></code></a>(dagroot[, attr])</p></td>
+<td><p>A HistoryDag subclass with node labels containing full, unambiguous nucleotide sequences.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.sequence_dag.ambiguous_hamming_distance">
+<span class="sig-prename descclassname"><span class="pre">historydag.sequence_dag.</span></span><span class="sig-name descname"><span class="pre">ambiguous_hamming_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#ambiguous_hamming_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.ambiguous_hamming_distance" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the hamming distance between node1.label.sequence and
+node2.label.sequence.</p>
+<p>If node2 is a leaf node, then its sequence may be ambiguous, and the
+minimum possible distance will be returned.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="historydag.sequence_dag.leaf_ambiguous_hamming_distance_countfuncs">
+<span class="sig-prename descclassname"><span class="pre">historydag.sequence_dag.</span></span><span class="sig-name descname"><span class="pre">leaf_ambiguous_hamming_distance_countfuncs</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'start_func':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'edge_weight_func':</span> <span class="pre">&lt;function</span> <span class="pre">ambiguous_hamming_distance&gt;,</span> <span class="pre">'accum_func':</span> <span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">sum&gt;}</span></em><a class="headerlink" href="#historydag.sequence_dag.leaf_ambiguous_hamming_distance_countfuncs" title="Permalink to this definition"></a></dt>
+<dd><p>Provides functions to count hamming distance parsimony when leaf sequences
+may be ambiguous.
+For use with <code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.AmbiguousLeafSequenceHistoryDag.weight_count()</span></code>.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.sequence_dag.SequenceHistoryDag">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.sequence_dag.</span></span><span class="sig-name descname"><span class="pre">SequenceHistoryDag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dagroot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#SequenceHistoryDag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.SequenceHistoryDag" title="Permalink to this definition"></a></dt>
+<dd><p>A HistoryDag subclass with node labels containing full, unambiguous
+nucleotide sequences.</p>
+<p>The constructor for this class requires that each node label contain a ‘sequence’
+field, which is expected to hold an unambiguous nucleotide sequence.</p>
+<p>A HistoryDag containing ‘compact_genome’ node label fields which contain
+<code class="xref py py-class docutils literal notranslate"><span class="pre">compact_genome.CompactGenome</span></code> objects may be automatically converted to
+this subclass by calling the class method <code class="xref py py-meth docutils literal notranslate"><span class="pre">SequenceHistoryDag.from_dag()</span></code>, providing the
+HistoryDag object to be converted.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.sequence_dag.SequenceHistoryDag.hamming_parsimony_count">
+<span class="sig-name descname"><span class="pre">hamming_parsimony_count</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#SequenceHistoryDag.hamming_parsimony_count"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.SequenceHistoryDag.hamming_parsimony_count" title="Permalink to this definition"></a></dt>
+<dd><p>Count the hamming parsimony scores of all trees in the history DAG.</p>
+<p>Returns a Counter with integer keys.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.sequence_dag.</span></span><span class="sig-name descname"><span class="pre">AmbiguousLeafSequenceHistoryDag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dagroot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#AmbiguousLeafSequenceHistoryDag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag" title="Permalink to this definition"></a></dt>
+<dd><p>A HistoryDag subclass with node labels containing full nucleotide
+sequences.</p>
+<p>The constructor for this class requires that each node label contain a ‘sequence’
+field, which is expected to hold an unambiguous nucleotide sequence if the node
+is internal. The sequence may be ambiguous for leaf nodes.</p>
+<p>A HistoryDag containing ‘compact_genome’ node label fields which contain
+<code class="xref py py-class docutils literal notranslate"><span class="pre">compact_genome.CompactGenome</span></code> objects may be automatically converted to
+this subclass by calling the class method <code class="xref py py-meth docutils literal notranslate"><span class="pre">SequenceHistoryDag.from_dag()</span></code>, providing the
+HistoryDag object to be converted.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.weight_count">
+<span class="sig-name descname"><span class="pre">weight_count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">ambiguous_hamming_distance</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#AmbiguousLeafSequenceHistoryDag.weight_count"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.weight_count" title="Permalink to this definition"></a></dt>
+<dd><p>See <a class="reference internal" href="historydag.HistoryDag.html#historydag.HistoryDag.weight_count" title="historydag.HistoryDag.weight_count"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.weight_count()</span></code></a></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.optimal_weight_annotate">
+<span class="sig-name descname"><span class="pre">optimal_weight_annotate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">ambiguous_hamming_distance</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#AmbiguousLeafSequenceHistoryDag.optimal_weight_annotate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.optimal_weight_annotate" title="Permalink to this definition"></a></dt>
+<dd><p>See <a class="reference internal" href="historydag.HistoryDag.html#historydag.HistoryDag.optimal_weight_annotate" title="historydag.HistoryDag.optimal_weight_annotate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.optimal_weight_annotate()</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_optimal_weight">
+<span class="sig-name descname"><span class="pre">trim_optimal_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">ambiguous_hamming_distance</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#AmbiguousLeafSequenceHistoryDag.trim_optimal_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_optimal_weight" title="Permalink to this definition"></a></dt>
+<dd><p>See <a class="reference internal" href="historydag.HistoryDag.html#historydag.HistoryDag.trim_optimal_weight" title="historydag.HistoryDag.trim_optimal_weight"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.trim_optimal_weight()</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_within_range">
+<span class="sig-name descname"><span class="pre">trim_within_range</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">ambiguous_hamming_distance</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#AmbiguousLeafSequenceHistoryDag.trim_within_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_within_range" title="Permalink to this definition"></a></dt>
+<dd><p>See <code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.trim_within_range()</span></code></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_below_weight">
+<span class="sig-name descname"><span class="pre">trim_below_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edge_weight_func</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">ambiguous_hamming_distance</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#AmbiguousLeafSequenceHistoryDag.trim_below_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_below_weight" title="Permalink to this definition"></a></dt>
+<dd><p>See <a class="reference internal" href="historydag.HistoryDag.html#historydag.HistoryDag.trim_below_weight" title="historydag.HistoryDag.trim_below_weight"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.trim_below_weight()</span></code></a></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.insert_node">
+<span class="sig-name descname"><span class="pre">insert_node</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dist</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">ambiguous_hamming_distance</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#AmbiguousLeafSequenceHistoryDag.insert_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.insert_node" title="Permalink to this definition"></a></dt>
+<dd><p>See <a class="reference internal" href="historydag.HistoryDag.html#historydag.HistoryDag.insert_node" title="historydag.HistoryDag.insert_node"><code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.HistoryDag.insert_node()</span></code></a></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.hamming_parsimony_count">
+<span class="sig-name descname"><span class="pre">hamming_parsimony_count</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/sequence_dag.html#AmbiguousLeafSequenceHistoryDag.hamming_parsimony_count"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.hamming_parsimony_count" title="Permalink to this definition"></a></dt>
+<dd><p>See <code class="xref py py-meth docutils literal notranslate"><span class="pre">historydag.sequence_dag.SequenceHistoryDag.hamming_parsim</span>
+<span class="pre">ony_count()</span></code></p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="historydag.dag.html" class="btn btn-neutral float-left" title="historydag.dag" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="historydag.mutation_annotated_dag.html" class="btn btn-neutral float-right" title="historydag.mutation_annotated_dag" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Will Dumm.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,43 @@
+﻿historydag.sequence\_dag
+========================
+
+.. automodule:: historydag.sequence_dag
+
+   
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      leaf_ambiguous_hamming_distance_countfuncs
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      ambiguous_hamming_distance
+      nonleaf_sequence_resolutions
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      AmbiguousLeafSequenceHistoryDag
+      SequenceHistoryDag
+   
+   
+
+   
+   
+   
+
+
+

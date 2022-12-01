@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>historydag.parsimony &mdash; historydag  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> historydag
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">Description</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html#classes">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html#functions">Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html#modules">Modules</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">historydag</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">historydag.parsimony</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for historydag.parsimony</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;A module implementing Sankoff Algorithm.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">ete3</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">Bio.Data.IUPACData</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">product</span>
+<span class="kn">from</span> <span class="nn">historydag.dag</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">history_dag_from_histories</span><span class="p">,</span>
+    <span class="n">history_dag_from_etes</span><span class="p">,</span>
+    <span class="n">HistoryDag</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+
+<span class="n">bases</span> <span class="o">=</span> <span class="s2">&quot;AGCT-&quot;</span>
+<span class="n">ambiguous_dna_values</span> <span class="o">=</span> <span class="n">Bio</span><span class="o">.</span><span class="n">Data</span><span class="o">.</span><span class="n">IUPACData</span><span class="o">.</span><span class="n">ambiguous_dna_values</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">ambiguous_dna_values</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;?&quot;</span><span class="p">:</span> <span class="s2">&quot;GATC-&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="s2">&quot;-&quot;</span><span class="p">})</span>
+
+
+<div class="viewcode-block" id="hamming_distance"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.hamming_distance">[docs]</a><span class="k">def</span> <span class="nf">hamming_distance</span><span class="p">(</span><span class="n">seq1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">seq2</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Hamming distance between two sequences of equal length.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        seq1: sequence 1</span>
+<span class="sd">        seq2: sequence 2</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq1</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sequence lengths do not match!&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">!=</span> <span class="n">y</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">seq1</span><span class="p">,</span> <span class="n">seq2</span><span class="p">))</span></div>
+
+
+<span class="n">_yey</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># This is applicable even when diagonal entries in transition rate matrix are</span>
+<span class="c1"># nonzero, since it is only a mask on allowable sites based on each base.</span>
+<span class="n">code_vectors</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">code</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="mi">0</span> <span class="k">if</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">ambiguous_dna_values</span><span class="p">[</span><span class="n">code</span><span class="p">]</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">bases</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">ambiguous_dna_values</span>
+<span class="p">}</span>
+
+<span class="n">ambiguous_codes_from_vecs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">tuple</span><span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">base_set</span> <span class="k">else</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">bases</span><span class="p">):</span> <span class="n">code</span>
+    <span class="k">for</span> <span class="n">code</span><span class="p">,</span> <span class="n">base_set</span> <span class="ow">in</span> <span class="n">ambiguous_dna_values</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">_get_adj_array</span><span class="p">(</span><span class="n">seq_len</span><span class="p">,</span> <span class="n">transition_weights</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">transition_weights</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">transition_weights</span> <span class="o">=</span> <span class="n">_yey</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">transition_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">transition_weights</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">transition_weights</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+        <span class="n">adj_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">transition_weights</span><span class="p">]</span> <span class="o">*</span> <span class="n">seq_len</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">transition_weights</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">seq_len</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+        <span class="n">adj_arr</span> <span class="o">=</span> <span class="n">transition_weights</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;Transition weight matrix must have shape (5, 5) or (sequence_length, 5, 5).&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">adj_arr</span>
+
+
+<span class="k">def</span> <span class="nf">edge_weight_func_from_weight_matrix</span><span class="p">(</span><span class="n">n1</span><span class="p">,</span> <span class="n">n2</span><span class="p">,</span> <span class="n">weight_mat</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bases</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">n1</span><span class="o">.</span><span class="n">is_ua_node</span><span class="p">()</span> <span class="ow">or</span> <span class="n">n2</span><span class="o">.</span><span class="n">is_ua_node</span><span class="p">():</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">n1</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">n2</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sequences must have the same length!&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">weight_mat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">bases</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">base_indices</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bases</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="n">weight_mat</span><span class="p">[</span><span class="n">base_indices</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">base_indices</span><span class="p">[</span><span class="n">y</span><span class="p">]]</span>
+            <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">n1</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span> <span class="n">n2</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">!=</span> <span class="n">y</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">n1</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span> <span class="n">n2</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="sankoff_upward"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.sankoff_upward">[docs]</a><span class="k">def</span> <span class="nf">sankoff_upward</span><span class="p">(</span>
+    <span class="n">tree</span><span class="p">,</span>
+    <span class="n">gap_as_char</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">transition_weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">use_internal_node_sequences</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute Sankoff cost vectors at nodes in a postorder traversal, and</span>
+<span class="sd">    return best possible parsimony score of the tree.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,</span>
+<span class="sd">            it will be treated the same as an ``N``.</span>
+<span class="sd">        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.</span>
+<span class="sd">            Rows contain targeting weights. That is, the first row contains the transition weights</span>
+<span class="sd">            from `A` to each possible target base. Alternatively, a sequence-length array of these</span>
+<span class="sd">            transition weight matrices, if transition weights vary by-site. By default, a constant</span>
+<span class="sd">            weight matrix will be used containing 1 in all off-diagonal positions, equivalent</span>
+<span class="sd">            to Hamming parsimony.</span>
+<span class="sd">        use_internal_node_sequences: (used when tree is of type ``ete3.TreeNode``) If True, then compute</span>
+<span class="sd">            the transition cost for sequences assigned to internal nodes. This assumes that internal</span>
+<span class="sd">            nodes have a field with name ``sequence``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">gap_as_char</span><span class="p">:</span>
+
+        <span class="k">def</span> <span class="nf">translate_base</span><span class="p">(</span><span class="n">char</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">char</span>
+
+    <span class="k">else</span><span class="p">:</span>
+
+        <span class="k">def</span> <span class="nf">translate_base</span><span class="p">(</span><span class="n">char</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">char</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="s2">&quot;N&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">char</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">ete3</span><span class="o">.</span><span class="n">TreeNode</span><span class="p">):</span>
+        <span class="n">seq_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">iter_leaves</span><span class="p">())</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="n">adj_arr</span> <span class="o">=</span> <span class="n">_get_adj_array</span><span class="p">(</span><span class="n">seq_len</span><span class="p">,</span> <span class="n">transition_weights</span><span class="o">=</span><span class="n">transition_weights</span><span class="p">)</span>
+
+        <span class="c1"># First pass of Sankoff: compute cost vectors</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">traverse</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;postorder&quot;</span><span class="p">):</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span>
+                <span class="s2">&quot;cost_vector&quot;</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">code_vectors</span><span class="p">[</span><span class="n">translate_base</span><span class="p">(</span><span class="n">base</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                        <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">sequence</span>
+                    <span class="p">]</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">node</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">():</span>
+                <span class="n">child_costs</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                    <span class="n">stacked_child_cv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">((</span><span class="n">child</span><span class="o">.</span><span class="n">cost_vector</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">total_cost</span> <span class="o">=</span> <span class="n">adj_arr</span> <span class="o">+</span> <span class="n">stacked_child_cv</span>
+                    <span class="n">child_costs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">total_cost</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+                <span class="n">child_cost</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">child_costs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">node</span><span class="o">.</span><span class="n">cost_vector</span> <span class="o">=</span> <span class="n">child_cost</span>
+            <span class="k">if</span> <span class="n">use_internal_node_sequences</span><span class="p">:</span>
+                <span class="n">node</span><span class="o">.</span><span class="n">cost_vector</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">code_vectors</span><span class="p">[</span><span class="n">translate_base</span><span class="p">(</span><span class="n">base</span><span class="p">)]</span> <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">sequence</span><span class="p">]</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">cost_vector</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">HistoryDag</span><span class="p">):</span>
+        <span class="n">seq_len</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">postorder</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">():</span>
+                <span class="n">seq_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+                <span class="k">break</span>
+        <span class="n">adj_arr</span> <span class="o">=</span> <span class="n">_get_adj_array</span><span class="p">(</span>
+            <span class="n">seq_len</span><span class="p">,</span>
+            <span class="n">transition_weights</span><span class="o">=</span><span class="n">transition_weights</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">max_transition_cost</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">adj_arr</span><span class="p">)</span> <span class="o">*</span> <span class="n">seq_len</span>
+
+        <span class="k">def</span> <span class="nf">children_cost</span><span class="p">(</span><span class="n">child_cost_vectors</span><span class="p">):</span>
+            <span class="n">costs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">child_cost_vectors</span><span class="p">:</span>
+                <span class="n">cost</span> <span class="o">=</span> <span class="n">adj_arr</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">((</span><span class="n">c</span><span class="p">,)</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">costs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">cost</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">leaf_func</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;cost_vectors&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                        <span class="p">[</span>
+                            <span class="n">code_vectors</span><span class="p">[</span><span class="n">translate_base</span><span class="p">(</span><span class="n">base</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                            <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="n">n</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;subtree_cost&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="p">}</span>
+
+        <span class="k">def</span> <span class="nf">accum_between_clade_with_filtering</span><span class="p">(</span><span class="n">clade_data</span><span class="p">):</span>
+            <span class="n">cost_vectors</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">min_cost</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+            <span class="c1"># iterate over each possible combination of edge choice across clades</span>
+            <span class="k">for</span> <span class="n">choice</span> <span class="ow">in</span> <span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">clade_data</span><span class="p">):</span>
+                <span class="c1"># compute every possible combination of cost vectors for the given edge choice</span>
+                <span class="c1"># (each child node has possibly multiple cost vectors that are all optimal)</span>
+                <span class="k">for</span> <span class="n">cost_vector_combination</span> <span class="ow">in</span> <span class="n">product</span><span class="p">(</span>
+                    <span class="o">*</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">_dp_data</span><span class="p">[</span><span class="s2">&quot;cost_vectors&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">choice</span><span class="p">]</span>
+                <span class="p">):</span>
+                    <span class="n">cv</span> <span class="o">=</span> <span class="n">children_cost</span><span class="p">(</span><span class="n">cost_vector_combination</span><span class="p">)</span>
+                    <span class="n">cost</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">cv</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">cost</span> <span class="o">+</span> <span class="n">max_transition_cost</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_cost</span><span class="p">:</span>
+                        <span class="n">min_cost</span> <span class="o">=</span> <span class="n">cost</span>
+                        <span class="n">cost_vectors</span> <span class="o">=</span> <span class="p">[</span><span class="n">cv</span><span class="p">]</span>
+                    <span class="k">elif</span> <span class="n">cost</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="n">min_cost</span> <span class="o">+</span> <span class="n">max_transition_cost</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span>
+                        <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">cv</span><span class="p">,</span> <span class="n">other_cv</span><span class="p">)</span> <span class="k">for</span> <span class="n">other_cv</span> <span class="ow">in</span> <span class="n">cost_vectors</span><span class="p">]</span>
+                    <span class="p">):</span>
+                        <span class="n">min_cost</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">cost</span><span class="p">,</span> <span class="n">min_cost</span><span class="p">)</span>
+                        <span class="n">cost_vectors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cv</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;cost_vectors&quot;</span><span class="p">:</span> <span class="n">cost_vectors</span><span class="p">,</span> <span class="s2">&quot;subtree_cost&quot;</span><span class="p">:</span> <span class="n">min_cost</span><span class="p">}</span>
+
+        <span class="n">compute_val</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">postorder_history_accum</span><span class="p">(</span>
+            <span class="n">leaf_func</span><span class="o">=</span><span class="n">leaf_func</span><span class="p">,</span>
+            <span class="n">edge_func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">y</span><span class="p">,</span>
+            <span class="n">accum_within_clade</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span>
+            <span class="n">accum_between_clade</span><span class="o">=</span><span class="n">accum_between_clade_with_filtering</span><span class="p">,</span>
+            <span class="n">accum_above_edge</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">y</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">compute_val</span><span class="p">[</span><span class="s2">&quot;subtree_cost&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="sankoff_downward"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.sankoff_downward">[docs]</a><span class="k">def</span> <span class="nf">sankoff_downward</span><span class="p">(</span>
+    <span class="n">dag</span><span class="p">,</span>
+    <span class="n">compute_cvs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">gap_as_char</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">transition_weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Assign sequences to internal nodes of dag using a weighted Sankoff</span>
+<span class="sd">    algorithm by exploding all possible labelings associated to each internal</span>
+<span class="sd">    node based on its subtrees.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        compute_cvs: If true, compute upward sankoff cost vectors. If ``sankoff_upward`` was</span>
+<span class="sd">            already run on the tree/dag, this may be skipped.</span>
+<span class="sd">        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,</span>
+<span class="sd">            it will be treated the same as an ``N``.</span>
+<span class="sd">        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.</span>
+<span class="sd">            Rows contain targeting weights. That is, the first row contains the transition weights</span>
+<span class="sd">            from `A` to each possible target base. Alternatively, a sequence-length array of these</span>
+<span class="sd">            transition weight matrices, if transition weights vary by-site. By default, a constant</span>
+<span class="sd">            weight matrix will be used containing 1 in all off-diagonal positions, equivalent</span>
+<span class="sd">            to Hamming parsimony.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># this computes cost vectors for each node in an upward sweep of Sankoff</span>
+    <span class="k">if</span> <span class="n">compute_cvs</span><span class="p">:</span>
+        <span class="n">sankoff_upward</span><span class="p">(</span>
+            <span class="n">dag</span><span class="p">,</span>
+            <span class="n">gap_as_char</span><span class="o">=</span><span class="n">gap_as_char</span><span class="p">,</span>
+            <span class="n">transition_weights</span><span class="o">=</span><span class="n">transition_weights</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># save the field names/types of the label datatype for this dag</span>
+    <span class="n">seq_len</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">dag</span><span class="o">.</span><span class="n">postorder</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">():</span>
+            <span class="n">seq_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+            <span class="k">break</span>
+    <span class="n">adj_arr</span> <span class="o">=</span> <span class="n">_get_adj_array</span><span class="p">(</span><span class="n">seq_len</span><span class="p">,</span> <span class="n">transition_weights</span><span class="o">=</span><span class="n">transition_weights</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">compute_sequence_data</span><span class="p">(</span><span class="n">cost_vector</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute all possible sequences that minimize transition costs as given by cost_vector.</span>
+<span class="sd">        Returns: a list of tuples, each tuple containing:</span>
+<span class="sd">                  - a sequence</span>
+<span class="sd">                  - an adjacency array of costs for that sequence, and</span>
+<span class="sd">                  - the minimum cost associated to the cost vector</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">all_base_indices</span> <span class="o">=</span> <span class="p">[[]]</span>
+        <span class="n">min_cost</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">cost_vector</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">seq_len</span><span class="p">):</span>
+            <span class="n">min_cost_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cost_vector</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">==</span> <span class="n">cost_vector</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">all_base_indices</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">base_idx</span> <span class="o">+</span> <span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">base_idx</span> <span class="ow">in</span> <span class="n">all_base_indices</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">min_cost_indices</span>
+            <span class="p">]</span>
+        <span class="n">adj_vec</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">adj_arr</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">seq_len</span><span class="p">),</span> <span class="n">base_indices</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">base_indices</span> <span class="ow">in</span> <span class="n">all_base_indices</span>
+        <span class="p">]</span>
+        <span class="n">new_sequence</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">bases</span><span class="p">[</span><span class="n">base_index</span><span class="p">]</span> <span class="k">for</span> <span class="n">base_index</span> <span class="ow">in</span> <span class="n">base_indices</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">base_indices</span> <span class="ow">in</span> <span class="n">all_base_indices</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">new_sequence</span><span class="p">,</span> <span class="n">adj_vec</span><span class="p">,</span> <span class="p">[</span><span class="n">min_cost</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_sequence</span><span class="p">)))</span>
+
+    <span class="n">dag_nodes</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="c1"># downward pass of Sankoff: find and assign sequence labels to each internal node</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dag</span><span class="o">.</span><span class="n">postorder</span><span class="p">())):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">()</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">is_ua_node</span><span class="p">()):</span>
+            <span class="n">node_data</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">_dp_data</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="n">node_copies</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">node_children</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">())</span>
+            <span class="n">node_parents</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">parents</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">node_parents</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_ua_node</span><span class="p">():</span>
+                    <span class="n">new_seq_data</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="n">y</span>
+                        <span class="k">for</span> <span class="n">cv</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">_dp_data</span><span class="p">[</span><span class="s2">&quot;cost_vectors&quot;</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">compute_sequence_data</span><span class="p">(</span><span class="n">cv</span><span class="p">)</span>
+                    <span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">new_seq_data</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="n">y</span>
+                        <span class="k">for</span> <span class="n">cv</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">_dp_data</span><span class="p">[</span><span class="s2">&quot;cost_vectors&quot;</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">compute_sequence_data</span><span class="p">(</span>
+                            <span class="n">cv</span> <span class="o">+</span> <span class="n">p</span><span class="o">.</span><span class="n">_dp_data</span><span class="p">[</span><span class="s2">&quot;transition_cost&quot;</span><span class="p">]</span>
+                        <span class="p">)</span>
+                    <span class="p">]</span>
+
+                <span class="c1"># only keep those node/parent/cost_vector choices that</span>
+                <span class="c1"># achieve a minimal cost for the node/parent choice</span>
+                <span class="n">min_val</span> <span class="o">=</span> <span class="n">new_seq_data</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_seq_data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">min_val</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="o">*</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">new_seq_data</span><span class="p">))[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+                <span class="k">for</span> <span class="n">nsd</span> <span class="ow">in</span> <span class="n">new_seq_data</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">nsd</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">min_val</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">nsd</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">node_copies</span><span class="p">):</span>
+                        <span class="n">new_node</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">empty_copy</span><span class="p">()</span>
+                        <span class="n">new_node</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">sequence</span><span class="o">=</span><span class="n">nsd</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                        <span class="n">new_node</span><span class="o">.</span><span class="n">_dp_data</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">node_data</span><span class="p">)</span>
+                        <span class="n">new_node</span><span class="o">.</span><span class="n">_dp_data</span><span class="p">[</span><span class="s2">&quot;transition_cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nsd</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">node_copies</span><span class="p">[</span><span class="n">nsd</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">new_node</span>
+
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">node_children</span><span class="p">:</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">parents</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">node_parents</span><span class="p">:</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">remove_edge_by_clade_and_id</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">clade_union</span><span class="p">())</span>
+            <span class="c1"># add all new copies of current node(with alt sequence labels) into the dag</span>
+            <span class="k">for</span> <span class="n">new_sequence</span><span class="p">,</span> <span class="n">new_node</span> <span class="ow">in</span> <span class="n">node_copies</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">new_node</span> <span class="ow">in</span> <span class="n">dag_nodes</span><span class="p">:</span>
+                    <span class="n">tc</span> <span class="o">=</span> <span class="n">new_node</span><span class="o">.</span><span class="n">_dp_data</span><span class="p">[</span><span class="s2">&quot;transition_cost&quot;</span><span class="p">]</span>
+                    <span class="n">new_node</span> <span class="o">=</span> <span class="n">dag_nodes</span><span class="p">[</span><span class="n">new_node</span><span class="p">]</span>
+                    <span class="n">new_node</span><span class="o">.</span><span class="n">_dp_data</span><span class="p">[</span><span class="s2">&quot;transition_cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tc</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">node_children</span><span class="p">:</span>
+                    <span class="n">new_node</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">parents</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">parent</span> <span class="ow">in</span> <span class="n">node_parents</span><span class="p">:</span>
+                    <span class="n">parent</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
+                <span class="n">new_node</span><span class="o">.</span><span class="n">parents</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">node_parents</span><span class="p">)</span>
+                <span class="n">dag_nodes</span><span class="p">[</span><span class="n">new_node</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_node</span>
+
+    <span class="n">dag</span><span class="o">.</span><span class="n">recompute_parents</span><span class="p">()</span>
+    <span class="c1"># still need to trim the dag since the final addition of all</span>
+    <span class="c1"># parents/children to new nodes can yield suboptimal choices</span>
+    <span class="k">if</span> <span class="n">transition_weights</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="k">def</span> <span class="nf">weight_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">edge_weight_func_from_weight_matrix</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">adj_arr</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bases</span><span class="p">)</span>
+
+        <span class="n">optimal_weight</span> <span class="o">=</span> <span class="n">dag</span><span class="o">.</span><span class="n">trim_optimal_weight</span><span class="p">(</span><span class="n">edge_weight_func</span><span class="o">=</span><span class="n">weight_func</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">optimal_weight</span> <span class="o">=</span> <span class="n">dag</span><span class="o">.</span><span class="n">trim_optimal_weight</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">optimal_weight</span></div>
+
+
+<div class="viewcode-block" id="disambiguate"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.disambiguate">[docs]</a><span class="k">def</span> <span class="nf">disambiguate</span><span class="p">(</span>
+    <span class="n">tree</span><span class="p">,</span>
+    <span class="n">compute_cvs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">remove_cvs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">adj_dist</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">gap_as_char</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">transition_weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">min_ambiguities</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Randomly resolve ambiguous bases using a two-pass Sankoff Algorithm on</span>
+<span class="sd">    subtrees of consecutive ambiguity codes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        compute_cvs: If true, compute upward sankoff cost vectors. If ``sankoff_upward`` was</span>
+<span class="sd">            already run on the tree, this may be skipped.</span>
+<span class="sd">        random_state: A ``random`` module random state, returned by ``random.getstate()``. Output</span>
+<span class="sd">            from this function is otherwise deterministic.</span>
+<span class="sd">        remove_cvs: Remove sankoff cost vectors from tree nodes after disambiguation.</span>
+<span class="sd">        adj_dist: Recompute hamming parsimony distances on tree after disambiguation, and store them</span>
+<span class="sd">            in ``dist`` node attributes.</span>
+<span class="sd">        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,</span>
+<span class="sd">            it will be treated the same as an ``N``.</span>
+<span class="sd">        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.</span>
+<span class="sd">            Rows contain targeting weights. That is, the first row contains the transition weights</span>
+<span class="sd">            from `A` to each possible target base. Alternatively, a sequence-length array of these</span>
+<span class="sd">            transition weight matrices, if transition weights vary by-site. By default, a constant</span>
+<span class="sd">            weight matrix will be used containing 1 in all off-diagonal positions, equivalent</span>
+<span class="sd">            to Hamming parsimony.</span>
+<span class="sd">        min_ambiguities: If True, leaves ambiguities in reconstructed sequences, expressing which</span>
+<span class="sd">            bases are possible at each site in a maximally parsimonious disambiguation of the given</span>
+<span class="sd">            topology. In the history DAG paper, this is known as a strictly min-weight ambiguous labeling.</span>
+<span class="sd">            Otherwise, sequences are resolved in one possible way, and include no ambiguities.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">random_state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">random</span><span class="o">.</span><span class="n">setstate</span><span class="p">(</span><span class="n">random_state</span><span class="p">)</span>
+
+    <span class="n">seq_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">iter_leaves</span><span class="p">())</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+    <span class="n">adj_arr</span> <span class="o">=</span> <span class="n">_get_adj_array</span><span class="p">(</span><span class="n">seq_len</span><span class="p">,</span> <span class="n">transition_weights</span><span class="o">=</span><span class="n">transition_weights</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">compute_cvs</span><span class="p">:</span>
+        <span class="n">sankoff_upward</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">gap_as_char</span><span class="o">=</span><span class="n">gap_as_char</span><span class="p">)</span>
+    <span class="c1"># Second pass of Sankoff: choose bases</span>
+    <span class="n">preorder</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">traverse</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;preorder&quot;</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">preorder</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">min_ambiguities</span><span class="p">:</span>
+            <span class="n">adj_vec</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">cost_vector</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">cost_vector</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),)</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+            <span class="p">)</span>
+            <span class="n">new_seq</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">ambiguous_codes_from_vecs</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">row</span><span class="p">))]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">adj_vec</span>
+            <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">base_indices</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">seq_len</span><span class="p">):</span>
+                <span class="n">min_cost</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">cost_vector</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+                <span class="n">base_index</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">i</span>
+                        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">cost_vector</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+                        <span class="k">if</span> <span class="n">val</span> <span class="o">==</span> <span class="n">min_cost</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">base_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">base_index</span><span class="p">)</span>
+
+            <span class="n">adj_vec</span> <span class="o">=</span> <span class="n">adj_arr</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">seq_len</span><span class="p">),</span> <span class="n">base_indices</span><span class="p">]</span>
+            <span class="n">new_seq</span> <span class="o">=</span> <span class="p">[</span><span class="n">bases</span><span class="p">[</span><span class="n">base_index</span><span class="p">]</span> <span class="k">for</span> <span class="n">base_index</span> <span class="ow">in</span> <span class="n">base_indices</span><span class="p">]</span>
+
+        <span class="c1"># Adjust child cost vectors</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+            <span class="n">child</span><span class="o">.</span><span class="n">cost_vector</span> <span class="o">+=</span> <span class="n">adj_vec</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">sequence</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_seq</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">remove_cvs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">traverse</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">node</span><span class="o">.</span><span class="n">del_feature</span><span class="p">(</span><span class="s2">&quot;cost_vector&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">):</span>
+                <span class="k">pass</span>
+    <span class="k">if</span> <span class="n">adj_dist</span><span class="p">:</span>
+        <span class="n">tree</span><span class="o">.</span><span class="n">dist</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">iter_descendants</span><span class="p">():</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">dist</span> <span class="o">=</span> <span class="n">hamming_distance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">up</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tree</span></div>
+
+
+<div class="viewcode-block" id="load_fasta"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.load_fasta">[docs]</a><span class="k">def</span> <span class="nf">load_fasta</span><span class="p">(</span><span class="n">fastapath</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Load a fasta file as a dictionary, with sequence ids as keys and</span>
+<span class="sd">    sequences as values.&quot;&quot;&quot;</span>
+    <span class="n">fasta_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fastapath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="n">seqid</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span>
+                <span class="n">seqid</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">seqid</span> <span class="ow">in</span> <span class="n">fasta_map</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Duplicate records with matching identifier in fasta file&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">fasta_map</span><span class="p">[</span><span class="n">seqid</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">seqid</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;First non-blank line in fasta does not contain identifier&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">fasta_map</span><span class="p">[</span><span class="n">seqid</span><span class="p">]</span> <span class="o">+=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">fasta_map</span></div>
+
+
+<div class="viewcode-block" id="build_tree"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.build_tree">[docs]</a><span class="k">def</span> <span class="nf">build_tree</span><span class="p">(</span>
+    <span class="n">newickstring</span><span class="p">,</span>
+    <span class="n">fasta_map</span><span class="p">,</span>
+    <span class="n">newickformat</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">reference_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">reference_sequence</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">ignore_internal_sequences</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Load an ete tree from a newick string, and add &#39;sequence&#39; attributes</span>
+<span class="sd">    from fasta.</span>
+
+<span class="sd">    If internal node sequences aren&#39;t specified in the newick string and fasta data,</span>
+<span class="sd">    internal node sequences will be fully ambiguous (contain repeated N&#39;s).</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        newickstring: a newick string</span>
+<span class="sd">        fasta_map: a dictionary with sequence id keys matching node names in `newickstring`, and sequence values.</span>
+<span class="sd">        newickformat: the ete format identifier for the passed newick string. See ete docs</span>
+<span class="sd">        reference_id: key in `fasta_map` corresponding to the root sequence of the tree, if root sequence is fixed.</span>
+<span class="sd">        reference_sequence: fixed root sequence of the tree, if root sequence is fixed</span>
+<span class="sd">        ignore_internal_sequences: if True, sequences at non-leaf nodes specified in fasta_map</span>
+<span class="sd">        and newickstring will be ignored, and all internal sequences will be fully ambiguous.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">ete3</span><span class="o">.</span><span class="n">Tree</span><span class="p">(</span><span class="n">newickstring</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">newickformat</span><span class="p">)</span>
+    <span class="c1"># all fasta entries should be same length</span>
+    <span class="n">seq_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">fasta_map</span><span class="o">.</span><span class="n">values</span><span class="p">())))</span>
+    <span class="n">ambig_seq</span> <span class="o">=</span> <span class="s2">&quot;?&quot;</span> <span class="o">*</span> <span class="n">seq_len</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">traverse</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">is_root</span><span class="p">()</span> <span class="ow">and</span> <span class="n">reference_sequence</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="n">reference_sequence</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">is_root</span><span class="p">()</span> <span class="ow">and</span> <span class="n">reference_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="n">fasta_map</span><span class="p">[</span><span class="n">reference_id</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="ow">not</span> <span class="n">node</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">())</span> <span class="ow">and</span> <span class="n">ignore_internal_sequences</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="n">ambig_seq</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">fasta_map</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="n">fasta_map</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="n">ambig_seq</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tree</span></div>
+
+
+<div class="viewcode-block" id="build_trees_from_files"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.build_trees_from_files">[docs]</a><span class="k">def</span> <span class="nf">build_trees_from_files</span><span class="p">(</span><span class="n">newickfiles</span><span class="p">,</span> <span class="n">fastafile</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Same as `build_tree`, but takes a list of filenames containing newick</span>
+<span class="sd">    strings, and a filename for a fasta file, and returns a generator on</span>
+<span class="sd">    trees.&quot;&quot;&quot;</span>
+    <span class="n">fasta_map</span> <span class="o">=</span> <span class="n">load_fasta</span><span class="p">(</span><span class="n">fastafile</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">newick</span> <span class="ow">in</span> <span class="n">newickfiles</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">newick</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="n">newick</span> <span class="o">=</span> <span class="n">fh</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">yield</span> <span class="n">build_tree</span><span class="p">(</span><span class="n">newick</span><span class="p">,</span> <span class="n">fasta_map</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="parsimony_score"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.parsimony_score">[docs]</a><span class="k">def</span> <span class="nf">parsimony_score</span><span class="p">(</span><span class="n">tree</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;returns the parsimony score of a (disambiguated) ete tree.</span>
+
+<span class="sd">    Tree must have &#39;sequence&#39; attributes on all nodes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+        <span class="n">hamming_distance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">up</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">iter_descendants</span><span class="p">()</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="remove_invariant_sites"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.remove_invariant_sites">[docs]</a><span class="k">def</span> <span class="nf">remove_invariant_sites</span><span class="p">(</span><span class="n">fasta_map</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Eliminate invariant characters in a fasta alignment and record the</span>
+<span class="sd">    0-based indices of those variant sites.&quot;&quot;&quot;</span>
+    <span class="c1"># eliminate characters for which there&#39;s no diversity:</span>
+    <span class="n">informative_sites</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">chars</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">fasta_map</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">chars</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span>
+    <span class="p">]</span>
+    <span class="n">newfasta</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">key</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">oldseq</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">informative_sites</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">oldseq</span> <span class="ow">in</span> <span class="n">fasta_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">newfasta</span><span class="p">,</span> <span class="n">informative_sites</span></div>
+
+
+<div class="viewcode-block" id="parsimony_scores_from_topologies"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.parsimony_scores_from_topologies">[docs]</a><span class="k">def</span> <span class="nf">parsimony_scores_from_topologies</span><span class="p">(</span>
+    <span class="n">newicks</span><span class="p">,</span> <span class="n">fasta_map</span><span class="p">,</span> <span class="n">gap_as_char</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">remove_invariants</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;returns a generator on parsimony scores of trees specified by newick</span>
+<span class="sd">    strings and fasta. additional keyword arguments are passed to `build_tree`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        newicks: newick strings of trees whose parsimony scores will be computed</span>
+<span class="sd">        fasta_map: fasta data as a dictionary, as output by ``load_fasta``</span>
+<span class="sd">        gap_as_char: if True, gap characters `-` will be treated as a fifth character.</span>
+<span class="sd">            Otherwise, they will be synonymous with `N`&#39;s.</span>
+<span class="sd">        remove_invariants: if True, removes invariant sites from the provided fasta_map</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">remove_invariants</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;removing invariant sites...&quot;</span><span class="p">)</span>
+        <span class="n">newfasta</span> <span class="o">=</span> <span class="n">remove_invariant_sites</span><span class="p">(</span><span class="n">fasta_map</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;...finished removing invariant sites&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">newfasta</span> <span class="o">=</span> <span class="n">fasta_map</span>
+    <span class="k">yield from</span> <span class="p">(</span>
+        <span class="n">sankoff_upward</span><span class="p">(</span><span class="n">build_tree</span><span class="p">(</span><span class="n">newick</span><span class="p">,</span> <span class="n">newfasta</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">),</span> <span class="n">gap_as_char</span><span class="o">=</span><span class="n">gap_as_char</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">newick</span> <span class="ow">in</span> <span class="n">newicks</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="parsimony_scores_from_files"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.parsimony_scores_from_files">[docs]</a><span class="k">def</span> <span class="nf">parsimony_scores_from_files</span><span class="p">(</span><span class="n">treefiles</span><span class="p">,</span> <span class="n">fastafile</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;returns the parsimony scores of trees specified by newick files and a</span>
+<span class="sd">    fasta file.</span>
+
+<span class="sd">    Arguments match `build_trees_from_files`. Additional keyword</span>
+<span class="sd">    arguments are passed to ``parsimony_scores_from_topologies``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">load_newick</span><span class="p">(</span><span class="n">npath</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">npath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">fh</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">parsimony_scores_from_topologies</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">load_newick</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">treefiles</span><span class="p">),</span> <span class="n">load_fasta</span><span class="p">(</span><span class="n">fastafile</span><span class="p">),</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="build_dag_from_trees"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.build_dag_from_trees">[docs]</a><span class="k">def</span> <span class="nf">build_dag_from_trees</span><span class="p">(</span><span class="n">trees</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build a history DAG from trees containing a `sequence` attribute on all</span>
+<span class="sd">    nodes.</span>
+
+<span class="sd">    unifurcations in the provided trees will be deleted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">trees</span> <span class="o">=</span> <span class="p">[</span><span class="n">tree</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">tree</span> <span class="ow">in</span> <span class="n">trees</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">tree</span> <span class="ow">in</span> <span class="n">trees</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">iter_descendants</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">node</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">prevent_nondicotomic</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">newchild</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">add_child</span><span class="p">()</span>
+            <span class="n">newchild</span><span class="o">.</span><span class="n">add_feature</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">history_dag_from_etes</span><span class="p">(</span>
+        <span class="n">trees</span><span class="p">,</span>
+        <span class="p">[</span><span class="s2">&quot;sequence&quot;</span><span class="p">],</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="summarize_dag"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.summarize_dag">[docs]</a><span class="k">def</span> <span class="nf">summarize_dag</span><span class="p">(</span><span class="n">dag</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;print summary information about the provided history DAG.&quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DAG contains&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;trees: &quot;</span><span class="p">,</span> <span class="n">dag</span><span class="o">.</span><span class="n">count_histories</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;nodes: &quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dag</span><span class="o">.</span><span class="n">preorder</span><span class="p">())))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;edges: &quot;</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">children</span><span class="p">()))</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">dag</span><span class="o">.</span><span class="n">preorder</span><span class="p">()))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;parsimony scores: &quot;</span><span class="p">,</span> <span class="n">dag</span><span class="o">.</span><span class="n">weight_count</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="disambiguate_history"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.disambiguate_history">[docs]</a><span class="k">def</span> <span class="nf">disambiguate_history</span><span class="p">(</span><span class="n">history</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A rather ugly way to disambiguate a history, by converting to ete, using</span>
+<span class="sd">    the disambiguate method, then converting back to HistoryDag.&quot;&quot;&quot;</span>
+    <span class="n">seq_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">get_leaves</span><span class="p">())</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+    <span class="n">ambig_seq</span> <span class="o">=</span> <span class="s2">&quot;N&quot;</span> <span class="o">*</span> <span class="n">seq_len</span>
+    <span class="n">etetree</span> <span class="o">=</span> <span class="n">history</span><span class="o">.</span><span class="n">to_ete</span><span class="p">(</span>
+        <span class="n">feature_funcs</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">&quot;sequence&quot;</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span> <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">()</span> <span class="k">else</span> <span class="n">ambig_seq</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">disambiguate</span><span class="p">(</span><span class="n">etetree</span><span class="p">,</span> <span class="n">min_ambiguities</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">rhistory</span> <span class="o">=</span> <span class="n">history_dag_from_etes</span><span class="p">([</span><span class="n">etetree</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;sequence&quot;</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">rhistory</span></div>
+
+
+<div class="viewcode-block" id="treewise_sankoff_in_dag"><a class="viewcode-back" href="../../stubs/historydag.parsimony.html#historydag.parsimony.treewise_sankoff_in_dag">[docs]</a><span class="k">def</span> <span class="nf">treewise_sankoff_in_dag</span><span class="p">(</span><span class="n">dag</span><span class="p">,</span> <span class="n">cover_edges</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Perform tree-wise sankoff to compute labels for all nodes in the DAG.&quot;&quot;&quot;</span>
+    <span class="n">newdag</span> <span class="o">=</span> <span class="n">history_dag_from_histories</span><span class="p">(</span>
+        <span class="n">disambiguate_history</span><span class="p">(</span><span class="n">history</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">history</span> <span class="ow">in</span> <span class="n">dag</span><span class="o">.</span><span class="n">iter_covering_histories</span><span class="p">(</span><span class="n">cover_edges</span><span class="o">=</span><span class="n">cover_edges</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">newdag</span><span class="o">.</span><span class="n">explode_nodes</span><span class="p">()</span>
+    <span class="n">newdag</span><span class="o">.</span><span class="n">make_complete</span><span class="p">()</span>
+    <span class="n">newdag</span><span class="o">.</span><span class="n">trim_optimal_weight</span><span class="p">()</span>
+    <span class="n">newdag</span><span class="o">.</span><span class="n">convert_to_collapsed</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">newdag</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Will Dumm.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

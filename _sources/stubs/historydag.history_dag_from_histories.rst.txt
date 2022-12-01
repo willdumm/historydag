@@ -1,0 +1,6 @@
+﻿historydag.history\_dag\_from\_histories
+========================================
+
+.. currentmodule:: historydag
+
+.. autofunction:: history_dag_from_histories

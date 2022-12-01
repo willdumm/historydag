@@ -1,0 +1,6 @@
+﻿historydag.empty\_node
+======================
+
+.. currentmodule:: historydag
+
+.. autofunction:: empty_node

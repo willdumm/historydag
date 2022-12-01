@@ -1,0 +1,45 @@
+﻿historydag.mutation\_annotated\_dag
+===================================
+
+.. automodule:: historydag.mutation_annotated_dag
+
+   
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      compact_genome_hamming_distance_countfuncs
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load_MAD_protobuf
+      load_MAD_protobuf_file
+      load_json_file
+      unflatten
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      CGHistoryDag
+      HDagJSONEncoder
+   
+   
+
+   
+   
+   
+
+
+

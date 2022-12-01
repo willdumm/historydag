@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>historydag.HistoryDagNode &mdash; historydag  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="historydag.from_tree" href="historydag.from_tree.html" />
+    <link rel="prev" title="historydag.HistoryDag" href="historydag.HistoryDag.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> historydag
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">Description</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html#classes">Classes</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="historydag.HistoryDag.html">historydag.HistoryDag</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">historydag.HistoryDagNode</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.HistoryDagNode"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.__init__"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.empty_copy"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.empty_copy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.node_self"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.node_self()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.clade_union"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.clade_union()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.under_clade"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.under_clade()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.is_leaf"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.is_leaf()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.is_ua_node"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.is_ua_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.is_root"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.is_root()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.is_history_root"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.is_history_root()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.child_clades"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.child_clades()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.partitions"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.partitions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.sorted_child_clades"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.sorted_child_clades()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.sorted_partitions"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.sorted_partitions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.children"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.children()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.add_edge"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.add_edge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.HistoryDagNode.remove_node"><code class="docutils literal notranslate"><span class="pre">HistoryDagNode.remove_node()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html#functions">Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html#modules">Modules</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">historydag</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">Description</a></li>
+      <li class="breadcrumb-item active">historydag.HistoryDagNode</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="historydag-historydagnode">
+<h1>historydag.HistoryDagNode<a class="headerlink" href="#historydag-historydagnode" title="Permalink to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.</span></span><span class="sig-name descname"><span class="pre">HistoryDagNode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clades</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode" title="Permalink to this definition"></a></dt>
+<dd><p>A recursive representation of a history DAG object.</p>
+<ul class="simple">
+<li><p>a dictionary keyed by clades (frozensets) containing EdgeSet objects</p></li>
+<li><p>a label, which is a namedtuple.</p></li>
+</ul>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clades</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.__init__" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<p class="rubric">Methods</p>
+<table class="autosummary longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#id0" title="historydag.HistoryDagNode.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(label, clades, attr)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.add_edge" title="historydag.HistoryDagNode.add_edge"><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_edge</span></code></a>(target[, weight, prob, prob_norm])</p></td>
+<td><p>Adds edge, if allowed and not already present.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.child_clades" title="historydag.HistoryDagNode.child_clades"><code class="xref py py-obj docutils literal notranslate"><span class="pre">child_clades</span></code></a>()</p></td>
+<td><p>Returns the node's child clades, or a frozenset containing a frozenset if this node is a UANode.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.children" title="historydag.HistoryDagNode.children"><code class="xref py py-obj docutils literal notranslate"><span class="pre">children</span></code></a>([clade])</p></td>
+<td><p>Returns generator object containing child nodes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.clade_union" title="historydag.HistoryDagNode.clade_union"><code class="xref py py-obj docutils literal notranslate"><span class="pre">clade_union</span></code></a>()</p></td>
+<td><p>Returns the union of this node's child clades (or a set containing only the node label, for leaf nodes.)</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.empty_copy" title="historydag.HistoryDagNode.empty_copy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">empty_copy</span></code></a>()</p></td>
+<td><p>Returns a HistoryDagNode object with the same clades, label, and attr dictionary, but no descendant edges.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.is_history_root" title="historydag.HistoryDagNode.is_history_root"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_history_root</span></code></a>()</p></td>
+<td><p>Return whether node is a root of any histories in the DAG.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.is_leaf" title="historydag.HistoryDagNode.is_leaf"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_leaf</span></code></a>()</p></td>
+<td><p>Returns whether this is a leaf node.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.is_root" title="historydag.HistoryDagNode.is_root"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_root</span></code></a>()</p></td>
+<td><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.is_ua_node" title="historydag.HistoryDagNode.is_ua_node"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_ua_node()</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.is_ua_node" title="historydag.HistoryDagNode.is_ua_node"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_ua_node</span></code></a>()</p></td>
+<td><p>Returns whether this is the source node in the DAG, from which all others are reachable.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.node_self" title="historydag.HistoryDagNode.node_self"><code class="xref py py-obj docutils literal notranslate"><span class="pre">node_self</span></code></a>()</p></td>
+<td><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.empty_copy" title="historydag.HistoryDagNode.empty_copy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">empty_copy()</span></code></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.partitions" title="historydag.HistoryDagNode.partitions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">partitions</span></code></a>()</p></td>
+<td><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.child_clades" title="historydag.HistoryDagNode.child_clades"><code class="xref py py-meth docutils literal notranslate"><span class="pre">child_clades()</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove_edge_by_clade_and_id</span></code>(target, clade)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.remove_node" title="historydag.HistoryDagNode.remove_node"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove_node</span></code></a>([nodedict])</p></td>
+<td><p>Recursively removes node self and any orphaned children from dag.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.sorted_child_clades" title="historydag.HistoryDagNode.sorted_child_clades"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sorted_child_clades</span></code></a>()</p></td>
+<td><p>Returns the node's child clades as a sorted tuple containing leaf labels in sorted tuples.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.sorted_partitions" title="historydag.HistoryDagNode.sorted_partitions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sorted_partitions</span></code></a>()</p></td>
+<td><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.sorted_child_clades" title="historydag.HistoryDagNode.sorted_child_clades"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sorted_child_clades()</span></code></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.HistoryDagNode.under_clade" title="historydag.HistoryDagNode.under_clade"><code class="xref py py-obj docutils literal notranslate"><span class="pre">under_clade</span></code></a>()</p></td>
+<td><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.clade_union" title="historydag.HistoryDagNode.clade_union"><code class="xref py py-meth docutils literal notranslate"><span class="pre">clade_union()</span></code></a></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clades</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id0" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.empty_copy">
+<span class="sig-name descname"><span class="pre">empty_copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.empty_copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.empty_copy" title="Permalink to this definition"></a></dt>
+<dd><p>Returns a HistoryDagNode object with the same clades, label, and
+attr dictionary, but no descendant edges.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="historydag.dag.html#historydag.dag.HistoryDagNode" title="historydag.dag.HistoryDagNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">HistoryDagNode</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.node_self">
+<span class="sig-name descname"><span class="pre">node_self</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.node_self"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.node_self" title="Permalink to this definition"></a></dt>
+<dd><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.empty_copy" title="historydag.HistoryDagNode.empty_copy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">empty_copy()</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="historydag.dag.html#historydag.dag.HistoryDagNode" title="historydag.dag.HistoryDagNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">HistoryDagNode</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.clade_union">
+<span class="sig-name descname"><span class="pre">clade_union</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.clade_union"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.clade_union" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the union of this node’s child clades (or a set containing
+only the node label, for leaf nodes.)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.FrozenSet" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">FrozenSet</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.NamedTuple" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NamedTuple</span></code></a>, <a class="reference internal" href="historydag.utils.html#historydag.utils.UALabel" title="historydag.utils.UALabel"><code class="xref py py-class docutils literal notranslate"><span class="pre">UALabel</span></code></a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.under_clade">
+<span class="sig-name descname"><span class="pre">under_clade</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.under_clade"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.under_clade" title="Permalink to this definition"></a></dt>
+<dd><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.clade_union" title="historydag.HistoryDagNode.clade_union"><code class="xref py py-meth docutils literal notranslate"><span class="pre">clade_union()</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.FrozenSet" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">FrozenSet</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.NamedTuple" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NamedTuple</span></code></a>, <a class="reference internal" href="historydag.utils.html#historydag.utils.UALabel" title="historydag.utils.UALabel"><code class="xref py py-class docutils literal notranslate"><span class="pre">UALabel</span></code></a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.is_leaf">
+<span class="sig-name descname"><span class="pre">is_leaf</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.is_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.is_leaf" title="Permalink to this definition"></a></dt>
+<dd><p>Returns whether this is a leaf node.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.is_ua_node">
+<span class="sig-name descname"><span class="pre">is_ua_node</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.is_ua_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.is_ua_node" title="Permalink to this definition"></a></dt>
+<dd><p>Returns whether this is the source node in the DAG, from which all
+others are reachable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.is_root">
+<span class="sig-name descname"><span class="pre">is_root</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.is_root"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.is_root" title="Permalink to this definition"></a></dt>
+<dd><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.is_ua_node" title="historydag.HistoryDagNode.is_ua_node"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_ua_node()</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.is_history_root">
+<span class="sig-name descname"><span class="pre">is_history_root</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.is_history_root"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.is_history_root" title="Permalink to this definition"></a></dt>
+<dd><p>Return whether node is a root of any histories in the DAG.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.child_clades">
+<span class="sig-name descname"><span class="pre">child_clades</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.child_clades"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.child_clades" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the node’s child clades, or a frozenset containing a
+frozenset if this node is a UANode.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#frozenset" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">frozenset</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.partitions">
+<span class="sig-name descname"><span class="pre">partitions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.partitions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.partitions" title="Permalink to this definition"></a></dt>
+<dd><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.child_clades" title="historydag.HistoryDagNode.child_clades"><code class="xref py py-meth docutils literal notranslate"><span class="pre">child_clades()</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#frozenset" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">frozenset</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.sorted_child_clades">
+<span class="sig-name descname"><span class="pre">sorted_child_clades</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.sorted_child_clades"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.sorted_child_clades" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the node’s child clades as a sorted tuple containing leaf
+labels in sorted tuples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.sorted_partitions">
+<span class="sig-name descname"><span class="pre">sorted_partitions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.sorted_partitions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.sorted_partitions" title="Permalink to this definition"></a></dt>
+<dd><p>Deprecated name for <a class="reference internal" href="#historydag.HistoryDagNode.sorted_child_clades" title="historydag.HistoryDagNode.sorted_child_clades"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sorted_child_clades()</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.children">
+<span class="sig-name descname"><span class="pre">children</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">clade</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.children"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.children" title="Permalink to this definition"></a></dt>
+<dd><p>Returns generator object containing child nodes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>clade</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Set</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.NamedTuple" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NamedTuple</span></code></a>, <a class="reference internal" href="historydag.utils.html#historydag.utils.UALabel" title="historydag.utils.UALabel"><code class="xref py py-class docutils literal notranslate"><span class="pre">UALabel</span></code></a>]]]) – If clade is provided, returns generator object of edge targets from that</p>
+</dd>
+</dl>
+<p>clade. If no clade is provided, generator includes all children of self.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generator</span></code></a>[<a class="reference internal" href="historydag.dag.html#historydag.dag.HistoryDagNode" title="historydag.dag.HistoryDagNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">HistoryDagNode</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.add_edge">
+<span class="sig-name descname"><span class="pre">add_edge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prob_norm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.add_edge"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.add_edge" title="Permalink to this definition"></a></dt>
+<dd><p>Adds edge, if allowed and not already present.</p>
+<p>Returns whether edge was added.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.HistoryDagNode.remove_node">
+<span class="sig-name descname"><span class="pre">remove_node</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nodedict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/dag.html#HistoryDagNode.remove_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.HistoryDagNode.remove_node" title="Permalink to this definition"></a></dt>
+<dd><p>Recursively removes node self and any orphaned children from dag.</p>
+<p>May not work on root. Does not check to make sure that parent
+clade still has descendant edges.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="historydag.HistoryDag.html" class="btn btn-neutral float-left" title="historydag.HistoryDag" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="historydag.from_tree.html" class="btn btn-neutral float-right" title="historydag.from_tree" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Will Dumm.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

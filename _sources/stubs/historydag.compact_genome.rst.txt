@@ -1,0 +1,38 @@
+﻿historydag.compact\_genome
+==========================
+
+.. automodule:: historydag.compact_genome
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      cg_diff
+      cg_hamming_distance
+      compact_genome_from_sequence
+      wrapped_cg_hamming_distance
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      CompactGenome
+   
+   
+
+   
+   
+   
+
+
+

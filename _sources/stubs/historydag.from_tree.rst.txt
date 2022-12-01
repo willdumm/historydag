@@ -1,0 +1,6 @@
+﻿historydag.from\_tree
+=====================
+
+.. currentmodule:: historydag
+
+.. autofunction:: from_tree

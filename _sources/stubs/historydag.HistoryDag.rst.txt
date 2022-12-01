@@ -29,6 +29,7 @@
       ~HistoryDag.explode_nodes
       ~HistoryDag.from_history_dag
       ~HistoryDag.get_histories
+      ~HistoryDag.get_label_type
       ~HistoryDag.get_leaves
       ~HistoryDag.get_topologies
       ~HistoryDag.get_trees
@@ -40,10 +41,7 @@
       ~HistoryDag.iter_covering_histories
       ~HistoryDag.label_uncertainty_summary
       ~HistoryDag.leaf_path_uncertainty_dag
-      ~HistoryDag.leaf_path_uncertainty_dag_no_collapse
       ~HistoryDag.leaf_path_uncertainty_graphviz
-      ~HistoryDag.leaf_path_uncertainty_graphviz_collapse
-      ~HistoryDag.leaf_path_uncertainty_graphviz_no_collapse
       ~HistoryDag.make_complete
       ~HistoryDag.make_uniform
       ~HistoryDag.merge

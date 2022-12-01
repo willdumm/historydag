@@ -1,0 +1,6 @@
+﻿historydag.history\_dag\_from\_newicks
+======================================
+
+.. currentmodule:: historydag
+
+.. autofunction:: history_dag_from_newicks

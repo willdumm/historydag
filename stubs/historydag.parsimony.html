@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>historydag.parsimony &mdash; historydag  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="historydag.compact_genome" href="historydag.compact_genome.html" />
+    <link rel="prev" title="historydag.utils" href="historydag.utils.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> historydag
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">Description</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html#classes">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html#functions">Functions</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html#modules">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="historydag.dag.html">historydag.dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.sequence_dag.html">historydag.sequence_dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.mutation_annotated_dag.html">historydag.mutation_annotated_dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.utils.html">historydag.utils</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">historydag.parsimony</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.hamming_distance"><code class="docutils literal notranslate"><span class="pre">hamming_distance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.sankoff_upward"><code class="docutils literal notranslate"><span class="pre">sankoff_upward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.sankoff_downward"><code class="docutils literal notranslate"><span class="pre">sankoff_downward()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.disambiguate"><code class="docutils literal notranslate"><span class="pre">disambiguate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.load_fasta"><code class="docutils literal notranslate"><span class="pre">load_fasta()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.build_tree"><code class="docutils literal notranslate"><span class="pre">build_tree()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.build_trees_from_files"><code class="docutils literal notranslate"><span class="pre">build_trees_from_files()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.parsimony_score"><code class="docutils literal notranslate"><span class="pre">parsimony_score()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.remove_invariant_sites"><code class="docutils literal notranslate"><span class="pre">remove_invariant_sites()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.parsimony_scores_from_topologies"><code class="docutils literal notranslate"><span class="pre">parsimony_scores_from_topologies()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.parsimony_scores_from_files"><code class="docutils literal notranslate"><span class="pre">parsimony_scores_from_files()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.build_dag_from_trees"><code class="docutils literal notranslate"><span class="pre">build_dag_from_trees()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.summarize_dag"><code class="docutils literal notranslate"><span class="pre">summarize_dag()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.disambiguate_history"><code class="docutils literal notranslate"><span class="pre">disambiguate_history()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.parsimony.treewise_sankoff_in_dag"><code class="docutils literal notranslate"><span class="pre">treewise_sankoff_in_dag()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.compact_genome.html">historydag.compact_genome</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.counterops.html">historydag.counterops</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">historydag</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">Description</a></li>
+      <li class="breadcrumb-item active">historydag.parsimony</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-historydag.parsimony">
+<span id="historydag-parsimony"></span><h1>historydag.parsimony<a class="headerlink" href="#module-historydag.parsimony" title="Permalink to this heading"></a></h1>
+<p>A module implementing Sankoff Algorithm.</p>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.parsimony.build_dag_from_trees" title="historydag.parsimony.build_dag_from_trees"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_dag_from_trees</span></code></a>(trees)</p></td>
+<td><p>Build a history DAG from trees containing a <cite>sequence</cite> attribute on all nodes.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.parsimony.build_tree" title="historydag.parsimony.build_tree"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_tree</span></code></a>(newickstring, fasta_map[, ...])</p></td>
+<td><p>Load an ete tree from a newick string, and add 'sequence' attributes from fasta.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.parsimony.build_trees_from_files" title="historydag.parsimony.build_trees_from_files"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_trees_from_files</span></code></a>(newickfiles, ...)</p></td>
+<td><p>Same as <cite>build_tree</cite>, but takes a list of filenames containing newick strings, and a filename for a fasta file, and returns a generator on trees.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.parsimony.disambiguate" title="historydag.parsimony.disambiguate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">disambiguate</span></code></a>(tree[, compute_cvs, ...])</p></td>
+<td><p>Randomly resolve ambiguous bases using a two-pass Sankoff Algorithm on subtrees of consecutive ambiguity codes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.parsimony.disambiguate_history" title="historydag.parsimony.disambiguate_history"><code class="xref py py-obj docutils literal notranslate"><span class="pre">disambiguate_history</span></code></a>(history)</p></td>
+<td><p>A rather ugly way to disambiguate a history, by converting to ete, using the disambiguate method, then converting back to HistoryDag.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">edge_weight_func_from_weight_matrix</span></code>(n1, n2)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.parsimony.hamming_distance" title="historydag.parsimony.hamming_distance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hamming_distance</span></code></a>(seq1, seq2)</p></td>
+<td><p>Hamming distance between two sequences of equal length.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.parsimony.load_fasta" title="historydag.parsimony.load_fasta"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_fasta</span></code></a>(fastapath)</p></td>
+<td><p>Load a fasta file as a dictionary, with sequence ids as keys and sequences as values.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.parsimony.parsimony_score" title="historydag.parsimony.parsimony_score"><code class="xref py py-obj docutils literal notranslate"><span class="pre">parsimony_score</span></code></a>(tree)</p></td>
+<td><p>returns the parsimony score of a (disambiguated) ete tree.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.parsimony.parsimony_scores_from_files" title="historydag.parsimony.parsimony_scores_from_files"><code class="xref py py-obj docutils literal notranslate"><span class="pre">parsimony_scores_from_files</span></code></a>(treefiles, ...)</p></td>
+<td><p>returns the parsimony scores of trees specified by newick files and a fasta file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.parsimony.parsimony_scores_from_topologies" title="historydag.parsimony.parsimony_scores_from_topologies"><code class="xref py py-obj docutils literal notranslate"><span class="pre">parsimony_scores_from_topologies</span></code></a>(newicks, ...)</p></td>
+<td><p>returns a generator on parsimony scores of trees specified by newick strings and fasta.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.parsimony.remove_invariant_sites" title="historydag.parsimony.remove_invariant_sites"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove_invariant_sites</span></code></a>(fasta_map)</p></td>
+<td><p>Eliminate invariant characters in a fasta alignment and record the 0-based indices of those variant sites.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.parsimony.sankoff_downward" title="historydag.parsimony.sankoff_downward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sankoff_downward</span></code></a>(dag[, compute_cvs, ...])</p></td>
+<td><p>Assign sequences to internal nodes of dag using a weighted Sankoff algorithm by exploding all possible labelings associated to each internal node based on its subtrees.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.parsimony.sankoff_upward" title="historydag.parsimony.sankoff_upward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sankoff_upward</span></code></a>(tree[, gap_as_char, ...])</p></td>
+<td><p>Compute Sankoff cost vectors at nodes in a postorder traversal, and return best possible parsimony score of the tree.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.parsimony.summarize_dag" title="historydag.parsimony.summarize_dag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">summarize_dag</span></code></a>(dag)</p></td>
+<td><p>print summary information about the provided history DAG.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.parsimony.treewise_sankoff_in_dag" title="historydag.parsimony.treewise_sankoff_in_dag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">treewise_sankoff_in_dag</span></code></a>(dag[, cover_edges])</p></td>
+<td><p>Perform tree-wise sankoff to compute labels for all nodes in the DAG.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.hamming_distance">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">hamming_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seq1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seq2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#hamming_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.hamming_distance" title="Permalink to this definition"></a></dt>
+<dd><p>Hamming distance between two sequences of equal length.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>seq1</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – sequence 1</p></li>
+<li><p><strong>seq2</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – sequence 2</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.sankoff_upward">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">sankoff_upward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gap_as_char</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_internal_node_sequences</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#sankoff_upward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.sankoff_upward" title="Permalink to this definition"></a></dt>
+<dd><p>Compute Sankoff cost vectors at nodes in a postorder traversal, and
+return best possible parsimony score of the tree.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gap_as_char</strong> – if True, the gap character <code class="docutils literal notranslate"><span class="pre">-</span></code> will be treated as a fifth character. Otherwise,
+it will be treated the same as an <code class="docutils literal notranslate"><span class="pre">N</span></code>.</p></li>
+<li><p><strong>transition_weights</strong> – A 5x5 transition weight matrix, with base order <cite>AGCT-</cite>.
+Rows contain targeting weights. That is, the first row contains the transition weights
+from <cite>A</cite> to each possible target base. Alternatively, a sequence-length array of these
+transition weight matrices, if transition weights vary by-site. By default, a constant
+weight matrix will be used containing 1 in all off-diagonal positions, equivalent
+to Hamming parsimony.</p></li>
+<li><p><strong>use_internal_node_sequences</strong> – (used when tree is of type <code class="docutils literal notranslate"><span class="pre">ete3.TreeNode</span></code>) If True, then compute
+the transition cost for sequences assigned to internal nodes. This assumes that internal
+nodes have a field with name <code class="docutils literal notranslate"><span class="pre">sequence</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.sankoff_downward">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">sankoff_downward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compute_cvs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gap_as_char</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#sankoff_downward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.sankoff_downward" title="Permalink to this definition"></a></dt>
+<dd><p>Assign sequences to internal nodes of dag using a weighted Sankoff
+algorithm by exploding all possible labelings associated to each internal
+node based on its subtrees.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>compute_cvs</strong> – If true, compute upward sankoff cost vectors. If <code class="docutils literal notranslate"><span class="pre">sankoff_upward</span></code> was
+already run on the tree/dag, this may be skipped.</p></li>
+<li><p><strong>gap_as_char</strong> – if True, the gap character <code class="docutils literal notranslate"><span class="pre">-</span></code> will be treated as a fifth character. Otherwise,
+it will be treated the same as an <code class="docutils literal notranslate"><span class="pre">N</span></code>.</p></li>
+<li><p><strong>transition_weights</strong> – A 5x5 transition weight matrix, with base order <cite>AGCT-</cite>.
+Rows contain targeting weights. That is, the first row contains the transition weights
+from <cite>A</cite> to each possible target base. Alternatively, a sequence-length array of these
+transition weight matrices, if transition weights vary by-site. By default, a constant
+weight matrix will be used containing 1 in all off-diagonal positions, equivalent
+to Hamming parsimony.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.disambiguate">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">disambiguate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compute_cvs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_cvs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adj_dist</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gap_as_char</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transition_weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_ambiguities</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#disambiguate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.disambiguate" title="Permalink to this definition"></a></dt>
+<dd><p>Randomly resolve ambiguous bases using a two-pass Sankoff Algorithm on
+subtrees of consecutive ambiguity codes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>compute_cvs</strong> – If true, compute upward sankoff cost vectors. If <code class="docutils literal notranslate"><span class="pre">sankoff_upward</span></code> was
+already run on the tree, this may be skipped.</p></li>
+<li><p><strong>random_state</strong> – A <code class="docutils literal notranslate"><span class="pre">random</span></code> module random state, returned by <code class="docutils literal notranslate"><span class="pre">random.getstate()</span></code>. Output
+from this function is otherwise deterministic.</p></li>
+<li><p><strong>remove_cvs</strong> – Remove sankoff cost vectors from tree nodes after disambiguation.</p></li>
+<li><p><strong>adj_dist</strong> – Recompute hamming parsimony distances on tree after disambiguation, and store them
+in <code class="docutils literal notranslate"><span class="pre">dist</span></code> node attributes.</p></li>
+<li><p><strong>gap_as_char</strong> – if True, the gap character <code class="docutils literal notranslate"><span class="pre">-</span></code> will be treated as a fifth character. Otherwise,
+it will be treated the same as an <code class="docutils literal notranslate"><span class="pre">N</span></code>.</p></li>
+<li><p><strong>transition_weights</strong> – A 5x5 transition weight matrix, with base order <cite>AGCT-</cite>.
+Rows contain targeting weights. That is, the first row contains the transition weights
+from <cite>A</cite> to each possible target base. Alternatively, a sequence-length array of these
+transition weight matrices, if transition weights vary by-site. By default, a constant
+weight matrix will be used containing 1 in all off-diagonal positions, equivalent
+to Hamming parsimony.</p></li>
+<li><p><strong>min_ambiguities</strong> – If True, leaves ambiguities in reconstructed sequences, expressing which
+bases are possible at each site in a maximally parsimonious disambiguation of the given
+topology. In the history DAG paper, this is known as a strictly min-weight ambiguous labeling.
+Otherwise, sequences are resolved in one possible way, and include no ambiguities.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.load_fasta">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">load_fasta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fastapath</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#load_fasta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.load_fasta" title="Permalink to this definition"></a></dt>
+<dd><p>Load a fasta file as a dictionary, with sequence ids as keys and
+sequences as values.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.build_tree">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">build_tree</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">newickstring</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fasta_map</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">newickformat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_sequence</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore_internal_sequences</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#build_tree"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.build_tree" title="Permalink to this definition"></a></dt>
+<dd><p>Load an ete tree from a newick string, and add ‘sequence’ attributes
+from fasta.</p>
+<p>If internal node sequences aren’t specified in the newick string and fasta data,
+internal node sequences will be fully ambiguous (contain repeated N’s).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>newickstring</strong> – a newick string</p></li>
+<li><p><strong>fasta_map</strong> – a dictionary with sequence id keys matching node names in <cite>newickstring</cite>, and sequence values.</p></li>
+<li><p><strong>newickformat</strong> – the ete format identifier for the passed newick string. See ete docs</p></li>
+<li><p><strong>reference_id</strong> – key in <cite>fasta_map</cite> corresponding to the root sequence of the tree, if root sequence is fixed.</p></li>
+<li><p><strong>reference_sequence</strong> – fixed root sequence of the tree, if root sequence is fixed</p></li>
+<li><p><strong>ignore_internal_sequences</strong> – if True, sequences at non-leaf nodes specified in fasta_map</p></li>
+<li><p><strong>ignored</strong> (<em>and newickstring will be</em>) – </p></li>
+<li><p><strong>ambiguous.</strong> (<em>and all internal sequences will be fully</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.build_trees_from_files">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">build_trees_from_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">newickfiles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fastafile</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#build_trees_from_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.build_trees_from_files" title="Permalink to this definition"></a></dt>
+<dd><p>Same as <cite>build_tree</cite>, but takes a list of filenames containing newick
+strings, and a filename for a fasta file, and returns a generator on
+trees.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.parsimony_score">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">parsimony_score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#parsimony_score"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.parsimony_score" title="Permalink to this definition"></a></dt>
+<dd><p>returns the parsimony score of a (disambiguated) ete tree.</p>
+<p>Tree must have ‘sequence’ attributes on all nodes.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.remove_invariant_sites">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">remove_invariant_sites</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fasta_map</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#remove_invariant_sites"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.remove_invariant_sites" title="Permalink to this definition"></a></dt>
+<dd><p>Eliminate invariant characters in a fasta alignment and record the
+0-based indices of those variant sites.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.parsimony_scores_from_topologies">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">parsimony_scores_from_topologies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">newicks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fasta_map</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gap_as_char</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_invariants</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#parsimony_scores_from_topologies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.parsimony_scores_from_topologies" title="Permalink to this definition"></a></dt>
+<dd><p>returns a generator on parsimony scores of trees specified by newick
+strings and fasta. additional keyword arguments are passed to <cite>build_tree</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>newicks</strong> – newick strings of trees whose parsimony scores will be computed</p></li>
+<li><p><strong>fasta_map</strong> – fasta data as a dictionary, as output by <code class="docutils literal notranslate"><span class="pre">load_fasta</span></code></p></li>
+<li><p><strong>gap_as_char</strong> – if True, gap characters <cite>-</cite> will be treated as a fifth character.
+Otherwise, they will be synonymous with <cite>N</cite>’s.</p></li>
+<li><p><strong>remove_invariants</strong> – if True, removes invariant sites from the provided fasta_map</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.parsimony_scores_from_files">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">parsimony_scores_from_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">treefiles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fastafile</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#parsimony_scores_from_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.parsimony_scores_from_files" title="Permalink to this definition"></a></dt>
+<dd><p>returns the parsimony scores of trees specified by newick files and a
+fasta file.</p>
+<p>Arguments match <cite>build_trees_from_files</cite>. Additional keyword
+arguments are passed to <code class="docutils literal notranslate"><span class="pre">parsimony_scores_from_topologies</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.build_dag_from_trees">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">build_dag_from_trees</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trees</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#build_dag_from_trees"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.build_dag_from_trees" title="Permalink to this definition"></a></dt>
+<dd><p>Build a history DAG from trees containing a <cite>sequence</cite> attribute on all
+nodes.</p>
+<p>unifurcations in the provided trees will be deleted.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.summarize_dag">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">summarize_dag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#summarize_dag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.summarize_dag" title="Permalink to this definition"></a></dt>
+<dd><p>print summary information about the provided history DAG.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.disambiguate_history">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">disambiguate_history</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">history</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#disambiguate_history"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.disambiguate_history" title="Permalink to this definition"></a></dt>
+<dd><p>A rather ugly way to disambiguate a history, by converting to ete, using
+the disambiguate method, then converting back to HistoryDag.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.parsimony.treewise_sankoff_in_dag">
+<span class="sig-prename descclassname"><span class="pre">historydag.parsimony.</span></span><span class="sig-name descname"><span class="pre">treewise_sankoff_in_dag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cover_edges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/parsimony.html#treewise_sankoff_in_dag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.parsimony.treewise_sankoff_in_dag" title="Permalink to this definition"></a></dt>
+<dd><p>Perform tree-wise sankoff to compute labels for all nodes in the DAG.</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="historydag.utils.html" class="btn btn-neutral float-left" title="historydag.utils" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="historydag.compact_genome.html" class="btn btn-neutral float-right" title="historydag.compact_genome" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Will Dumm.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

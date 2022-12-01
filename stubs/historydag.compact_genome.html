@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>historydag.compact_genome &mdash; historydag  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="historydag.counterops" href="historydag.counterops.html" />
+    <link rel="prev" title="historydag.parsimony" href="historydag.parsimony.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> historydag
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../api.html">Description</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html#classes">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html#functions">Functions</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html#modules">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="historydag.dag.html">historydag.dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.sequence_dag.html">historydag.sequence_dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.mutation_annotated_dag.html">historydag.mutation_annotated_dag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.utils.html">historydag.utils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.parsimony.html">historydag.parsimony</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">historydag.compact_genome</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.compact_genome.CompactGenome"><code class="docutils literal notranslate"><span class="pre">CompactGenome</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.compact_genome.CompactGenome.__init__"><code class="docutils literal notranslate"><span class="pre">CompactGenome.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.compact_genome.CompactGenome.mutations_as_strings"><code class="docutils literal notranslate"><span class="pre">CompactGenome.mutations_as_strings()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.compact_genome.CompactGenome.mutate"><code class="docutils literal notranslate"><span class="pre">CompactGenome.mutate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.compact_genome.CompactGenome.apply_muts"><code class="docutils literal notranslate"><span class="pre">CompactGenome.apply_muts()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#historydag.compact_genome.CompactGenome.to_sequence"><code class="docutils literal notranslate"><span class="pre">CompactGenome.to_sequence()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.compact_genome.compact_genome_from_sequence"><code class="docutils literal notranslate"><span class="pre">compact_genome_from_sequence()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.compact_genome.cg_hamming_distance"><code class="docutils literal notranslate"><span class="pre">cg_hamming_distance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.compact_genome.wrapped_cg_hamming_distance"><code class="docutils literal notranslate"><span class="pre">wrapped_cg_hamming_distance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#historydag.compact_genome.cg_diff"><code class="docutils literal notranslate"><span class="pre">cg_diff()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="historydag.counterops.html">historydag.counterops</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">historydag</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">Description</a></li>
+      <li class="breadcrumb-item active">historydag.compact_genome</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-historydag.compact_genome">
+<span id="historydag-compact-genome"></span><h1>historydag.compact_genome<a class="headerlink" href="#module-historydag.compact_genome" title="Permalink to this heading"></a></h1>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.compact_genome.cg_diff" title="historydag.compact_genome.cg_diff"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cg_diff</span></code></a>(parent_cg, child_cg)</p></td>
+<td><p>Yields mutations in the format (parent_nuc, child_nuc, sequence_index) distinguishing two compact genomes, such that applying the resulting mutations to <cite>parent_cg</cite> would yield <cite>child_cg</cite></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.compact_genome.cg_hamming_distance" title="historydag.compact_genome.cg_hamming_distance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cg_hamming_distance</span></code></a>(seq1, seq2)</p></td>
+<td><p>An implementation of hamming distance on compact genomes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.compact_genome.compact_genome_from_sequence" title="historydag.compact_genome.compact_genome_from_sequence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compact_genome_from_sequence</span></code></a>(sequence, reference)</p></td>
+<td><p>Create a CompactGenome from a sequence and a reference sequence.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#historydag.compact_genome.wrapped_cg_hamming_distance" title="historydag.compact_genome.wrapped_cg_hamming_distance"><code class="xref py py-obj docutils literal notranslate"><span class="pre">wrapped_cg_hamming_distance</span></code></a>(s1, s2)</p></td>
+<td><p>The sitewise sum of base differences between sequence field contents of two nodes.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#historydag.compact_genome.CompactGenome" title="historydag.compact_genome.CompactGenome"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CompactGenome</span></code></a>(mutations, reference)</p></td>
+<td><p>A collection of mutations relative to a reference sequence.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="historydag.compact_genome.CompactGenome">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">historydag.compact_genome.</span></span><span class="sig-name descname"><span class="pre">CompactGenome</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mutations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#CompactGenome"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.CompactGenome" title="Permalink to this definition"></a></dt>
+<dd><p>A collection of mutations relative to a reference sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mutations</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>) – The difference between the reference and this sequence, expressed
+in a dictionary, in which keys are one-based sequence indices, and values
+are (reference base, new base) pairs.</p></li>
+<li><p><strong>reference</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The reference sequence</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.compact_genome.CompactGenome.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mutations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#CompactGenome.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.CompactGenome.__init__" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.compact_genome.CompactGenome.mutations_as_strings">
+<span class="sig-name descname"><span class="pre">mutations_as_strings</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#CompactGenome.mutations_as_strings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.CompactGenome.mutations_as_strings" title="Permalink to this definition"></a></dt>
+<dd><p>Return mutations as a tuple of strings of the format ‘&lt;reference
+base&gt;&lt;index&gt;&lt;new base&gt;’, sorted by index.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.compact_genome.CompactGenome.mutate">
+<span class="sig-name descname"><span class="pre">mutate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mutstring</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#CompactGenome.mutate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.CompactGenome.mutate" title="Permalink to this definition"></a></dt>
+<dd><p>Apply a mutstring such as ‘A110G’ to this compact genome.</p>
+<p>In this example, A is the old base, G is the new base, and 110 is the 1-based
+index of the mutation in the sequence. Returns the new
+CompactGenome, and prints a warning if the old base doesn’t
+match the recorded old base in this compact genome.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mutstring</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The mutation to apply</p></li>
+<li><p><strong>reverse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Apply the mutation in reverse, such as when the provided mutation
+describes how to achieve this CompactGenome from the desired CompactGenome.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The new CompactGenome</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.compact_genome.CompactGenome.apply_muts">
+<span class="sig-name descname"><span class="pre">apply_muts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">muts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reverse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#CompactGenome.apply_muts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.CompactGenome.apply_muts" title="Permalink to this definition"></a></dt>
+<dd><p>Apply a sequence of mutstrings like ‘A110G’ to this compact genome.</p>
+<p>In this example, A is the old base, G is the new base, and 110 is the 1-based
+index of the mutation in the sequence. Returns the new
+CompactGenome, and prints a warning if the old base doesn’t
+match the recorded old base in this compact genome.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>muts</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – The mutations to apply</p></li>
+<li><p><strong>reverse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – Apply the mutations in reverse, such as when the provided mutations
+describe how to achieve this CompactGenome from the desired CompactGenome.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The new CompactGenome</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="historydag.compact_genome.CompactGenome.to_sequence">
+<span class="sig-name descname"><span class="pre">to_sequence</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#CompactGenome.to_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.CompactGenome.to_sequence" title="Permalink to this definition"></a></dt>
+<dd><p>Convert this CompactGenome to a full nucleotide sequence.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.compact_genome.compact_genome_from_sequence">
+<span class="sig-prename descclassname"><span class="pre">historydag.compact_genome.</span></span><span class="sig-name descname"><span class="pre">compact_genome_from_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#compact_genome_from_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.compact_genome_from_sequence" title="Permalink to this definition"></a></dt>
+<dd><p>Create a CompactGenome from a sequence and a reference sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequence</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – the sequence to be represented by a CompactGenome</p></li>
+<li><p><strong>reference</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – the reference sequence for the CompactGenome</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.compact_genome.cg_hamming_distance">
+<span class="sig-prename descclassname"><span class="pre">historydag.compact_genome.</span></span><span class="sig-name descname"><span class="pre">cg_hamming_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seq1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seq2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#cg_hamming_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.cg_hamming_distance" title="Permalink to this definition"></a></dt>
+<dd><p>An implementation of hamming distance on compact genomes.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.compact_genome.wrapped_cg_hamming_distance">
+<span class="sig-prename descclassname"><span class="pre">historydag.compact_genome.</span></span><span class="sig-name descname"><span class="pre">wrapped_cg_hamming_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#wrapped_cg_hamming_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.wrapped_cg_hamming_distance" title="Permalink to this definition"></a></dt>
+<dd><p>The sitewise sum of base differences between sequence field contents of
+two nodes.</p>
+<p>Takes two HistoryDagNodes as arguments.</p>
+<p>If l1 or l2 is a UANode, returns 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="historydag.compact_genome.cg_diff">
+<span class="sig-prename descclassname"><span class="pre">historydag.compact_genome.</span></span><span class="sig-name descname"><span class="pre">cg_diff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent_cg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">child_cg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/historydag/compact_genome.html#cg_diff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#historydag.compact_genome.cg_diff" title="Permalink to this definition"></a></dt>
+<dd><p>Yields mutations in the format (parent_nuc, child_nuc, sequence_index)
+distinguishing two compact genomes, such that applying the resulting
+mutations to <cite>parent_cg</cite> would yield <cite>child_cg</cite></p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="historydag.parsimony.html" class="btn btn-neutral float-left" title="historydag.parsimony" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="historydag.counterops.html" class="btn btn-neutral float-right" title="historydag.counterops" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Will Dumm.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

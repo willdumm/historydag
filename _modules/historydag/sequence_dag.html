@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>historydag.sequence_dag &mdash; historydag  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> historydag
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">Description</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html#classes">Classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html#functions">Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html#modules">Modules</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">historydag</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">historydag.sequence_dag</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for historydag.sequence_dag</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">historydag</span> <span class="kn">import</span> <span class="n">HistoryDag</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">import</span> <span class="nn">historydag.utils</span>
+<span class="kn">from</span> <span class="nn">historydag.utils</span> <span class="kn">import</span> <span class="n">Weight</span>
+
+
+<span class="k">def</span> <span class="nf">nonleaf_sequence_resolutions</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">():</span>
+        <span class="k">yield</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">yield from</span> <span class="n">historydag</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">sequence_resolutions</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+
+
+<span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">20000</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_ambiguous_hamming_distance</span><span class="p">(</span><span class="n">node1</span><span class="p">,</span> <span class="n">node2</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+        <span class="n">pbase</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">historydag</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">ambiguous_dna_values</span><span class="p">[</span><span class="n">cbase</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">pbase</span><span class="p">,</span> <span class="n">cbase</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">node1</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span> <span class="n">node2</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="ambiguous_hamming_distance"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.ambiguous_hamming_distance">[docs]</a><span class="k">def</span> <span class="nf">ambiguous_hamming_distance</span><span class="p">(</span><span class="n">node1</span><span class="p">,</span> <span class="n">node2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns the hamming distance between node1.label.sequence and</span>
+<span class="sd">    node2.label.sequence.</span>
+
+<span class="sd">    If node2 is a leaf node, then its sequence may be ambiguous, and the</span>
+<span class="sd">    minimum possible distance will be returned.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">node1</span><span class="o">.</span><span class="n">is_ua_node</span><span class="p">():</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">node2</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">_ambiguous_hamming_distance</span><span class="p">(</span><span class="n">node1</span><span class="p">,</span> <span class="n">node2</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">historydag</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">hamming_distance</span><span class="p">(</span>
+            <span class="n">node1</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span> <span class="n">node2</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">sequence</span>
+        <span class="p">)</span></div>
+
+
+<span class="n">leaf_ambiguous_hamming_distance_countfuncs</span> <span class="o">=</span> <span class="n">historydag</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">AddFuncDict</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;start_func&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;edge_weight_func&quot;</span><span class="p">:</span> <span class="n">ambiguous_hamming_distance</span><span class="p">,</span>
+        <span class="s2">&quot;accum_func&quot;</span><span class="p">:</span> <span class="nb">sum</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;HammingParsimony&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Provides functions to count hamming distance parsimony when leaf sequences</span>
+<span class="sd">may be ambiguous.</span>
+<span class="sd">For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`.&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="SequenceHistoryDag"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.SequenceHistoryDag">[docs]</a><span class="k">class</span> <span class="nc">SequenceHistoryDag</span><span class="p">(</span><span class="n">HistoryDag</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A HistoryDag subclass with node labels containing full, unambiguous</span>
+<span class="sd">    nucleotide sequences.</span>
+
+<span class="sd">    The constructor for this class requires that each node label contain a &#39;sequence&#39;</span>
+<span class="sd">    field, which is expected to hold an unambiguous nucleotide sequence.</span>
+
+<span class="sd">    A HistoryDag containing &#39;compact_genome&#39; node label fields which contain</span>
+<span class="sd">    :class:`compact_genome.CompactGenome` objects may be automatically converted to</span>
+<span class="sd">    this subclass by calling the class method :meth:`SequenceHistoryDag.from_dag`, providing the</span>
+<span class="sd">    HistoryDag object to be converted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_required_label_fields</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;sequence&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">((</span><span class="s2">&quot;compact_genome&quot;</span><span class="p">,),</span> <span class="k">lambda</span> <span class="n">node</span><span class="p">:</span> <span class="n">node</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">compact_genome</span><span class="o">.</span><span class="n">to_sequence</span><span class="p">())</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="SequenceHistoryDag.hamming_parsimony_count"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.SequenceHistoryDag.hamming_parsimony_count">[docs]</a>    <span class="k">def</span> <span class="nf">hamming_parsimony_count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Count the hamming parsimony scores of all trees in the history DAG.</span>
+
+<span class="sd">        Returns a Counter with integer keys.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_count</span><span class="p">(</span><span class="o">**</span><span class="n">historydag</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">hamming_distance_countfuncs</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="AmbiguousLeafSequenceHistoryDag"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag">[docs]</a><span class="k">class</span> <span class="nc">AmbiguousLeafSequenceHistoryDag</span><span class="p">(</span><span class="n">SequenceHistoryDag</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A HistoryDag subclass with node labels containing full nucleotide</span>
+<span class="sd">    sequences.</span>
+
+<span class="sd">    The constructor for this class requires that each node label contain a &#39;sequence&#39;</span>
+<span class="sd">    field, which is expected to hold an unambiguous nucleotide sequence if the node</span>
+<span class="sd">    is internal. The sequence may be ambiguous for leaf nodes.</span>
+
+<span class="sd">    A HistoryDag containing &#39;compact_genome&#39; node label fields which contain</span>
+<span class="sd">    :class:`compact_genome.CompactGenome` objects may be automatically converted to</span>
+<span class="sd">    this subclass by calling the class method :meth:`SequenceHistoryDag.from_dag`, providing the</span>
+<span class="sd">    HistoryDag object to be converted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># #### Overridden Methods ####</span>
+
+<div class="viewcode-block" id="AmbiguousLeafSequenceHistoryDag.weight_count"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.weight_count">[docs]</a>    <span class="k">def</span> <span class="nf">weight_count</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">ambiguous_hamming_distance</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`historydag.HistoryDag.weight_count`&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">weight_count</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">edge_weight_func</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AmbiguousLeafSequenceHistoryDag.optimal_weight_annotate"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.optimal_weight_annotate">[docs]</a>    <span class="k">def</span> <span class="nf">optimal_weight_annotate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">ambiguous_hamming_distance</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Weight</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`historydag.HistoryDag.optimal_weight_annotate`&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">optimal_weight_annotate</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">edge_weight_func</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AmbiguousLeafSequenceHistoryDag.trim_optimal_weight"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_optimal_weight">[docs]</a>    <span class="k">def</span> <span class="nf">trim_optimal_weight</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">ambiguous_hamming_distance</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Weight</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`historydag.HistoryDag.trim_optimal_weight`&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">trim_optimal_weight</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">edge_weight_func</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AmbiguousLeafSequenceHistoryDag.trim_within_range"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_within_range">[docs]</a>    <span class="k">def</span> <span class="nf">trim_within_range</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">ambiguous_hamming_distance</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`historydag.HistoryDag.trim_within_range`&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">trim_within_range</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">edge_weight_func</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AmbiguousLeafSequenceHistoryDag.trim_below_weight"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.trim_below_weight">[docs]</a>    <span class="k">def</span> <span class="nf">trim_below_weight</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">ambiguous_hamming_distance</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`historydag.HistoryDag.trim_below_weight`&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">trim_below_weight</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">edge_weight_func</span><span class="o">=</span><span class="n">edge_weight_func</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AmbiguousLeafSequenceHistoryDag.insert_node"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.insert_node">[docs]</a>    <span class="k">def</span> <span class="nf">insert_node</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">dist</span><span class="o">=</span><span class="n">ambiguous_hamming_distance</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`historydag.HistoryDag.insert_node`&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">insert_node</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">dist</span><span class="o">=</span><span class="n">dist</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AmbiguousLeafSequenceHistoryDag.hamming_parsimony_count"><a class="viewcode-back" href="../../stubs/historydag.sequence_dag.html#historydag.sequence_dag.AmbiguousLeafSequenceHistoryDag.hamming_parsimony_count">[docs]</a>    <span class="k">def</span> <span class="nf">hamming_parsimony_count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`historydag.sequence_dag.SequenceHistoryDag.hamming_parsim</span>
+<span class="sd">        ony_count`&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight_count</span><span class="p">(</span><span class="o">**</span><span class="n">leaf_ambiguous_hamming_distance_countfuncs</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2020, Will Dumm.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

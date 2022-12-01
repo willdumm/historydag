@@ -1,0 +1,38 @@
+﻿historydag.HistoryDagNode
+=========================
+
+.. currentmodule:: historydag
+
+.. autoclass:: HistoryDagNode
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~HistoryDagNode.__init__
+      ~HistoryDagNode.add_edge
+      ~HistoryDagNode.child_clades
+      ~HistoryDagNode.children
+      ~HistoryDagNode.clade_union
+      ~HistoryDagNode.empty_copy
+      ~HistoryDagNode.is_history_root
+      ~HistoryDagNode.is_leaf
+      ~HistoryDagNode.is_root
+      ~HistoryDagNode.is_ua_node
+      ~HistoryDagNode.node_self
+      ~HistoryDagNode.partitions
+      ~HistoryDagNode.remove_edge_by_clade_and_id
+      ~HistoryDagNode.remove_node
+      ~HistoryDagNode.sorted_child_clades
+      ~HistoryDagNode.sorted_partitions
+      ~HistoryDagNode.under_clade
+   
+   
+
+   
+   
+   

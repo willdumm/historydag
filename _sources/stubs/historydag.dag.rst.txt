@@ -1,0 +1,46 @@
+﻿historydag.dag
+==============
+
+.. automodule:: historydag.dag
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      empty_node
+      from_newick
+      from_tree
+      history_dag_from_clade_trees
+      history_dag_from_etes
+      history_dag_from_histories
+      history_dag_from_newicks
+      history_dag_from_nodes
+      history_dag_from_trees
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      EdgeSet
+      HistoryDag
+      HistoryDagNode
+      UANode
+   
+   
+
+   
+   
+   
+
+
+
