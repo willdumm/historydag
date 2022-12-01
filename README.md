@@ -8,30 +8,40 @@ a common set of leaf labels.
 
 HistoryDAG is on PyPI! Install with `pip install historydag`.
 
-Alternatively, once you've cloned the repo, `pip install -e historydag` should be enough to
-get set up.
+Alternatively, clone the repo and perform `pip install -e historydag`.
 
-There is sample data in `sample_data/`. For example:
+The most common input for DAG construction is collections of
+[ete3](http://etetoolkit.org/) phylogenetic trees with full sequences at
+internal nodes stored in the `sequence` attribute. There is sample data like
+this in `sample_data/`. For example:
 
 ```python
 import historydag as hdag
 import pickle
 
 with open('sample_data/toy_trees.p', 'rb') as fh:
-	ete_trees = pickle.load(fh)
+    ete_trees = pickle.load(fh)
 
+# Build the DAG, specifying to only use the `sequence` attribute for node
+# labels (in general, one could use other attributes as well).
 dag = hdag.history_dag_from_etes(ete_trees, ['sequence'])
 dag.count_histories()  # 1041
 
+# "Complete" the DAG, adding all allowable edges.
 dag.make_complete()
 dag.count_histories()  # 3431531
 
-dag.hamming_parsimony_count()  # Shows counts of trees of different parsimony scores
+# Show counts of trees with various parsimony scores.
+dag.hamming_parsimony_count()
+
+# "Trim" the DAG to make it only display minimum-weight trees.
 dag.trim_optimal_weight()
 # With default args, same as hamming_parsimony_count
 dag.weight_count()  # Counter({75: 45983})
 
+# "Collapse" the DAG, contracting zero-weight edges.
 dag.convert_to_collapsed()
+
 dag.weight_count()  # Counter({75: 1208})
 dag.count_topologies()  # 1054 unique topologies, ignoring internal labels
 
@@ -50,7 +60,7 @@ dag.weight_count(**(node_count_funcs + hdag.utils.hamming_distance_countfuncs))
 # To trim to only the trees with 48 unique node labels:
 dag.trim_optimal_weight(**node_count_funcs, optimal_func=min)
 
-# Sample a tree from the dag and make it an ete tree
+# Sample a tree from the dag and make it an ete tree.
 t = dag.sample().to_ete()
 
 # the history DAG also supports indexing and iterating:
@@ -61,8 +71,7 @@ trees = [tree for tree in dag]
 # will not match index order:
 scrambled_trees = list(dag.get_histories())
 
-
-# Union is implemented as dag merging, including with sequences of dags
+# Union is implemented as dag merging, including with sequences of dags.
 newdag = dag[0] | dag[1]
 newdag = dag[0] | (dag[i] for i in range(3,5))
 ```
