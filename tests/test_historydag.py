@@ -278,13 +278,10 @@ def test_explode_rejects_leaf_ambiguities():
     dag = from_newick(
         "((A, N)W, T)C;", [], label_functions={"sequence": lambda n: n.name}
     )
-    try:
-        dag.explode_nodes(expandable_func=None)
-        raise RuntimeError(
-            "history DAG explode accepted expand_func that would explode a leaf"
-        )
-    except ValueError:
-        return
+    N = dag.num_leaves()
+    dag.explode_nodes(expandable_func=None)
+    assert dag._check_valid()
+    assert dag.num_leaves() == N
 
 
 def test_print():

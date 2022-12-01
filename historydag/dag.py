@@ -1343,13 +1343,7 @@ class HistoryDag:
         nodeorder = list(self.postorder())
         new_nodes = set()
         for node in nodeorder:
-            if not node.is_ua_node() and is_ambiguous(node):
-                if node.is_leaf():
-                    raise ValueError(
-                        "Passed expand_func or expand_node_func would"
-                        " explode a leaf node. "
-                        "Leaf nodes may not be exploded."
-                    )
+            if not node.is_ua_node() and not node.is_leaf() and is_ambiguous(node):
                 for resolution in expand_node_func(node):
                     newnodetemp = node.empty_copy()
                     newnodetemp.label = resolution
@@ -2633,22 +2627,42 @@ def empty_node(
 
 
 def from_tree(
-    tree: ete3.TreeNode,
+    treeroot: ete3.TreeNode,
     label_features: List[str],
     label_functions: Mapping[str, Callable[[ete3.TreeNode], Any]] = {},
     attr_func: Callable[[ete3.TreeNode], Any] = lambda n: None,
+    child_node_func: Callable[
+        [ete3.TreeNode], Sequence[ete3.TreeNode]
+    ] = lambda n: n.children,
+    leaf_node_func: Callable[
+        [ete3.TreeNode], Sequence[ete3.TreeNode]
+    ] = ete3.TreeNode.get_leaves,
+    edge_weight_func: Callable[[ete3.TreeNode], Any] = lambda n: 1,
 ) -> HistoryDag:
-    """Build a full tree from an ete3 TreeNode.
+    """Build a tree-shaped :meth:`historydag.HistoryDag` (a 'history') object
+    from the provided tree data.
+
+    Default arguments are suitable for loading a :class:`ete3.Tree`, but by providing
+    appropriate `child_node_func` and `leaf_node_func`, any data structure implementing
+    a tree can be used.
 
     Args:
-        tree: ete3 tree to be converted to HistoryDag history
-        label_features: node attribute names to be used to distinguish nodes. Field names
-            provided in `label_functions` will take precedence.
+        treeroot: The root node of a tree to be converted to HistoryDag history
+        label_features: tree node attribute names to be used as HistoryDagNode label fields.
+            Each attribute name must be accessible by ``getattr(treenode, name)``.
+            Field names provided in `label_functions` will take precedence.
         label_functions: dictionary keyed by additional label field names, containing
-            functions mapping tree nodes to intended label field value.
+            functions mapping tree nodes to intended label field values.
         attr_func: function to populate HistoryDag node `attr` attribute,
             which is not used to distinguish nodes, and may be overwritten
             by `attr` of another node with the same label and child clades.
+        child_node_func: function taking a tree node and returning an iterable
+            containing the node's children. By default, accesses node's
+            `children` attribute.
+        leaf_node_func: function accepting a tree node and returning an iterable
+            containing the leaf nodes accessible from that node.
+        edge_weight_func: function accepting a tree node and returning the weight
+            of that node's parent edge.
 
     Returns:
         HistoryDag object, which has the same topology as the input tree, with the required
@@ -2673,23 +2687,23 @@ def from_tree(
         return Label(**{name: f(n) for name, f in feature_maps.items()})
 
     def leaf_names(r: ete3.TreeNode):
-        return frozenset((node_label(node) for node in r.get_leaves()))
+        return frozenset(node_label(node) for node in leaf_node_func(r))
 
-    def _unrooted_from_tree(tree):
+    def _unrooted_from_tree(treeroot):
         dag = HistoryDagNode(
-            node_label(tree),
+            node_label(treeroot),
             {
                 leaf_names(child): EdgeSet(
-                    [_unrooted_from_tree(child)], weights=[child.dist]
+                    [_unrooted_from_tree(child)], weights=[edge_weight_func(child)]
                 )
-                for child in tree.children
+                for child in child_node_func(treeroot)
             },
-            attr_func(tree),
+            attr_func(treeroot),
         )
         return dag
 
     # Check for unique leaf labels:
-    if len(list(tree.get_leaves())) != len(leaf_names(tree)):
+    if len(list(leaf_node_func(treeroot))) != len(leaf_names(treeroot)):
         raise ValueError(
             "This tree's leaves are not labeled uniquely. Check your tree, "
             "or modify the label fields so that leaves are unique.\n"
@@ -2697,9 +2711,41 @@ def from_tree(
 
     # Checking for unifurcation is handled in HistoryDagNode.__init__.
 
-    dag = _unrooted_from_tree(tree)
-    dagroot = UANode(EdgeSet([dag], weights=[tree.dist]))
+    dag = _unrooted_from_tree(treeroot)
+    dagroot = UANode(EdgeSet([dag], weights=[edge_weight_func(treeroot)]))
     return HistoryDag(dagroot)
+
+
+def history_dag_from_trees(
+    treelist: List[ete3.TreeNode],
+    label_features: List[str],
+    **kwargs,
+):
+    """Create a :class:`historydag.HistoryDag` from a list of trees.
+
+    Default arguments are suitable for loading lists of :class:`ete3.Tree`s, but
+    any tree data structure can be used by providing appropriate functions to
+    `child_node_func` and `leaf_node_func` keyword arguments.
+
+    Args:
+        treelist: List of root nodes of input trees.
+        label_features: tree node attribute names to be used as HistoryDagNode label fields.
+            Each attribute name must be accessible by ``getattr(treenode, name)``.
+            Field names provided in `label_functions` keyword argument will take precedence.
+        kwargs: Passed to :meth:`historydag.from_tree`. See docstring
+            for that method for argument details
+
+    Returns:
+        :class:`historydag.HistoryDag` constructed from input trees.
+    """
+    return history_dag_from_histories(
+        [from_tree(treeroot, label_features, **kwargs) for treeroot in treelist]
+    )
+
+
+def history_dag_from_etes(*args, **kwargs) -> HistoryDag:
+    """Deprecated name for :meth:`historydag.history_dag_from_trees`"""
+    return history_dag_from_trees(*args, **kwargs)
 
 
 def from_newick(
@@ -2756,29 +2802,6 @@ def history_dag_from_newicks(
                 newick_format=newick_format,
             )
             for tree in newicklist
-        ]
-    )
-
-
-def history_dag_from_etes(
-    treelist: List[ete3.TreeNode],
-    label_features: List[str],
-    label_functions: Mapping[str, Callable[[ete3.TreeNode], Any]] = {},
-    attr_func: Callable[[ete3.TreeNode], Any] = lambda n: None,
-) -> HistoryDag:
-    """Build a history DAG from a list of ete3 Trees.
-
-    See :meth:`from_tree` for argument details.
-    """
-    return history_dag_from_histories(
-        [
-            from_tree(
-                tree,
-                label_features,
-                label_functions=label_functions,
-                attr_func=attr_func,
-            )
-            for tree in treelist
         ]
     )
 
