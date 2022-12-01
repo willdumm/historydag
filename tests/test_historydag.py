@@ -91,8 +91,7 @@ def test_from_tree():
     print(tree.sequence)
     dag = from_tree(tree, ["sequence"])
     dag._check_valid()
-    G = dag.to_graphviz(namedict=namedict)
-    return G
+    dag.to_graphviz(namedict=namedict)
 
 
 def test_is_history():
@@ -207,7 +206,7 @@ def test_merge():
     tree2 = ete3.Tree(newickstring3, format=1)
     dag2 = from_tree(tree2, ["sequence"])
     dag1.merge(dag2)
-    return dag1.to_graphviz(namedict=namedict)
+    dag1.to_graphviz(namedict=namedict)
 
 
 def test_weight():
@@ -216,8 +215,8 @@ def test_weight():
     tree2 = ete3.Tree(newickstring3, format=1)
     dag2 = from_tree(tree2, ["sequence"])
     dag1.merge(dag2)
-    return dag1.to_graphviz(namedict=namedict)
-    assert dag1.weight() == 16
+    dag1.to_graphviz(namedict=namedict)
+    assert dag1.optimal_weight_annotate() == 9
 
 
 def test_internal_avg_parents():
@@ -239,7 +238,7 @@ def test_sample():
         assert dag.sample().is_history()
     sample = dag.sample()
     sample._check_valid()
-    return sample.to_graphviz(namedict=namedict)
+    sample.to_graphviz(namedict=namedict)
 
 
 def test_unifurcation():

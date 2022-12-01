@@ -538,6 +538,10 @@ class HistoryDag:
         self.count_histories()
         return self.__class__(self.dagroot._get_subhistory_by_subid(key))
 
+    def get_label_type(self) -> type:
+        """Return the type for labels on this dag's nodes."""
+        return type(next(self.dagroot.children()).label)
+
     def trim_within_range(
         self,
         min_weight=None,
@@ -1363,195 +1367,91 @@ class HistoryDag:
                 node.remove_node(nodedict=nodedict)
         return len(new_nodes)
 
-    def leaf_path_uncertainty_dag(self, leaf_label, format_as_nodes=False):
-        """Compute the DAG of possible paths leading to `leaf_label`.
+    def leaf_path_uncertainty_dag(self, terminal_node, node_data_func=lambda n: n):
+        """Create a DAG of possible paths leading to `terminal_node`
 
         Args:
-            leaf_label: The node label of the leaf of interest
-            format_as_nodes: bool
-                If True, then return dict with keys/values containing HistoryDagNodes.
-                If False, then return dict with keys/values containing node labels
+            terminal_node: The returned path DAG will contain all paths from the
+                UA node ending at this node.
+            node_data_func: A function accepting a HistoryDagNode and returning
+                data for the corresponding node in the path dag. Return type must
+                be a valid dictionary key.
         Returns:
-            parent_dictionary: A dictionary keyed by node labels (alt. nodes), with sets
-                of possible parent node labels (alt. possible parent nodes).
+            child_dictionary: A dictionary keyed by return values of
+            `node_data_func`, with each value a dictionary keyed by child nodes,
+            with edge supports as values.
         """
-        if format_as_nodes:
-            parent_dictionary = {
-                node: set()
-                for node in self.dagroot.children()
-                if leaf_label in node.clade_union()
-            }
-            for node in self.preorder(skip_ua_node=True):
-                for clade, eset in node.clades.items():
-                    if leaf_label in clade:
-                        for cnode in eset.targets:
-                            if cnode not in parent_dictionary:
-                                parent_dictionary[cnode] = set()
-                            parent_dictionary[cnode].add(node)
-        else:
-            parent_dictionary = {
-                node.label: set()
-                for node in self.dagroot.children()
-                if leaf_label in node.clade_union()
-            }
-            for node in self.preorder(skip_ua_node=True):
-                for clade, eset in node.clades.items():
-                    if leaf_label in clade:
-                        for cnode in eset.targets:
-                            if cnode.label not in parent_dictionary:
-                                parent_dictionary[cnode.label] = set()
-                            # exclude self loops in label space
-                            if node.label != cnode.label:
-                                parent_dictionary[cnode.label].add(node.label)
-        return parent_dictionary
+        self.recompute_parents()
+        edge_counts = self.count_edges()
+        child_dictionary = {node_data_func(terminal_node): dict()}
 
-    def leaf_path_uncertainty_graphviz_collapse(
-        self, leaf_label, edge2count, total_trees
+        for node in self.postorder_above(terminal_node, skip_ua_node=True):
+            # Traversal has not visited node, or any of its children yet!
+            node_key = node_data_func(node)
+            child_dictionary[node_key] = dict()
+            for parent in node.parents:
+                if not parent.is_ua_node():
+                    parent_key = node_data_func(parent)
+                    parent_entry = child_dictionary[parent_key]
+                    if node_key not in parent_entry:
+                        parent_entry[node_key] = edge_counts[(parent, node)]
+                    else:
+                        parent_entry[node_key] += edge_counts[(parent, node)]
+
+        return child_dictionary
+
+    def leaf_path_uncertainty_graphviz(
+        self,
+        terminal_node,
+        node_data_func=lambda n: n,
+        node_label_func=lambda n: str(n.label),
     ):
-        """send output of leaf_path_uncertainty_dag to graphviz for rendering.
+        """Create a graphviz DAG of possible paths leading to `terminal_node`
 
         Args:
-            leaf_label: The node label of the leaf of interest
-            edge2count: A map of edges in the form of node pairs (parent, child) to their count
-                in the history DAG
-            total_trees: The total number of trees contained in the history DAG
-
-        Returns:
-            The graphviz DAG object, and a dictionary mapping node names to labels
+            terminal_node: The returned path DAG will contain all paths from the
+                UA node ending at this node.
+            node_data_func: A function accepting a HistoryDagNode and returning
+                data for the corresponding node in the path dag. Return type must
+                be a valid dictionary key.
+            node_label_func: A function accepting an object of the type returned
+                by `node_data_func`, and returning a label to be displayed on the
+                corresponding node.
         """
+        total_trees = self.count_histories()
         G = gv.Digraph("Path DAG to leaf", node_attr={})
-        parent_d = self.leaf_path_uncertainty_dag(leaf_label)
-        label_ids = {key: str(idnum) for idnum, key in enumerate(parent_d)}
+        child_d = self.leaf_path_uncertainty_dag(
+            terminal_node, node_data_func=node_data_func
+        )
 
-        for key in parent_d:
-            if key == leaf_label:
-                G.node(label_ids[key], shape="octagon")
-            elif len(parent_d[key]) == 0:
-                G.node(label_ids[key], shape="invtriangle")
+        label_ids = {key: str(idnum) for idnum, key in enumerate(child_d)}
+        source_nodes = {node_data_func(child) for child in self.dagroot.children()}
+
+        for node in child_d:
+            if node in source_nodes:
+                G.node(
+                    label_ids[node], label=node_label_func(node), shape="invtriangle"
+                )
+            elif len(child_d[node]) == 0:
+                G.node(label_ids[node], label=node_label_func(node), shape="octagon")
             else:
-                G.node(label_ids[key])
+                G.node(label_ids[node], label=node_label_func(node))
 
-        for child_label, parentset in parent_d.items():
-            for parent_label in parentset:
-                if child_label == parent_label:  # skip self-edges
+        for parent, child_edge_d in child_d.items():
+            for child, support in child_edge_d.items():
+                if parent == child:  # skip self-edges
                     continue
-                support = 0
-                for parent, child in edge2count.keys():
-                    if (
-                        parent.label == parent_label
-                        and child.label == child_label
-                        and (
-                            leaf_label in child.clade_union()
-                            or (child.label == leaf_label and child.is_leaf())
-                        )
-                    ):
-                        support += edge2count[(parent, child)]
                 # Shifts color pallete to less extreme lower bouund
                 color = f"0.0000 {support/total_trees * 0.9 + 0.1} 1.000"
-                G.edge(
-                    label_ids[parent_label],
-                    label_ids[child_label],
-                    penwidth="5",
-                    color=color,
-                    label=f"{support/total_trees:.2}",
-                    weight=f"{support/total_trees}",
-                )
-        return G, {idnum: child_label for child_label, idnum in label_ids.items()}
-
-    def leaf_path_uncertainty_graphviz(self, leaf_label):
-        """send output of leaf_path_uncertainty_dag to graphviz for rendering.
-
-        Returns:
-            The graphviz DAG object, and a dictionary mapping node names to labels
-        """
-        G = gv.Digraph("Path DAG to leaf", node_attr={})
-        parent_d = self.leaf_path_uncertainty_dag(leaf_label)
-        label_ids = {key: str(idnum) for idnum, key in enumerate(parent_d)}
-        for key in parent_d:
-            if key == leaf_label:
-                G.node(label_ids[key], shape="octagon")
-            elif len(parent_d[key]) == 0:
-                G.node(label_ids[key], shape="invtriangle")
-            else:
-                G.node(label_ids[key])
-        for key, parentset in parent_d.items():
-            for parent in parentset:
                 G.edge(
                     label_ids[parent],
-                    label_ids[key],
-                    label="",
-                )
-        return G, {idnum: key for key, idnum in label_ids.items()}
-
-    def leaf_path_uncertainty_dag_no_collapse(self, leaf_label):
-        """Compute the DAG of possible paths leading to `leaf_label`.
-
-        Args:
-            leaf_label: The node label of the leaf of interest
-
-        Returns:
-            parent_dictionary: A dictionary keyed by hDAG nodes, with sets
-                of possible parent nodes.
-        """
-        parent_dictionary = {
-            node: set()
-            for node in self.dagroot.children()
-            if leaf_label in node.clade_union()
-            or (node.is_leaf() and node.label == leaf_label)
-        }
-
-        for node in self.preorder(skip_ua_node=True):
-            for clade, eset in node.clades.items():
-                if leaf_label in clade:
-                    for cnode in eset.targets:
-                        if cnode not in parent_dictionary:
-                            parent_dictionary[cnode] = set()
-                        if node != cnode:
-                            parent_dictionary[cnode].add(node)
-
-        return parent_dictionary
-
-    def leaf_path_uncertainty_graphviz_no_collapse(
-        self, leaf_label, edge2count, total_trees
-    ):
-        """sends output of leaf_path_uncertainty_dag_no_collapse to graphviz
-        for rendering.
-
-        Args:
-            leaf_label: The node label of the leaf of interest
-            edge2count: A map of edges in the form of node pairs (parent, child) to their count
-                in the history DAG
-            total_trees: The total number of trees contained in the history DAG
-
-        Returns:
-            The graphviz DAG object, and a dictionary mapping node names to labels
-        """
-        G = gv.Digraph("Path DAG to leaf", node_attr={})
-        parent_d = self.leaf_path_uncertainty_dag_no_collapse(leaf_label)
-        node_ids = {key: str(idnum) for idnum, key in enumerate(parent_d)}
-
-        for node in parent_d:
-            if node.is_leaf():
-                G.node(node_ids[node], shape="octagon")
-            elif len(parent_d[node]) == 0:
-                G.node(node_ids[node], shape="invtriangle")
-            else:
-                G.node(node_ids[node])
-
-        for child, parentset in parent_d.items():
-            for parent in parentset:
-                support = edge2count[(parent, child)]
-                # Shifts color pallete to less extreme lower bouund
-                color = f"0.0000 {support/total_trees * 0.9 + 0.1} 1.000"
-                G.edge(
-                    node_ids[parent],
-                    node_ids[child],
+                    label_ids[child],
                     penwidth="5",
                     color=color,
                     label=f"{support/total_trees:.2}",
                     weight=f"{support/total_trees}",
                 )
-        return G, {idnum: child_label for child_label, idnum in node_ids.items()}
+        return G
 
     def summary(self):
         """Print nicely formatted summary about the history DAG."""
@@ -2427,24 +2327,26 @@ class HistoryDag:
                     return False
                 return True
 
+            leaf_dict = {n.label: n for n in self.get_leaves()}
+
             def incompatible_set(node, nodeset):
                 """Returns the set of all nodes incompatible to `node` that
-                satisfy the conditions: 1.
+                satisfy the conditions:
 
-                incompatible nodes lie in the path between the leaf
-                nodes reachable by arg `node` and the UA, 2. only the
-                subset of incompatible nodes that are also in the set of
-                nodes arg `nodeset`
+                1. incompatible nodes lie in the path between the leaf
+                nodes reachable by arg `node` and the UA,
+                2. only the subset of incompatible nodes that are also in
+                the set of nodes arg `nodeset`
                 """
-                for leaf in node.clade_union():
-                    pathdag = [
+                self.recompute_parents()
+                for leaf_label in node.clade_union():
+                    yield from (
                         n
-                        for n in self.leaf_path_uncertainty_dag(
-                            leaf, format_as_nodes=True
+                        for n in self.postorder_above(
+                            leaf_dict[leaf_label], recompute_parents=False
                         )
                         if (n in nodeset and incompatible(n, node))
-                    ]
-                    yield from pathdag
+                    )
 
             self.recompute_parents()
             new_node = empty_node(
@@ -2487,24 +2389,39 @@ class HistoryDag:
 
     # ######## DAG Traversal Methods ########
 
-    def postorder_above(self, node_as_leaf):
-        """Recursive postorder traversal of the history DAG, starting at a
-        (possiblly internal) node.
+    def postorder_above(
+        self, terminal_node, skip_ua_node=False, recompute_parents=True
+    ):
+        """Recursive postorder traversal of all ancestors of a (possibly
+        internal) node. This traversal is postorder with respect to reversed
+        edge directions. With respect to standard edge directions (pointing
+        towards leaves), the traversal order guarantees that all of a node's
+        parents will be visited before the node itself.
+
+        Args:
+            terminal_node: The node whose ancestors should be included in the
+                traversal. This must actually be a node in `self`, not simply
+                compare equal to a node in `self`.
+            skip_ua_node: If True, the UA node will not be included in the traversal
+            recompute_parents: If False, node parent sets will not be recomputed.
+                This makes many repeated calls to postorder_above much faster.
 
         Returns:
             Generator on nodes that lie on any path between node_as_leaf and UA node
         """
-        ancestor_set = self.nodes_above_node(node_as_leaf)
+        if recompute_parents:
+            self.recompute_parents()
         visited = set()
 
         def traverse(node: HistoryDagNode):
             visited.add(id(node))
-            for child in node.children():
-                if (not id(child) in visited) and (child in ancestor_set):
-                    yield from traverse(child)
+            for parent in node.parents:
+                if not id(parent) in visited:
+                    if (not skip_ua_node) or (not parent.is_ua_node()):
+                        yield from traverse(parent)
             yield node
 
-        yield from traverse(self.dagroot)
+        yield from traverse(terminal_node)
 
     def postorder(
         self, include_root: bool = True

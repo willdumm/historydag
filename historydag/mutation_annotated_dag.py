@@ -19,11 +19,7 @@ from historydag.compact_genome import (
 )
 import historydag.dag_pb2 as dpb
 import json
-from typing import (
-    Callable,
-    List,
-    NamedTuple,
-)
+from typing import NamedTuple
 
 _pb_nuc_lookup = {0: "A", 1: "C", 2: "G", 3: "T"}
 _pb_nuc_codes = {nuc: code for code, nuc in _pb_nuc_lookup.items()}
@@ -76,82 +72,67 @@ class CGHistoryDag(HistoryDag):
 
     def weight_count(
         self,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_weight_func: Callable[
-            ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = wrapped_cg_hamming_distance,
-        accum_func: Callable[[List[Weight]], Weight] = sum,
+        *args,
+        edge_weight_func=wrapped_cg_hamming_distance,
+        **kwargs,
     ):
-        return super().weight_count(
-            start_func=start_func,
-            edge_weight_func=edge_weight_func,
-            accum_func=accum_func,
-        )
+        """See :meth:`historydag.HistoryDag.weight_count`"""
+        return super().weight_count(*args, edge_weight_func=edge_weight_func, **kwargs)
 
     def optimal_weight_annotate(
-        self,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_weight_func: Callable[
-            ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = wrapped_cg_hamming_distance,
-        accum_func: Callable[[List[Weight]], Weight] = sum,
-        optimal_func: Callable[[List[Weight]], Weight] = min,
+        self, *args, edge_weight_func=wrapped_cg_hamming_distance, **kwargs
     ) -> Weight:
+        """See :meth:`historydag.HistoryDag.optimal_weight_annotate`"""
         return super().optimal_weight_annotate(
-            start_func=start_func,
-            edge_weight_func=edge_weight_func,
-            accum_func=accum_func,
-            optimal_func=optimal_func,
+            *args, edge_weight_func=edge_weight_func, **kwargs
         )
 
     def trim_optimal_weight(
         self,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_weight_func: Callable[
-            [HistoryDagNode, HistoryDagNode], Weight
-        ] = wrapped_cg_hamming_distance,
-        accum_func: Callable[[List[Weight]], Weight] = sum,
-        optimal_func: Callable[[List[Weight]], Weight] = min,
-        eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
+        *args,
+        edge_weight_func=wrapped_cg_hamming_distance,
+        **kwargs,
     ) -> Weight:
+        """See :meth:`historydag.HistoryDag.trim_optimal_weight`"""
         return super().trim_optimal_weight(
-            start_func=start_func,
-            edge_weight_func=edge_weight_func,
-            accum_func=accum_func,
-            optimal_func=optimal_func,
-            eq_func=eq_func,
+            *args, edge_weight_func=edge_weight_func, **kwargs
         )
 
     def trim_within_range(
         self,
-        edge_weight_func: Callable[
-            [HistoryDagNode, HistoryDagNode], Weight
-        ] = wrapped_cg_hamming_distance,
+        *args,
+        edge_weight_func=wrapped_cg_hamming_distance,
         **kwargs,
     ):
-        return super().trim_within_range(edge_weight_func=edge_weight_func, **kwargs)
+        """See :meth:`historydag.HistoryDag.trim_within_range`"""
+        return super().trim_within_range(
+            *args, edge_weight_func=edge_weight_func, **kwargs
+        )
 
     def trim_below_weight(
         self,
-        max_weight,
-        edge_weight_func: Callable[
-            [HistoryDagNode, HistoryDagNode], Weight
-        ] = wrapped_cg_hamming_distance,
+        *args,
+        edge_weight_func=wrapped_cg_hamming_distance,
         **kwargs,
     ):
+        """See :meth:`historydag.HistoryDag.trim_below_weight`"""
         return super().trim_below_weight(
-            max_weight, edge_weight_func=edge_weight_func, **kwargs
+            *args, edge_weight_func=edge_weight_func, **kwargs
         )
 
     def insert_node(
         self,
-        new_leaf_id,
-        id_name: str = "sequence",
-        dist: Callable[
-            [HistoryDagNode, HistoryDagNode], Weight
-        ] = wrapped_cg_hamming_distance,
+        *args,
+        dist=wrapped_cg_hamming_distance,
+        **kwargs,
     ):
-        return super().insert_node(new_leaf_id, id_name=id_name, dist=dist)
+        """See :meth:`historydag.HistoryDag.insert_node`"""
+        return super().insert_node(*args, dist=dist, **kwargs)
+
+    def hamming_parsimony_count(self):
+        """See :meth:`historydag.sequence_dag.SequenceHistoryDag.hamming_parsim
+        ony_count`"""
+        return self.weight_count(**compact_genome_hamming_distance_countfuncs)
 
     # #### CGHistoryDag-Specific Methods ####
 
@@ -529,3 +510,16 @@ def load_MAD_protobuf_file(filename):
         pb_data = dpb.data()
         pb_data.ParseFromString(fh.read())
     return load_MAD_protobuf(pb_data)
+
+
+compact_genome_hamming_distance_countfuncs = historydag.utils.AddFuncDict(
+    {
+        "start_func": lambda n: 0,
+        "edge_weight_func": wrapped_cg_hamming_distance,
+        "accum_func": sum,
+    },
+    name="HammingParsimony",
+)
+"""Provides functions to count hamming distance parsimony when sequences are
+stored as CompactGenomes.
+For use with :meth:`historydag.CGHistoryDag.weight_count`."""
