@@ -1,3 +1,4 @@
+# Remember to add any additional functions/modules to docs/api.rst
 from .dag import (  # noqa
     HistoryDag,
     HistoryDagNode,

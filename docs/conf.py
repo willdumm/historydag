@@ -69,6 +69,7 @@ html_show_sourcelink = (
     False  # Remove 'view source code' from top of page (for html, not python)
 )
 autodoc_inherit_docstrings = True  # If no class summary, inherit base class summary
+autodoc_preserve_defaults = True  # default arguments are not evaluated, but rendered as in code
 
 autodoc_default_options = {
     "members": True,

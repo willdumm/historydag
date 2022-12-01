@@ -409,14 +409,15 @@ class HistoryDag:
         Returns:
             The converted HistoryDag object, carrying the type from which this static method was called.
             After conversion to the new HistoryDag subclass ``to_cls``, the following will be true about node labels:
-                * If passed ``label_fields`` is None, then existing label fields will be preserved, except that missing
-                  required label fields will be recovered if possible, and the existing label fields used to recover
-                  them will be omitted. Recovered label fields will appear before the existing label fields.
-                * If passed ``label_fields`` is not None, then it must include all fields expected in node labels
-                  in the converted history DAG object, otherwise an exception will be raised.
-                * Converted node label field order will match the order of passed ``label_fields``.
-                * All label fields passed in ``label_fields`` will be included
-                  in converted node labels, if possible. Otherwise, an exception will be raised.
+
+            * If passed ``label_fields`` is None, then existing label fields will be preserved, except that missing
+              required label fields will be recovered if possible, and the existing label fields used to recover
+              them will be omitted. Recovered label fields will appear before the existing label fields.
+            * If passed ``label_fields`` is not None, then it must include all fields expected in node labels
+              in the converted history DAG object, otherwise an exception will be raised.
+            * Converted node label field order will match the order of passed ``label_fields``.
+            * All label fields passed in ``label_fields`` will be included
+              in converted node labels, if possible. Otherwise, an exception will be raised.
         """
         if label_fields is not None:
             label_fields = list(label_fields)
@@ -526,8 +527,8 @@ class HistoryDag:
         raise NotImplementedError
 
     def __getitem__(self, key) -> "HistoryDag":
-        r"""Returns the sub-history below the current history dag corresponding
-        to the given index."""
+        r"""Returns the history (tree-shaped sub-history DAG) in the current
+        history dag corresponding to the given index."""
         length = self.count_histories()
         if key < 0:
             key = length + key
@@ -803,10 +804,10 @@ class HistoryDag:
         return pickle.dumps(self.__getstate__())
 
     def get_histories(self) -> Generator["HistoryDag", None, None]:
-        """Return a generator containing all internally labeled trees in the
-        history DAG.
+        """Return a generator containing all histories in the history DAG.
 
-        Note that each history is a history DAG, containing a UA node.
+        Note that each history is a tree-shaped history DAG, containing a UA node,
+        which exists as a subgraph of the history DAG.
 
         The order of these histories does not necessarily match the order of
         indexing. That is, ``dag.get_histories()`` and ``history for history in
@@ -1060,7 +1061,7 @@ class HistoryDag:
                         pnode.add_edge(nodedict[child], weight=weight)
 
     def add_all_allowed_edges(self, *args, **kwargs) -> int:
-        """Provided as a deprecated synonym for :meth:``make_complete``."""
+        """Provided as a deprecated synonym for :meth:`make_complete`."""
         return self.make_complete(*args, **kwargs)
 
     def make_complete(
@@ -1539,7 +1540,7 @@ class HistoryDag:
         return self.dagroot._dp_data
 
     def postorder_cladetree_accum(self, *args, **kwargs) -> Weight:
-        """Deprecated name for :meth:`postorder_history_accum`"""
+        """Deprecated name for :meth:`HistoryDag.postorder_history_accum`"""
         return self.postorder_history_accum(*args, **kwargs)
 
     def optimal_weight_annotate(
@@ -1632,7 +1633,7 @@ class HistoryDag:
         :meth:`count_histories` gives the total number of unique trees in the DAG, taking
         into account internal node labels.
 
-        For large DAGs, this method is prohibitively slow. Use :meth:``count_topologies_fast`` instead.
+        For large DAGs, this method is prohibitively slow. Use :meth:`count_topologies_fast` instead.
 
         Args:
             collapse_leaves: By default, topologies are counted as-is in the DAG. However,
@@ -1870,9 +1871,10 @@ class HistoryDag:
         expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
     ):
         r"""Template method for counting tree weights in the DAG, with exploded
-        labels. Like :meth:`weight_counts`, but creates dictionaries of Counter
-        objects at each node, keyed by possible sequences at that node.
-        Analogous to :meth:`count_histories` with `expand_func` provided.
+        labels. Like :meth:`HistoryDag.weight_count`, but creates dictionaries
+        of Counter objects at each node, keyed by possible sequences at that
+        node. Analogous to :meth:`HistoryDag.count_histories` with
+        `expand_func` provided.
 
         Weights must be hashable.
 
@@ -1954,7 +1956,7 @@ class HistoryDag:
 
         The given history must be on the same taxa as all trees in the DAG.
         Since computing reference splits is expensive, it is better to use
-        :meth:``optimal_weight_annotate`` and :meth:``utils.make_rfdistance_countfuncs``
+        :meth:`optimal_weight_annotate` and :meth:`utils.make_rfdistance_countfuncs`
         instead of making multiple calls to this method with the same reference
         history.
         """
@@ -1967,7 +1969,7 @@ class HistoryDag:
         The given history must be on the same taxa as all trees in the DAG.
 
         Since computing reference splits is expensive, it is better to use
-        :meth:``weight_count`` and :meth:``utils.make_rfdistance_countfuncs``
+        :meth:`weight_count` and :meth:`utils.make_rfdistance_countfuncs`
         instead of making multiple calls to this method with the same reference
         history.
         """
@@ -2234,15 +2236,17 @@ class HistoryDag:
             [HistoryDagNode, HistoryDagNode], Weight
         ] = utils.wrapped_hamming_distance,
     ):
-        """Inserts a sequence into the DAG as a child of the dagnode(s)
-        realizing the minimum overall distance between sequences, and then adds
-        the same new sequence to the dag as a child of other nodes in such a
-        way as to guarantee that every tree in the DAG now contains the new
-        sequence.
+        """Inserts a sequence into the DAG.
+
+        Sequence will be inserted as a child of the dagnode(s)
+        realizing the minimum overall distance between sequences, and also added
+        to the dag as a child of other nodes in such a way as to guarantee
+        that every tree in the DAG now contains the new sequence.
 
         The choice of other nodes is computed by looking at the set of
         nodes that are `incompatible` with the first minimizing node.
-        For a full description of this, see :meth: `incompatible`.
+        For a full description of this, see the docstring for the method-local
+        function ``incompatible``.
         """
         # all nodes in the dag except for the UA
         postorder = list(self.postorder())[:-1]

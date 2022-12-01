@@ -421,8 +421,11 @@ For use with :meth:`historydag.HistoryDag.weight_count`."""
 
 
 def make_rfdistance_countfuncs(ref_tree: "HistoryDag", rooted: bool = False):
-    """Provides functions to compute RF distances of trees in a DAG, relative
+    """Provides functions to compute Robinson-Foulds (RF) distances of trees in a DAG, relative
     to a fixed reference tree.
+
+    We use :meth:`ete3.TreeNode.robinson_foulds` as the reference implementation for both
+    rooted and unrooted RF distance.
 
     Args:
         ref_tree: A tree with respect to which Robinson-Foulds distance will be computed.
@@ -434,7 +437,7 @@ def make_rfdistance_countfuncs(ref_tree: "HistoryDag", rooted: bool = False):
     This calculation relies on the observation that the symmetric distance between
     the splits A in a tree in the DAG, and the splits B in the reference tree, can
     be computed as:
-    |A ^ B| = |A U B| - |A n B| = |A - B| + |B| - |A n B|
+    ``|A ^ B| = |A U B| - |A n B| = |A - B| + |B| - |A n B|``
 
     As long as tree edges are in bijection with splits, this can be computed without
     constructing the set A by considering each edge's split independently.
