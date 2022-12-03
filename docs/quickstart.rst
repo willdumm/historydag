@@ -1,8 +1,10 @@
+.. currentmodule:: historydag
+
 Quickstart
 ##########
 
-This minimal example showcases some features of the history DAG, and provides
-a conceptual introduction to the data structure.
+This document provides a conceptual introduction to the history DAG data
+structure, and provides a walk-through of essential features of the package.
 
 The data structure
 ==================
@@ -80,8 +82,419 @@ Alternatively, clone the repository and install:
    git clone https://github.com/matsengrp/historydag.git
    pip install historydag/
 
-Using the package
+
+
+Loading Tree Data
 =================
+
+:class:`HistoryDag` objects can be created from tree data using the functions
+:meth:`from_tree` to create a tree-shaped history DAG (a 'history'), or :meth:`history_dag_from_trees`,
+to create a history DAG from many trees.
+
+Each :class:`HistoryDagNode` stores node data in two ways: the ``label``
+attribute stores a :class:`typing.NamedTuple` whose data is used to distinguish
+``HistoryDagNode`` instances, and the ``attr`` attribute stores
+all other node annotations not to be used to distinguish node instances.
+
+The functions :meth:`from_tree` and :meth:`history_dag_from_trees` provide an
+interface for mapping node data in the provided tree data structures to the
+appropriate place in the :class:`HistoryDagNode` data structure.
+
+For example, let's load some sample trees provided in the [historydag
+repository](https://github.com/matsengrp/historydag):
+
+>>> import historydag as hdag
+>>> import pickle
+>>> with open('historydag/sample_data/toy_trees.p', 'rb') as fh:
+...     ete_trees = pickle.load(fh)
+
+Now, we will create a history DAG using the ``sequence`` attribute as the data
+for node labels:
+
+>>> dag = hdag.history_dag_from_trees(ete_trees, ['sequence'])
+
+The second argument to :meth:`history_dag_from_trees` is a list of node
+attribute names in the provided data structure, which should be included as
+attributes with the same name in node labels in the resulting history DAG.
+
+We can also map node sequences to a history DAG node label attribute of
+a different name, using the keyword argument ``label_functions``:
+
+>>> dag = hdag.history_dag_from_trees(
+...     ete_trees,
+...     [],
+...     label_functions={'original_seq': lambda node: node.sequence}
+... )
+
+The data stored in each ete3 tree node's ``sequence`` attribute will now appear in
+history dag node label attribute ``original_seq``.
+
+
+Finally, we can also map data from the input trees to the history dag nodes'
+``attr`` attribute, which is preserved on copy and by all ``HistoryDag``
+operations which do not merge or overwrite nodes.
+
+By providing a function taking a node in the input data structure,
+and returning the value of the corresponding ``HistoryDagNode`` instance's
+``attr`` attribute.
+
+For example, here we map ``name`` attributes to the ``attr`` attribute of DAG
+nodes:
+
+>>> dag = hdag.history_dag_from_trees(
+...     ete_trees,
+...     [],
+...     label_functions={'original_seq': lambda node: node.sequence},
+...     attr_func=lambda node: node.name
+... )
+
+
+Loading Non-ete3 Tree Data:
+---------------------------
+
+The functions :meth:`from_tree` and :meth:`history_dag_from_trees` accept tree
+data in the form of :class:`ete3.Tree` objects by default, but by providing
+appropriate functions to the keyword arguments `child_node_func` and
+`leaf_node_func`.
+
+``child_node_func`` must be a function accepting a node of an input tree, and
+returning an iterable containing all the child nodes of that tree.
+
+``leaf_node_func`` must be a function accepting a node of an input tree, and
+returning an iterable containing all the leaf nodes reachable below that node.
+
+For example, given a :class:`dendropy.TreeList` object, with each tree node's
+sequence stored in the ``sequence`` record of that node's ``annotations``
+attribute (a :class:`dendropy.AnnotationSet`), we can create a history DAG
+which contains these sequences stored in the node label attribute ``sequence``:
+
+
+>>> dag = hdag.history_dag_from_trees(
+...     [tree.seed_node for tree in treelist],
+...     [],
+...     label_functions={'sequence': lambda node: node.annotations.get_value('sequence')},
+...     child_node_func=dendropy.Node.child_nodes,
+...     leaf_node_func=dendropy.Node.leaf_iter
+... )
+
+
+Loading newick tree data:
+-------------------------
+
+The function :meth:`history_dag_from_newick` can be used to load a history DAG
+from a list of newick strings. However, this method uses ete3 internally for
+newick parsing.
+
+
+Basic HistoryDag operations
+===========================
+
+Sampling, Indexing, and Iterating Over Histories
+------------------------------------------------
+
+:class:`HistoryDag` objects are iterable containers of histories that support integer
+indexing via ``[]``, and can be passed to ``len``.
+
+Indexing a :class:`HistoryDag` object will return a tree-shaped HistoryDag (a
+history, or equivalently a history DAG containing a single history):
+
+>>> type(dag[0])
+<class 'historydag.dag.HistoryDag'>
+>>> len(dag[0])
+1
+>>> dag[0].is_history()
+True
+
+It is also trivial to iterate over histories in a history DAG:
+
+>>> history_list1 = [history for history in dag]
+>>> history_list2 = list(dag.get_histories())
+>>> len(dag) == len(history_list1) == len(history_list2)
+True
+
+
+.. note::
+   For HistoryDag objects containing many histories, ``len`` may fail with an
+   overflow error. In general it is safer to use
+   :meth:`HistoryDag.count_histories()` rather than ``len``. However, a Python
+   integer of any size may be used as an index, provided it's in range.
+
+:class:`HistoryDag` objects also store edge probabilities, which determine
+a probability distribution on the histories stored in the DAG.
+
+Histories can be sampled according to this distribution:
+
+>>> dag.sample()
+
+This distribution can also be set to a uniform distribution on histories:
+
+>>> dag.make_uniform()
+>>> dag.sample()
+
+Merging
+-------
+:class:`HistoryDag` supports set-style union via ``|`` and ``|=``:
+
+>>> combined_dag = dag1 | dag2
+
+>>> dag1 |= dag2
+
+Both operators also support iterables containing history DAGs as the right-hand
+argument:
+
+>>> combined_dag = dag1 | (history for history in dag2)
+
+These operations may also be achieved using the :meth:`HistoryDag.merge` and
+:meth:`HistoryDag.copy` methods:
+
+>>> combined_dag = dag1.copy()
+>>> combined_dag.merge(dag2)
+
+Completion
+----------
+
+A history DAG can be "completed", meaning that all possible edges are added
+between nodes. Since the rules for edges are fairly strict, the number of edges
+to be added is usually manageable. :meth:`HistoryDag.make_complete` returns the
+number of edges added:
+
+>>> dag.make_complete()
+471
+
+Collapsing
+----------
+
+A history DAG can also be collapsed with the method
+:meth:`HistoryDag.convert_to_collapsed`, so that no internal edges in the DAG
+connect nodes with the same label. Edges adjacent to leaf nodes are not
+affected.
+
+
+Relabeling
+----------
+
+A history DAG's node labels can be changed, in certain limited ways:
+
+* :meth:`HistoryDag.unlabel` can be used to set all internal node labels equal,
+  so that each unique history in the DAG represents a unique tree topology on
+  the leaves
+* :meth:`HistoryDag.explode_nodes` can be used to duplicate certain internal
+  nodes so that each new node has a new label determined by the original. This
+  can be useful when expanding ambiguous nucleotide sequences, for example.
+* :meth:`HistoryDag.relabel` can be used to assign new labels to nodes of the
+  DAG, subject to certain constraints.
+
+HistoryDag Subtypes and Conversions
+===================================
+
+There are a variety of subtypes of :class:`HistoryDag`, implementing methods
+which expect certain node label data:
+
+* :class:`sequence_dag.SequenceHistoryDag` guarantees that node labels possess
+  a ``sequence`` attribute, which is expected to contain an unambiguous
+  nucleotide sequence, with each node's sequence having the same length.
+* :class:`sequence_dag.AmbiguousLeafSequenceHistoryDag` also guarantees that
+  node labels possess a ``sequence`` attribute, but expects only internal nodes to
+  have unambiguous nucleotide sequences. Leaf nodes are permitted to have
+  ambiguous sequences
+* :class:`mutation_annotated_dag.CGHistoryDag` guarantees that node labels
+  possess a ``compact_genome`` attribute, which is expected to contain
+  a :class:`compact_genome.CompactGenome` object, which compactly summarizes
+  an unambiguous nucleotide sequence by storing a collection of mutations
+  relative to a reference sequence. This class implements methods to export to
+  and import from Larch protobuf format.
+
+Conversion between these types is achieved via the
+:meth:`HistoryDag.from_history_dag` method, called from the target class.
+
+For example, to convert a :class:`HistoryDag` object named ``dag`` to
+a :class:`sequence_dag.SequenceHistoryDag` object, we use
+:meth:`sequence_dag.SequenceHistoryDag.from_history_dag`:
+
+>>> sequence_dag = SequenceHistoryDag.from_history_dag(dag)
+
+``from_history_dag`` checks that required label fields exist in the input DAG,
+and if they do not, attempts to recover the required label data from the other
+label fields already present. For a detailed description of this conversion
+process, see the documentation for :meth:`HistoryDag.from_history_dag` and the
+class description for :class:`HistoryDag`.
+
+Defining and Computing History Weights
+======================================
+
+History weights which can be computed as a sum over edges are very efficiently
+computable in the history DAG.
+
+Such a history weight can be defined by:
+
+* an edge weight function, returning for each edge (i.e. a pair of
+  :class:`HistoryDagNode` objects) the appropriate weight for that edge, and
+* an accumulation function, returning for a collection of weights their
+  accumulated weight (for example, their sum).
+
+These functions can be provided to the following methods, as the keyword
+arguments ``edge_weight_func`` and ``accum_func``, respectively:
+
+* :meth:`HistoryDag.weight_count`, which returns a :class:`collections.Counter`
+  object containing the weights of all histories in the DAG,
+* :meth:`HistoryDag.optimal_weight_annotate`, which annotates each history DAG
+  node with the optimal weight of all sub-histories beneath that node, and
+  returns the optimal weight of all histories in the DAG, and
+* :meth:`HistoryDag.trim_optimal_weight`, which trims the history DAG to
+  express only histories with the optimal weight achieved by all histories in
+  the DAG.
+
+As an example, suppose we want to compute the number of nodes in each history
+in a history DAG. This can be decomposed as a sum over edges in each history,
+where each edge is assigned a weight of 1 (since each edge in a tree is associated with
+a unique child node).
+
+We can compute the minimum number of nodes in any history in a history DAG:
+
+>>> dag.optimal_weight_annotate(
+...     edge_weight_func=lambda n1, n2: 1,
+...     accum_func=sum,
+...     optimal_func=min
+... )
+35
+
+We can also compute the number of nodes in all the histories in the DAG:
+
+>>> dag.weight_count(
+...     edge_weight_func=lambda n1, n2: 1,
+...     accum_func=sum,
+... )
+Counter({35: 17, 36: 325, 37: 173})
+
+Here, the keys in the :class:`collections.Counter` are weights, and the values
+are the number of histories with each weight. Notice the values will always add
+to ``len(dag)``.
+
+Finally, we can trim ``dag`` to only express the histories with the maximum
+number of nodes:
+
+>>> dag.trim_optimal_weight(
+...     edge_weight_func=lambda n1, n2: 1,
+...     accum_func=sum,
+...     optimal_func=max
+... )
+37
+>>> dag.weight_count(
+...     edge_weight_func=lambda n1, n2: 1,
+...     accum_func=sum,
+... )
+Counter({37: 173})
+
+The AddFuncDict
+---------------
+
+Since the interfaces of these three methods are very similar, we provide
+a special subclassed dictionary :class:`utils.AddFuncDict` for storing
+their keyword arguments.
+
+We can build a :class:`utils.AddFuncDict` that implements the history weight from
+the last example. The additional function ``start_func`` defines what weight
+should be assigned to each leaf node, and should usually be function which simply
+returns the additive identity of the weight type, such as ``lambda node: 0``.
+
+
+>>> node_count_funcs = hdag.utils.AddFuncDict(
+...     {
+...         "start_func": lambda n: 0,
+...         "edge_weight_func": lambda n1, n2: 1,
+...         "accum_func": sum,
+...     },
+...     name="NodeCount",
+... )
+
+This object can then be used as a dictionary of keyword arguments:
+
+>>> dag.weight_count(**node_count_funcs)
+Counter({37: 173})
+
+A variety of useful :class:`utils.AddFuncDict` objects are provided:
+
+* :obj:`utils.hamming_distance_countfuncs` allow computation of histories'
+  Hamming parsimony scores, in history DAGs whose nodes have ``sequence`` label
+  attributes containing unambiguous nucleotide sequences of equal length.
+* :obj:`mutation_annotated_dag.compact_genome_hamming_distance_countfuncs`
+  allow computation of Hamming parsimony scores, in history DAGs whose nodes
+  have ``compact_genome`` label attributes containing
+  :class:`compact_genome.CompactGenome` objects.
+* :obj:`sequence_dag.leaf_ambiguous_hamming_distance_countfuncs` allow
+  computation of Hamming parsimony scores, in history DAGs whose nodes have
+  ``sequence`` label attributes, and whose leaf node sequences may contain
+  ambiguous nucleotide characters.
+* :obj:`utils.node_countfuncs` is the object defined above, for counting the
+  number of nodes in histories.
+* :func:`utils.make_rfdistance_countfuncs` creates a :class:`utils.AddFuncDict`
+  which can be used to compute Robinson Foulds distances between histories and
+  a provided reference history
+* :func:`utils.make_newickcountfuncs` creates a :class:`utils.AddFuncDict`
+  which can be used to build newick strings for all histories in the DAG,
+  although this functionality is conveniently wrapped in
+  :meth:`HistoryDag.to_newick` and :meth:`HistoryDag.to_newicks`.
+
+Combining Weights
+-----------------
+
+The primary advantage of a :class:`utils.AddFuncDict` object over a plain
+dictionary is its composability via the ``+`` operator.
+
+Addition of two ``AddFuncDict`` objects returns a new ``AddFuncDict`` which
+computes the weights implemented by the original two ``AddFuncDict``'s
+simultaneously, storing them in a tuple.
+
+For example, we can compute in paired fashion the parsimony score and number of
+nodes for each history in a history DAG:
+
+>>> dag.weight_count(**(utils.hamming_distance_countfuncs + utils.node_countfuncs))
+Counter({(73, 35): 17, (73, 36): 320, (74, 36): 5, (74, 37): 112, (73, 37): 61})
+
+Since the python functions ``min`` and ``max`` implement a lexicographic
+ordering on tuples, the following are equivalent:
+
+>>> dag.trim_optimal_weight(optimal_func=max, **(utils.hamming_distance_countfuncs + utils.node_countfuncs))
+
+and
+
+>>> dag.trim_optimal_weight(optimal_func=max, **utils.hamming_distance_countfuncs)
+>>> dag.trim_optimal_weight(optimal_func=max, **utils.node_countfuncs)
+
+An arbitrary number of :class:`utils.AddFuncDict` objects can be added
+together. The resulting weight type will be a tuple of weights, respecting the
+order of addition (note that nested tuples are avoided). The names of each
+weight are stored in the ``names`` attribute of the resulting data structure:
+
+>>> kwargs = utils.hamming_distance_countfuncs + utils.node_countfuncs
+>>> kwargs.names
+('HammingParsimony', 'NodeCount')
+
+Exporting Tree Data
+===================
+
+A very similar interface is provided for exporting to ete trees as for
+importing from them via :func:`history_dag_from_trees`.
+
+The relevant method is :meth:`HistoryDag.to_ete`, which takes keyword arguments
+
+* ``name_func``, which maps a history DAG node to the data to be stored in
+  the ``name`` attribute of the corresponding ete node,
+* ``features``, which is a list of history DAG node label attribute names whose
+  data should be transferred to ete node attributes of the same names, and
+* ``feature_funcs``, which is a dictionary keyed by ete node attribute names,
+  containing functions which accept history DAG nodes and return the
+  appropriate data to be stored in each attribute.
+
+A similar interface is provided for the method :meth:`HistoryDag.to_newick` and
+:meth:`HistoryDag.to_newicks`.
+
+History DAGs, including histories, can also be easily visualized using the
+:meth:`HistoryDag.to_graphviz` method.
+
+
+TLDR: A Quick Tour
+==================
 
 In this package, the history DAG is a recursive data structure consisting of
 :class:`historydag.HistoryDagNode` objects storing label, clade, and adjacency
@@ -218,3 +631,4 @@ sequences of history DAGs.
 
 >>> newdag = dag[0] | dag[1]
 >>> newdag = dag[0] | (dag[i] for i in range(3,5))
+

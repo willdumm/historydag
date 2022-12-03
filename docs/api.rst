@@ -6,7 +6,7 @@ Description
 This page documents the API for the ``historydag`` package.
 The fundamental data structure implemented here is the :class:`HistoryDag`.
 This data structure provides efficient storage for collections of trees with
-internal node labels. In this package, we refer to such a tree as a _history_.
+internal node labels. In this package, we refer to such a tree as a *history*.
 A history can be represented as a tree-shaped :class:`HistoryDag` object.
 
 This package provides functions for:
