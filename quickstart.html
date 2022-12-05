@@ -110,7 +110,7 @@ structure, and provides a walk-through of essential features of the package.</p>
 sequence.</p>
 <p>In its simplest form, a history DAG may represent a single tree. To construct
 such a history DAG from a tree, we annotate each node in the tree with its
-child clades.  The <strong>clade</strong> beneath a tree node is the set of leaf node labels
+child clades. The <strong>clade</strong> beneath a tree node is the set of leaf node labels
 reachable from that node, or the set containing the node’s own label if it is
 itself a leaf. We also refer to this set as a node’s <strong>clade union</strong>, since it
 is the union of the node’s child clades. The <strong>child clades</strong> of a node are the
@@ -211,9 +211,9 @@ nodes:</p>
 <section id="loading-non-ete3-tree-data">
 <h3>Loading Non-ete3 Tree Data:<a class="headerlink" href="#loading-non-ete3-tree-data" title="Permalink to this heading"></a></h3>
 <p>The functions <a class="reference internal" href="stubs/historydag.from_tree.html#historydag.from_tree" title="historydag.from_tree"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_tree()</span></code></a> and <code class="xref py py-meth docutils literal notranslate"><span class="pre">history_dag_from_trees()</span></code> accept tree
-data in the form of <code class="xref py py-class docutils literal notranslate"><span class="pre">ete3.Tree</span></code> objects by default, but by providing
-appropriate functions to the keyword arguments <cite>child_node_func</cite> and
-<cite>leaf_node_func</cite>.</p>
+data in the form of <code class="xref py py-class docutils literal notranslate"><span class="pre">ete3.Tree</span></code> objects by default, but arbitrary tree
+data structures can be loaded by providing appropriate functions to the keyword
+arguments <cite>child_node_func</cite> and <cite>leaf_node_func</cite>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">child_node_func</span></code> must be a function accepting a node of an input tree, and
 returning an iterable containing all the child nodes of that tree.</p>
 <p><code class="docutils literal notranslate"><span class="pre">leaf_node_func</span></code> must be a function accepting a node of an input tree, and
@@ -370,7 +370,7 @@ class description for <a class="reference internal" href="stubs/historydag.Histo
 </section>
 <section id="defining-and-computing-history-weights">
 <h2>Defining and Computing History Weights<a class="headerlink" href="#defining-and-computing-history-weights" title="Permalink to this heading"></a></h2>
-<p>History weights which can be computed as a sum over edges are very efficiently
+<p>History weights which can be computed as a sum over edges are efficiently
 computable in the history DAG.</p>
 <p>Such a history weight can be defined by:</p>
 <ul class="simple">
@@ -432,7 +432,7 @@ number of nodes:</p>
 </div>
 <section id="the-addfuncdict">
 <h3>The AddFuncDict<a class="headerlink" href="#the-addfuncdict" title="Permalink to this heading"></a></h3>
-<p>Since the interfaces of these three methods are very similar, we provide
+<p>Since the interfaces of these three methods are similar, we provide
 a special subclassed dictionary <a class="reference internal" href="stubs/historydag.utils.html#historydag.utils.AddFuncDict" title="historydag.utils.AddFuncDict"><code class="xref py py-class docutils literal notranslate"><span class="pre">utils.AddFuncDict</span></code></a> for storing
 their keyword arguments.</p>
 <p>We can build a <a class="reference internal" href="stubs/historydag.utils.html#historydag.utils.AddFuncDict" title="historydag.utils.AddFuncDict"><code class="xref py py-class docutils literal notranslate"><span class="pre">utils.AddFuncDict</span></code></a> that implements the history weight from
@@ -514,7 +514,7 @@ weight are stored in the <code class="docutils literal notranslate"><span class=
 </section>
 <section id="exporting-tree-data">
 <h2>Exporting Tree Data<a class="headerlink" href="#exporting-tree-data" title="Permalink to this heading"></a></h2>
-<p>A very similar interface is provided for exporting to ete trees as for
+<p>A similar interface is provided for exporting to ete trees as for
 importing from them via <code class="xref py py-func docutils literal notranslate"><span class="pre">history_dag_from_trees()</span></code>.</p>
 <p>The relevant method is <a class="reference internal" href="stubs/historydag.HistoryDag.html#historydag.HistoryDag.to_ete" title="historydag.HistoryDag.to_ete"><code class="xref py py-meth docutils literal notranslate"><span class="pre">HistoryDag.to_ete()</span></code></a>, which takes keyword arguments</p>
 <ul class="simple">
