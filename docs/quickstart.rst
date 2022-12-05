@@ -14,7 +14,7 @@ sequence.
 
 In its simplest form, a history DAG may represent a single tree. To construct
 such a history DAG from a tree, we annotate each node in the tree with its
-child clades.  The **clade** beneath a tree node is the set of leaf node labels
+child clades. The **clade** beneath a tree node is the set of leaf node labels
 reachable from that node, or the set containing the node's own label if it is
 itself a leaf. We also refer to this set as a node's **clade union**, since it
 is the union of the node's child clades. The **child clades** of a node are the
@@ -153,9 +153,9 @@ Loading Non-ete3 Tree Data:
 ---------------------------
 
 The functions :meth:`from_tree` and :meth:`history_dag_from_trees` accept tree
-data in the form of :class:`ete3.Tree` objects by default, but by providing
-appropriate functions to the keyword arguments `child_node_func` and
-`leaf_node_func`.
+data in the form of :class:`ete3.Tree` objects by default, but arbitrary tree
+data structures can be loaded by providing appropriate functions to the keyword
+arguments `child_node_func` and `leaf_node_func`.
 
 ``child_node_func`` must be a function accepting a node of an input tree, and
 returning an iterable containing all the child nodes of that tree.
@@ -322,7 +322,7 @@ class description for :class:`HistoryDag`.
 Defining and Computing History Weights
 ======================================
 
-History weights which can be computed as a sum over edges are very efficiently
+History weights which can be computed as a sum over edges are efficiently
 computable in the history DAG.
 
 Such a history weight can be defined by:
@@ -388,7 +388,7 @@ Counter({37: 173})
 The AddFuncDict
 ---------------
 
-Since the interfaces of these three methods are very similar, we provide
+Since the interfaces of these three methods are similar, we provide
 a special subclassed dictionary :class:`utils.AddFuncDict` for storing
 their keyword arguments.
 
@@ -473,7 +473,7 @@ weight are stored in the ``names`` attribute of the resulting data structure:
 Exporting Tree Data
 ===================
 
-A very similar interface is provided for exporting to ete trees as for
+A similar interface is provided for exporting to ete trees as for
 importing from them via :func:`history_dag_from_trees`.
 
 The relevant method is :meth:`HistoryDag.to_ete`, which takes keyword arguments
