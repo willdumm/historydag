@@ -420,11 +420,16 @@ class AddFuncDict(UserDict):
         """
         n = len(self.names)
         if len(coeffs) != n:
-            raise ValueError(f"Expected {n} ranking coefficients but received {len(ranking_coeffs)}.")
+            raise ValueError(
+                f"Expected {n} ranking coefficients but received {len(coeffs)}."
+            )
         if n == 1:
-            raise ValueError("linear_combination should only be called on AddFuncDict"
-                             " objects which compute more than one weight, e.g."
-                             " resulting from summing one or more AddFuncDicts.")
+            raise ValueError(
+                "linear_combination should only be called on AddFuncDict"
+                " objects which compute more than one weight, e.g."
+                " resulting from summing one or more AddFuncDicts."
+            )
+
         def make_floatstate(val):
             return FloatState(round(val, significant_digits), state=val)
 
@@ -449,14 +454,22 @@ class AddFuncDict(UserDict):
                 "edge_weight_func": new_edge_func,
                 "accum_func": accum_func,
             },
-            name = '(' + ' + '.join(str(c) + '(' + name + ')' for c, name in zip(coeffs, self.names)) + ')'
+            name="("
+            + " + ".join(
+                str(c) + "(" + name + ")" for c, name in zip(coeffs, self.names)
+            )
+            + ")",
         )
 
 
-
 class HistoryDagFilter:
-
-    def __init__(self, weight_funcs: AddFuncDict, optimal_func, ordering_name=None, eq_func=operator.eq):
+    def __init__(
+        self,
+        weight_funcs: AddFuncDict,
+        optimal_func,
+        ordering_name=None,
+        eq_func=operator.eq,
+    ):
         self.weight_funcs = weight_funcs
         self.optimal_func = optimal_func
         self.eq_func = eq_func
@@ -469,24 +482,26 @@ class HistoryDagFilter:
             else:
                 self.ordering_names = (("optimal", end_idx),)
         else:
-            self.ordering_names = ((ordering_name, end_idx), )
+            self.ordering_names = ((ordering_name, end_idx),)
 
     def __str__(self) -> str:
         start_idx = 0
         descriptions = []
         for ordering_name, end_idx in self.ordering_names:
-            these_names = self.weight_funcs.names[start_idx: end_idx]
+            these_names = self.weight_funcs.names[start_idx:end_idx]
             if len(these_names) > 1:
-                descriptions.append(f"{ordering_name} ({', '.join(str(it) for it in these_names)})")
+                descriptions.append(
+                    f"{ordering_name} ({', '.join(str(it) for it in these_names)})"
+                )
             else:
-                descriptions.append(ordering_name + ' ' + these_names[0])
+                descriptions.append(ordering_name + " " + these_names[0])
             start_idx = end_idx
-        return "HistoryDagFilter[" + ' then '.join(descriptions) + "]"
-        
+        return "HistoryDagFilter[" + " then ".join(descriptions) + "]"
+
     def __getitem__(self, item):
-        if item == 'optimal_func':
+        if item == "optimal_func":
             return self.optimal_func
-        elif item == 'eq_func':
+        elif item == "eq_func":
             return self.eq_func
         else:
             return self.weight_funcs[item]
@@ -494,7 +509,9 @@ class HistoryDagFilter:
     # Or should it be &?
     def __add__(self, other):
         if not isinstance(other, HistoryDagFilter):
-            raise TypeError(f"Can only add HistoryDagFilter to HistoryDagFilter, not f{type(other)}")
+            raise TypeError(
+                f"Can only add HistoryDagFilter to HistoryDagFilter, not f{type(other)}"
+            )
         split_idx = len(self.weight_funcs.names)
 
         def new_optimal_func(weight_tuple_seq):
@@ -503,7 +520,8 @@ class HistoryDagFilter:
                 t[:split_idx] for t in weight_tuple_seq
             )
             second_optimal_val = other.optimal_func(
-                t[split_idx:] for t in weight_tuple_seq
+                t[split_idx:]
+                for t in weight_tuple_seq
                 if self.eq_func(t[:split_idx], first_optimal_val)
             )
             return first_optimal_val + second_optimal_val
@@ -513,20 +531,23 @@ class HistoryDagFilter:
         else:
 
             def new_eq_func(a, b):
-                return (self.eq_func(a[:split_idx], b[:split_idx])
-                        and other.eq_func(a[split_idx:], b[split_idx:]))
-            
+                return self.eq_func(a[:split_idx], b[:split_idx]) and other.eq_func(
+                    a[split_idx:], b[split_idx:]
+                )
+
         ret = HistoryDagFilter(
             self.weight_funcs + other.weight_funcs,
             new_optimal_func,
-            eq_func=new_eq_func
+            eq_func=new_eq_func,
         )
-        ret.ordering_names = self.ordering_names + tuple((name, idx + split_idx) for name, idx in other.ordering_names)
+        ret.ordering_names = self.ordering_names + tuple(
+            (name, idx + split_idx) for name, idx in other.ordering_names
+        )
         return ret
 
     def keys(self):
         yield from self.weight_funcs.keys()
-        yield from ('optimal_func', 'eq_func')
+        yield from ("optimal_func", "eq_func")
 
     # def with_linear_combination_ordering(self, ranking_coeffs, eq_func=operator.eq):
     #     ranking_coeffs = tuple(ranking_coeffs)

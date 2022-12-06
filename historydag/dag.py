@@ -526,13 +526,15 @@ class HistoryDag:
         # identical trees return True. TODO
         raise NotImplementedError
 
-    def __iand__(self, other: object) -> 'HistoryDag':
+    def __iand__(self, other: object) -> "HistoryDag":
         if not isinstance(other, utils.HistoryDagFilter):
-            raise TypeError(f"Filtering a HistoryDag object requires a HistoryDagFilter object, not f{type(other)}")
+            raise TypeError(
+                f"Filtering a HistoryDag object requires a HistoryDagFilter object, not f{type(other)}"
+            )
         self.trim_optimal_weight(**other)
         return self
 
-    def __and__(self, other: object) -> 'HistoryDag':
+    def __and__(self, other: object) -> "HistoryDag":
         outdag = self.copy()
         outdag &= other
         return outdag
