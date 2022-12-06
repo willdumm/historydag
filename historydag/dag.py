@@ -526,6 +526,17 @@ class HistoryDag:
         # identical trees return True. TODO
         raise NotImplementedError
 
+    def __iand__(self, other: object) -> 'HistoryDag':
+        if not isinstance(other, utils.HistoryDagFilter):
+            raise TypeError(f"Filtering a HistoryDag object requires a HistoryDagFilter object, not f{type(other)}")
+        self.trim_optimal_weight(**other)
+        return self
+
+    def __and__(self, other: object) -> 'HistoryDag':
+        outdag = self.copy()
+        outdag &= other
+        return outdag
+
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the history (tree-shaped sub-history DAG) in the current
         history dag corresponding to the given index."""
@@ -1545,6 +1556,7 @@ class HistoryDag:
         ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
+        **kwargs,
     ) -> Weight:
         r"""A template method for finding the optimal tree weight in the DAG.
         Dynamically annotates each node in the DAG with the optimal weight of a
@@ -1577,6 +1589,7 @@ class HistoryDag:
             ["HistoryDagNode", "HistoryDagNode"], Weight
         ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
+        **kwargs,
     ):
         r"""A template method for counting weights of trees expressed in the
         history DAG.

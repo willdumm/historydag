@@ -4,6 +4,7 @@ import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 from functools import wraps
+import operator
 from collections import UserDict
 from decimal import Decimal
 from typing import (
@@ -364,6 +365,9 @@ class AddFuncDict(UserDict):
             names=fdict1.names + fdict2.names,
         )
 
+    def __str__(self) -> str:
+        return f"AddFuncDict[{', '.join(str(it) for it in self.names)}]"
+
     def _convert_to_tupleargs(self):
         if self.name is not None:
 
@@ -395,6 +399,158 @@ class AddFuncDict(UserDict):
             )
         else:
             return self
+
+    def linear_combination(self, coeffs, significant_digits=8):
+        """Convert an AddFuncDict implementing a tuple of weights to a linear
+        combination of those weights.
+
+        This only works when the weights computed by the AddFuncDict use plain
+        `sum` as their accum_func.
+        Otherwise, although the resulting AddFuncDict may be usable without errors,
+        its behavior is undefined.
+
+        Args:
+            coeffs: The coefficients to be multiplied with each weight before summing.
+            significant_digits: To combat floating point errors, only this many digits
+                after the decimal will be significant in comparisons between weights.
+
+        Returns:
+            A new AddFuncDict object which computes the specified linear combination
+            of weights.
+        """
+        n = len(self.names)
+        if len(coeffs) != n:
+            raise ValueError(f"Expected {n} ranking coefficients but received {len(ranking_coeffs)}.")
+        if n == 1:
+            raise ValueError("linear_combination should only be called on AddFuncDict"
+                             " objects which compute more than one weight, e.g."
+                             " resulting from summing one or more AddFuncDicts.")
+        def make_floatstate(val):
+            return FloatState(round(val, significant_digits), state=val)
+
+        def _lc(weight_tuple):
+            return make_floatstate(sum(c * w for c, w in zip(coeffs, weight_tuple)))
+
+        def accum_func(weights):
+            return make_floatstate(sum(w.state for w in weights))
+
+        start_func = self["start_func"]
+        edge_func = self["edge_weight_func"]
+
+        def new_start_func(n):
+            return _lc(start_func(n))
+
+        def new_edge_func(n1, n2):
+            return _lc(edge_func(n1, n2))
+
+        return AddFuncDict(
+            {
+                "start_func": new_start_func,
+                "edge_weight_func": new_edge_func,
+                "accum_func": accum_func,
+            },
+            name = '(' + ' + '.join(str(c) + '(' + name + ')' for c, name in zip(coeffs, self.names)) + ')'
+        )
+
+
+
+class HistoryDagFilter:
+
+    def __init__(self, weight_funcs: AddFuncDict, optimal_func, ordering_name=None, eq_func=operator.eq):
+        self.weight_funcs = weight_funcs
+        self.optimal_func = optimal_func
+        self.eq_func = eq_func
+        end_idx = len(self.weight_funcs.names)
+        if ordering_name is None:
+            if optimal_func == min:
+                self.ordering_names = (("minimum", end_idx),)
+            elif optimal_func == max:
+                self.ordering_names = (("maximum", end_idx),)
+            else:
+                self.ordering_names = (("optimal", end_idx),)
+        else:
+            self.ordering_names = ((ordering_name, end_idx), )
+
+    def __str__(self) -> str:
+        start_idx = 0
+        descriptions = []
+        for ordering_name, end_idx in self.ordering_names:
+            these_names = self.weight_funcs.names[start_idx: end_idx]
+            if len(these_names) > 1:
+                descriptions.append(f"{ordering_name} ({', '.join(str(it) for it in these_names)})")
+            else:
+                descriptions.append(ordering_name + ' ' + these_names[0])
+            start_idx = end_idx
+        return "HistoryDagFilter[" + ' then '.join(descriptions) + "]"
+        
+    def __getitem__(self, item):
+        if item == 'optimal_func':
+            return self.optimal_func
+        elif item == 'eq_func':
+            return self.eq_func
+        else:
+            return self.weight_funcs[item]
+
+    # Or should it be &?
+    def __add__(self, other):
+        if not isinstance(other, HistoryDagFilter):
+            raise TypeError(f"Can only add HistoryDagFilter to HistoryDagFilter, not f{type(other)}")
+        split_idx = len(self.weight_funcs.names)
+
+        def new_optimal_func(weight_tuple_seq):
+            weight_tuple_seq = tuple(weight_tuple_seq)
+            first_optimal_val = self.optimal_func(
+                t[:split_idx] for t in weight_tuple_seq
+            )
+            second_optimal_val = other.optimal_func(
+                t[split_idx:] for t in weight_tuple_seq
+                if self.eq_func(t[:split_idx], first_optimal_val)
+            )
+            return first_optimal_val + second_optimal_val
+
+        if self.eq_func == operator.eq and other.eq_func == operator.eq:
+            new_eq_func = operator.eq
+        else:
+
+            def new_eq_func(a, b):
+                return (self.eq_func(a[:split_idx], b[:split_idx])
+                        and other.eq_func(a[split_idx:], b[split_idx:]))
+            
+        ret = HistoryDagFilter(
+            self.weight_funcs + other.weight_funcs,
+            new_optimal_func,
+            eq_func=new_eq_func
+        )
+        ret.ordering_names = self.ordering_names + tuple((name, idx + split_idx) for name, idx in other.ordering_names)
+        return ret
+
+    def keys(self):
+        yield from self.weight_funcs.keys()
+        yield from ('optimal_func', 'eq_func')
+
+    # def with_linear_combination_ordering(self, ranking_coeffs, eq_func=operator.eq):
+    #     ranking_coeffs = tuple(ranking_coeffs)
+    #     n = len(self.weight_funcs.names)
+    #     if len(ranking_coeffs) != n:
+    #         raise ValueError(f"Expected {n} ranking coefficients but received {len(ranking_coeffs)}.")
+
+    #     def _lc(weight_tuple):
+    #         return sum(c * w for c, w in zip(ranking_coeffs, weight_tuple))
+
+    #     def new_optimal_func(weight_tuple_sequence):
+    #         return min(weight_tuple_sequence, key=_lc)
+
+    #     def new_eq_func(weight_tup1, weight_tup2):
+    #         return eq_func(_lc(weight_tup1), _lc(weight_tup2))
+
+    #     ret = HistoryDagFilter(self.weight_funcs, new_optimal_func, eq_func=new_eq_func)
+    #     new_optimal_func_name = ("minimum ("
+    #                              + '+'.join(str(c) + chr(97 + i) for i, c in enumerate(ranking_coeffs))
+    #                              + ") for ("
+    #                              + ','.join(chr(97 + i) for i in range(n))
+    #                              + ") =")
+    #     ret.ordering_names = ((new_optimal_func_name, n),)
+    #     return ret
 
 
 hamming_distance_countfuncs = AddFuncDict(
