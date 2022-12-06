@@ -420,6 +420,70 @@ node_countfuncs = AddFuncDict(
 For use with :meth:`historydag.HistoryDag.weight_count`."""
 
 
+def sum_rfdistance_funcs(reference_dag: "HistoryDag"):
+    """Provides functions to compute the sum over all histories in the provided
+    reference DAG, of rooted RF distances to those histories.
+
+    Args:
+        reference_dag: The reference DAG. The sum will be computed over all RF
+            distances to histories in this DAG
+
+    The reference DAG must have the same taxa as all the trees in the DAG on which these count
+    functions are used.
+
+    The edge weight is computed using the expression 2 * N[c_e] - |T| where c_e is the clade under
+    the relevant edge, and |T| is the number of trees in the reference dag. This provide rooted RF
+    distances, meaning that the clade below each edge is used for RF distance computation.
+
+    The weights are represented by an IntState object and are shifted by a constant K,
+    which is the sum of number of clades in each tree in the DAG.
+    """
+    n_histories = reference_dag.count_histories()
+    N = reference_dag.count_nodes(collapse=True)
+
+    # adjust clade union counts appearing on tree root nodes
+    for child in reference_dag.dagroot.children():
+        N[child.clade_union()] -= n_histories
+
+    # Remove the UA node clade union from N
+    try:
+        N.pop(frozenset())
+    except KeyError:
+        pass
+
+    # K is the constant that the weights are shifted by
+    K = sum(N.values())
+
+    num_trees = reference_dag.count_histories()
+
+    def make_intstate(n):
+        return IntState(n + K, state=n)
+
+    def edge_func(n1, n2):
+        if n1.is_ua_node():
+            return make_intstate(0)
+        else:
+            clade = n2.clade_union()
+            if clade in N:
+                weight = num_trees - (2 * N[n2.clade_union()])
+            else:
+                # This clade's count should then just be 0:
+                weight = num_trees
+            return make_intstate(weight)
+
+    kwargs = AddFuncDict(
+        {
+            "start_func": lambda n: make_intstate(0),
+            "edge_weight_func": edge_func,
+            "accum_func": lambda wlist: make_intstate(
+                sum(w.state for w in wlist)
+            ),  # summation over edge weights
+        },
+        name="RF_rooted_sum",
+    )
+    return kwargs
+
+
 def make_rfdistance_countfuncs(ref_tree: "HistoryDag", rooted: bool = False):
     """Provides functions to compute Robinson-Foulds (RF) distances of trees in
     a DAG, relative to a fixed reference tree.
@@ -517,8 +581,6 @@ def make_rfdistance_countfuncs(ref_tree: "HistoryDag", rooted: bool = False):
             taxa,
         }
         shift = len(ref_cus)
-        print(ref_cus)
-        print(shift)
 
         def make_intstate(n):
             return IntState(n + shift, state=n)

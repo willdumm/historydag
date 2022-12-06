@@ -1702,13 +1702,14 @@ class HistoryDag:
                 clade union sets.
 
         Returns:
-            A dicitonary mapping each node in the DAG to the number of trees
+            A dictionary mapping each node in the DAG to the number of trees
             that it takes part in.
         """
         node2count = {}
         node2stats = {}
 
         self.count_histories()
+        self.recompute_parents()
         reverse_postorder = reversed(list(self.postorder()))
         for node in reverse_postorder:
             below = node._dp_data
@@ -1735,8 +1736,8 @@ class HistoryDag:
             node2count[node] = above * below
             node2stats[node] = [above, below]
 
-        collapsed_n2c = {}
         if collapse:
+            collapsed_n2c = {}
             for node in node2count.keys():
                 clade = node.clade_union()
                 if clade not in collapsed_n2c:
@@ -1746,7 +1747,6 @@ class HistoryDag:
             return collapsed_n2c
         else:
             return node2count
-        return node2count
 
     def count_edges(
         self, collapsed=False
@@ -1754,13 +1754,14 @@ class HistoryDag:
         """Counts the number of trees each edge takes part in.
 
         Returns:
-            A dicitonary mapping each edge in the DAG to the number of trees
+            A dictionary mapping each edge in the DAG to the number of trees
             that it takes part in.
         """
         edge2count = {}
         node2stats = {}
 
         self.count_histories()
+        self.recompute_parents()
         reverse_postorder = reversed(list(self.postorder()))
         for node in reverse_postorder:
             below = node._dp_data
@@ -1939,6 +1940,43 @@ class HistoryDag:
                 accum_above_edge=lambda n, e: e,
             ).values()
         )[0]
+
+    def optimal_sum_rf_distance(
+        self,
+        reference_dag: "HistoryDag",
+        optimal_func: Callable[[List[Weight]], Weight] = min,
+    ):
+        """Returns the optimal (min or max) summed rooted RF distance to all
+        histories in the reference DAG.
+
+        The given history must be on the same taxa as all trees in the DAG.
+        Since computing reference splits is expensive, it is better to use
+        :meth:``optimal_weight_annotate`` and :meth:``utils.make_rfdistance_countfuncs``
+        instead of making multiple calls to this method with the same reference
+        history DAG.
+        """
+        kwargs = utils.sum_rfdistance_funcs(reference_dag)
+        return self.optimal_weight_annotate(**kwargs, optimal_func=optimal_func)
+
+    def trim_optimal_sum_rf_distance(
+        self,
+        reference_dag: "HistoryDag",
+        optimal_func: Callable[[List[Weight]], Weight] = min,
+    ):
+        """Trims the DAG to contain only histories with the optimal (min or
+        max) sum rooted RF distance to the given reference DAG.
+
+        Trimming to the minimum sum RF distance is equivalent to finding 'median' topologies,
+        and trimming to maximum sum rf distance is equivalent to finding topological outliers.
+
+        The given history must be on the same taxa as all trees in the DAG.
+        Since computing reference splits is expensive, it is better to use
+        :meth:``trim_optimal_weight`` and :meth:``utils.sum_rfdistance_funcs``
+        instead of making multiple calls to this method with the same reference
+        history.
+        """
+        kwargs = utils.sum_rfdistance_funcs(reference_dag)
+        return self.trim_optimal_weight(**kwargs, optimal_func=optimal_func)
 
     def optimal_rf_distance(
         self,
