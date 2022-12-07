@@ -838,6 +838,10 @@ class HistoryDag:
         """Return a generator containing all leaf nodes in the history DAG."""
         return self.find_nodes(HistoryDagNode.is_leaf)
 
+    def num_edges(self) -> int:
+        """Return the number of edges in the DAG, including edges descending from the UA node"""
+        return sum(len(list(n.children())) for n in self.preorder())
+
     def num_nodes(self) -> int:
         """Return the number of nodes in the DAG, not counting the UA node."""
         return sum(1 for _ in self.preorder(skip_ua_node=True))
@@ -1482,9 +1486,14 @@ class HistoryDag:
 
     def summary(self):
         """Print nicely formatted summary about the history DAG."""
-        print(f"Nodes:\t{sum(1 for _ in self.postorder())}")
+        print(type(self))
+        print(f"Nodes:\t{self.num_nodes()}")
+        print(f"Nodes:\t{self.num_edges()}")
         print(f"Trees:\t{self.count_histories()}")
-        utils.hist(self.weight_counts_with_ambiguities())
+        print(f"Leaves:\t{self.num_leaves()}")
+        min_nodes, max_nodes = self.weight_range_annotate(**utils.node_countfuncs)
+        print(f"Smallest tree has {min_nodes} nodes, largest tree has {max_nodes} nodes")
+        print(f"Average number of parents of internal nodes:\t{self.internal_avg_parents()}")
 
     def label_uncertainty_summary(self):
         """Print information about internal nodes which have the same child
