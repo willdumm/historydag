@@ -72,7 +72,9 @@ class CGHistoryDag(HistoryDag):
 
     def summary(self):
         HistoryDag.summary(self)
-        min_pars, max_pars = self.weight_range_annotate(**compact_genome_hamming_distance_countfuncs)
+        min_pars, max_pars = self.weight_range_annotate(
+            **compact_genome_hamming_distance_countfuncs
+        )
         print(f"Parsimony score range {min_pars} to {max_pars}")
 
     def weight_count(

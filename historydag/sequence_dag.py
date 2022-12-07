@@ -77,7 +77,9 @@ class SequenceHistoryDag(HistoryDag):
 
     def summary(self):
         HistoryDag.summary(self)
-        min_pars, max_pars = self.weight_range_annotate(**historydag.utils.hamming_distance_countfuncs)
+        min_pars, max_pars = self.weight_range_annotate(
+            **historydag.utils.hamming_distance_countfuncs
+        )
         print(f"Parsimony score range {min_pars} to {max_pars}")
 
 
@@ -163,5 +165,7 @@ class AmbiguousLeafSequenceHistoryDag(SequenceHistoryDag):
 
     def summary(self):
         HistoryDag.summary(self)
-        min_pars, max_pars = self.weight_range_annotate(**leaf_ambiguous_hamming_distance_countfuncs)
+        min_pars, max_pars = self.weight_range_annotate(
+            **leaf_ambiguous_hamming_distance_countfuncs
+        )
         print(f"Parsimony score range {min_pars} to {max_pars}")
