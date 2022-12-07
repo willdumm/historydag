@@ -35,10 +35,9 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
     # parsimony score depends on the choice of `transition_weights` arg
     if transition_weights is not None:
 
-        def weight_func(x, y):
-            return dag_parsimony.edge_weight_func_from_weight_matrix(
-                x, y, transition_weights, dag_parsimony.bases
-            )
+        weight_func = dag_parsimony.make_weighted_hamming_edge_func(
+            transition_weights, bases=dag_parsimony.bases
+        )
 
         s_ete_weight = s_ete_as_dag.optimal_weight_annotate(
             edge_weight_func=weight_func
