@@ -738,3 +738,49 @@ def test_trim_weight():
             + str(len(difference2))
         )
         assert set(true_subdag.to_newicks()) == set(history_dag.to_newicks())
+
+
+def test_trim_filter():
+    dag = dags[-1].copy()
+    pars_d = hdag.utils.hamming_distance_countfuncs
+    node_d = hdag.utils.node_countfuncs
+
+    # >>
+    cdag = dag.copy()
+    pars_f = hdag.utils.HistoryDagFilter(pars_d, min)
+    node_f = hdag.utils.HistoryDagFilter(node_d, max)
+    p_n_f = pars_f + node_f
+
+    assert ((cdag & pars_f) & node_f).weight_count(**p_n_f) == (
+        cdag & p_n_f
+    ).weight_count(**p_n_f)
+    print("sequential trimming is the same as trimming with sum of filters")
+    # >>
+    rf_d = hdag.utils.make_rfdistance_countfuncs(dag[25])
+    rf_f = hdag.utils.HistoryDagFilter(rf_d, min)
+
+    pnf_f = p_n_f + rf_f
+    assert ((cdag & p_n_f) & rf_f).weight_count(**pnf_f) == (cdag & pnf_f).weight_count(
+        **pnf_f
+    )
+    print("sequential addition of Filters works")
+    # >>
+    lc_d = pnf_f.weight_funcs.linear_combination([1, 2, 0])
+    lc_f = hdag.utils.HistoryDagFilter(lc_d, min)
+
+    min_weight = cdag.optimal_weight_annotate(**lc_f)
+    weights = cdag.weight_count(**pnf_f)
+    min_weights = Counter(
+        w
+        for w in weights.elements()
+        if sum(c * ww for c, ww in zip([1, 2, 0], w)) == min_weight
+    )
+    assert (cdag & lc_f).weight_count(**pnf_f) == min_weights
+    print("linear combination trimming works")
+
+    # >>
+    print(node_d)
+    print(node_f)
+    print(p_n_f)
+    print(pnf_f)
+    print(lc_f)

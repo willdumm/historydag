@@ -9,6 +9,7 @@ from historydag.dag import (
     history_dag_from_histories,
     history_dag_from_etes,
     HistoryDag,
+    utils,
 )
 from copy import deepcopy
 
@@ -71,18 +72,87 @@ def _get_adj_array(seq_len, transition_weights=None):
     return adj_arr
 
 
-def edge_weight_func_from_weight_matrix(n1, n2, weight_mat=None, bases=None):
-    if n1.is_ua_node() or n2.is_ua_node():
-        return 0
-    if len(n1.label.sequence) != len(n2.label.sequence):
-        raise ValueError("Sequences must have the same length!")
-    if weight_mat is not None and bases is not None:
-        base_indices = {k: v for v, k in enumerate(bases)}
-        return sum(
-            weight_mat[base_indices[x], base_indices[y]]
-            for x, y in zip(n1.label.sequence, n2.label.sequence)
+def weighted_hamming_distance_from_weight_matrix(weight_mat, bases="AGCT-"):
+    """Returns a function for computing weighted hamming distance between two
+    sequences.
+
+    Args:
+        weight_mat: A transition matrix describing the cost of transitions between bases in ``bases``.
+            For example, with bases ``AGCT-``, ``weight_mat[0][3]`` should contain the cost of a transition
+            from A to T.
+        bases: A sequence of characters describing the order of bases whose transition weights are expressed
+            in ``weight_mat``.
+
+    Returns:
+        A function taking two sequences of equal length and returning a float: the cost of transition
+            from the first sequence to the second.
+    """
+
+    if len(weight_mat) != len(bases) or len(weight_mat[0]) != len(bases):
+        raise ValueError(
+            "``weight_mat`` must be a n x n matrix, where ``n = len(bases)``."
         )
-    return sum(x != y for x, y in zip(n1.label.sequence, n2.label.sequence))
+    base_indices = {k: v for v, k in enumerate(bases)}
+
+    def weighted_hamming_distance(seq1, seq2):
+        if len(seq1) != len(seq2):
+            raise ValueError("Sequences must have the same length!")
+        return sum(
+            weight_mat[base_indices[x], base_indices[y]] for x, y in zip(seq1, seq2)
+        )
+
+    return weighted_hamming_distance
+
+
+def make_weighted_hamming_edge_func(weight_mat, bases="AGCT-"):
+    """Returns function for computing weighted hamming distance between two
+    nodes' sequences.
+
+    Args:
+        weight_mat: A transition matrix describing the cost of transitions between bases in ``bases``.
+            For example, with bases ``AGCT-``, ``weight_mat[0][3]`` should contain the cost of a transition
+            from A to T.
+        bases: A sequence of characters describing the order of bases whose transition weights are expressed
+            in ``weight_mat``.
+
+    Returns:
+        A function accepting two :class:`HistoryDagNode` objects ``n1`` and ``n2`` and returning
+        a float: the transition cost from ``n1.label.sequence`` to ``n2.label.sequence``, or 0 if
+        n1 is the UA node.
+    """
+
+    return utils.access_nodefield_default("sequence", 0)(
+        weighted_hamming_distance_from_weight_matrix(weight_mat, bases=bases)
+    )
+
+
+def make_weighted_hamming_count_funcs(weight_mat, bases="AGCT-"):
+    """Returns an :class:`AddFuncDict` for computing weighted parsimony.
+
+    The returned ``AddFuncDict`` is for use with :class:`HistoryDag` objects whose nodes
+    have unambiguous sequences stored in label attributes named ``sequence``.
+
+    Args:
+        weight_mat: A transition matrix describing the cost of transitions between bases in ``bases``.
+            For example, with bases ``AGCT-``, ``weight_mat[0][3]`` should contain the cost of a transition
+            from A to T.
+        bases: A sequence of characters describing the order of bases whose transition weights are expressed
+            in ``weight_mat``.
+
+    Returns:
+        :class:`AddFuncDict` object for computing weighted parsimony.
+    """
+
+    return utils.AddFuncDict(
+        {
+            "start_func": lambda n: 0,
+            "edge_weight_func": make_weighted_hamming_edge_func(
+                weight_mat, bases=bases
+            ),
+            "accum_func": sum,
+        },
+        name="WeightedParsimony",
+    )
 
 
 def sankoff_upward(
@@ -220,6 +290,7 @@ def sankoff_downward(
     compute_cvs=True,
     gap_as_char=False,
     transition_weights=None,
+    trim=True,
 ):
     """Assign sequences to internal nodes of dag using a weighted Sankoff
     algorithm by exploding all possible labelings associated to each internal
@@ -236,6 +307,8 @@ def sankoff_downward(
             transition weight matrices, if transition weights vary by-site. By default, a constant
             weight matrix will be used containing 1 in all off-diagonal positions, equivalent
             to Hamming parsimony.
+        trim: If False, the history DAG will not be trimmed to express only maximally parsimonious
+            histories after Sankoff.
     """
     # this computes cost vectors for each node in an upward sweep of Sankoff
     if compute_cvs:
@@ -338,14 +411,17 @@ def sankoff_downward(
     dag.recompute_parents()
     # still need to trim the dag since the final addition of all
     # parents/children to new nodes can yield suboptimal choices
+
     if transition_weights is not None:
+        weight_func = make_weighted_hamming_edge_func(adj_arr[0], bases=bases)
+    else:
+        weight_func = utils.wrapped_hamming_distance
 
-        def weight_func(x, y):
-            return edge_weight_func_from_weight_matrix(x, y, adj_arr[0], bases)
-
+    if trim:
         optimal_weight = dag.trim_optimal_weight(edge_weight_func=weight_func)
     else:
-        optimal_weight = dag.trim_optimal_weight()
+        optimal_weight = dag.optimal_weight_annotate(edge_weight_func=weight_func)
+
     return optimal_weight
 
 
