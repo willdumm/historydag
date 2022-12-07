@@ -330,6 +330,8 @@ class AddFuncDict(UserDict):
             self.name = name
             self.names = (self.name,)
         elif names is not None:
+            if not isinstance(names, tuple):
+                raise ValueError("``names`` keyword argument expects a tuple.")
             self.names = names
             self.name = None
         if not set(initialdata.keys()) == self.requiredkeys:

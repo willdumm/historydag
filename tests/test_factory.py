@@ -784,3 +784,12 @@ def test_trim_filter():
     print(p_n_f)
     print(pnf_f)
     print(lc_f)
+
+
+def test_weight_range_annotate():
+    kwargs = hdag.utils.hamming_distance_countfuncs
+    for dag in dags:
+        assert dag.weight_range_annotate(**kwargs) == (
+            dag.optimal_weight_annotate(**kwargs, optimal_func=min),
+            dag.optimal_weight_annotate(**kwargs, optimal_func=max),
+        )
