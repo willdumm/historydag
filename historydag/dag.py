@@ -1640,6 +1640,7 @@ class HistoryDag:
         accum_func: Callable[[List[Weight]], Weight] = sum,
         min_func: Callable[[List[Weight]], Weight] = min,
         max_func: Callable[[List[Weight]], Weight] = max,
+        **kwargs,
     ):
         """Computes the minimum and maximum weight of any history in the
         history DAG.

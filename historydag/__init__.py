@@ -8,6 +8,7 @@ from .dag import (  # noqa
     history_dag_from_newicks,
     history_dag_from_etes,
     history_dag_from_histories,
+    history_dag_from_trees,
 )
 
 from . import _version
