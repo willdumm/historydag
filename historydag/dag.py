@@ -29,6 +29,10 @@ from historydag.utils import Weight, Label, UALabel, prod
 from historydag.counterops import counter_sum, counter_prod
 
 
+class IntersectionError(ValueError):
+    pass
+
+
 def _clade_union_dict(nodeseq: Sequence["HistoryDagNode"]) -> Dict:
     clade_dict: Dict[FrozenSet[Label], List[HistoryDagNode]] = {}
     for node in nodeseq:
@@ -669,6 +673,20 @@ class HistoryDag:
     def __ror__(self, other) -> "HistoryDag":
         return other | self
 
+    def __iand__(self, other) -> "HistoryDag":
+        if not isinstance(other, HistoryDag):
+            raise TypeError(
+                f"Unsupported operand types for &: 'HistoryDag' and '{type(other)}'"
+            )
+        else:
+            self.history_intersect(other)
+            return self
+
+    def __and__(self, other) -> "HistoryDag":
+        cdag = self.copy()
+        cdag &= other
+        return cdag
+
     def __getstate__(self) -> Dict:
         r"""Converts HistoryDag to a bytestring-serializable dictionary.
 
@@ -1069,6 +1087,36 @@ class HistoryDag:
         However, other object attributes will not be copied.
         """
         return pickle.loads(pickle.dumps(self))
+
+    def history_intersect(self, other_dag: "HistoryDag", key=lambda n: n):
+        """Modify this HistoryDag to contain only the histories which are also
+        contained in ``other_dag``.
+
+        Args:
+            other_dag: The history DAG with which this one will be intersected. ``other_dag``
+                will not be modified.
+            key: A function accepting a node and returning a value which will be used to compare
+                nodes.
+        """
+
+        edge_set = set(
+            (key(n), key(c)) for n in other_dag.preorder() for c in n.children()
+        )
+
+        def edge_weight_func(n1, n2):
+            return int((key(n1), key(n2)) not in edge_set)
+
+        min_weight = self.trim_optimal_weight(
+            edge_weight_func=edge_weight_func,
+            accum_func=sum,
+            optimal_func=min,
+            start_func=lambda n: 0,
+        )
+        if min_weight > 0:
+            raise IntersectionError(
+                "Provided history DAGs have no histories in common,"
+                " and a history DAG must contain at least one history."
+            )
 
     def merge(self, trees: Union["HistoryDag", Sequence["HistoryDag"]]):
         r"""Graph union this history DAG with all those in a list of history
@@ -2108,7 +2156,114 @@ class HistoryDag:
         kwargs = utils.make_rfdistance_countfuncs(history, rooted=rooted)
         return self.weight_count(**kwargs)
 
+    def count_sum_rf_distances(self, reference_dag: "HistoryDag", rooted: bool = False):
+        """Returns a Counter containing all sum RF distances to a given
+        reference DAG.
+
+        The given history DAG must be on the same taxa as all trees in the DAG.
+
+        Since computing reference splits is expensive, it is better to use
+        :meth:`weight_count` and :meth:`utils.sum_rfdistance_funcs`
+        instead of making multiple calls to this method with the same reference
+        history DAG.
+        """
+        kwargs = utils.sum_rfdistance_funcs(reference_dag)
+        return self.weight_count(**kwargs)
+
     # ######## End Abstract DP method derivatives ########
+
+    def sum_rf_distances(self, reference_dag: "HistoryDag" = None):
+        r"""Computes the sum of all Robinson-Foulds distances between a history
+        in this DAG and a history in the reference DAG.
+
+        This is rooted RF distance.
+
+        If T is the set of histories in the reference DAG, and T' is the set of histories in
+        this DAG, then the returned sum is:
+
+        .. math::
+
+            \sum_{t\in T} \sum_{t'\in T'} d(t, t')
+
+        That is, since RF distance is symmetric, when T = T' (such as when ``reference_dag=None``),
+        or when the intersection of T and T' is nonempty, some distances are counted twice.
+
+        Args:
+            reference_dag: If None, the sum of pairwise distances between histories in this DAG
+                is computed. If provided, the sum is over pairs containing one history in this DAG and
+                one from ``reference_dag``.
+
+        Returns:
+            An integer sum of RF distances.
+        """
+
+        def get_data(dag):
+            n_histories = dag.count_histories()
+            N = dag.count_nodes(collapse=True)
+            for child in dag.dagroot.children():
+                N[child.clade_union()] -= n_histories
+            try:
+                N.pop(frozenset())
+            except KeyError:
+                pass
+
+            clade_count_sum = sum(N.values())
+            return (n_histories, N, clade_count_sum)
+
+        n_histories_prime, N_prime, clade_count_sum_prime = get_data(self)
+
+        if reference_dag is None:
+            n_histories, N, clade_count_sum = (
+                n_histories_prime,
+                N_prime,
+                clade_count_sum_prime,
+            )
+        else:
+            n_histories, N, clade_count_sum = get_data(reference_dag)
+
+        intersection_term = sum(
+            count_prime * N[clade]
+            for clade, count_prime in N_prime.items()
+            if clade in N
+        )
+
+        return (
+            n_histories * clade_count_sum_prime
+            + n_histories_prime * clade_count_sum
+            - 2 * intersection_term
+        )
+
+    def average_pairwise_rf_distance(self, reference_dag: "HistoryDag" = None):
+        """Return the average Robinson-Foulds distance between pairs of
+        histories.
+
+        Args:
+            reference_dag: A history DAG from which to take the second history in
+                each pair. If None, ``self`` will be used as the reference.
+
+        Returns:
+            The average rf-distance between pairs of histories, where the first history
+            comes from this DAG, and the second comes from ``reference_dag``. The normalization
+            constant is the product of the number of histories in the two DAGs.
+
+            If ``reference_dag`` is ``None`, then this method returns the average distance
+            between pairs of non-identical histories in ``self``. Since identical pairs are
+            excluded in this case, ``dag.average_pairwise_distance()`` will not match
+            (and should in general be greater than)
+            ``dag.average_pairwise_distance(reference_dag=dag)``.
+        """
+        sum_pairwise_distance = self.sum_rf_distances(reference_dag=reference_dag)
+        if reference_dag is None:
+            # ignore the diagonal in the distance matrix, since it contains
+            # zeros:
+            n = self.count_histories()
+            normalize_num = n * (n - 1)
+        else:
+            # cannot ignore diagonal:
+            n1 = self.count_histories()
+            n2 = reference_dag.count_histories()
+            normalize_num = n1 * n2
+        return sum_pairwise_distance / normalize_num
 
     def trim_optimal_weight(
         self,

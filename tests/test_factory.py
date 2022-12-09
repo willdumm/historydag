@@ -793,3 +793,29 @@ def test_weight_range_annotate():
             dag.optimal_weight_annotate(**kwargs, optimal_func=min),
             dag.optimal_weight_annotate(**kwargs, optimal_func=max),
         )
+
+def test_sum_all_pair_rf_distance():
+    dag = dags[-1]
+
+    # check 0 on single-tree dag vs itself:
+    assert dag[0].sum_rf_distances() == 0
+    assert dag[0].sum_rf_distances(reference_dag=dag[0]) == 0
+
+    # check matches single rf distance between two single-tree dags:
+    udag = dag.unlabel()
+    assert udag[0].sum_rf_distances(reference_dag=udag[-1]) == udag[
+        0
+    ].optimal_rf_distance(udag[-1])
+
+    # check matches truth on whole DAG vs self:
+    assert dag.sum_rf_distances() == sum(dag.count_sum_rf_distances(dag).elements())
+
+
+def test_intersection():
+    dag = dags[-1]
+    dag1 = hdag.history_dag_from_histories(dag.sample() for _ in range(8)) | dag[0]
+    dag2 = hdag.history_dag_from_histories(dag.sample() for _ in range(8)) | dag[0]
+    idag = dag1 & dag2
+
+    assert len(idag | dag1) == len(dag1)
+    assert len(idag | dag2) == len(dag2)

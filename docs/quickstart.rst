@@ -250,6 +250,34 @@ These operations may also be achieved using the :meth:`HistoryDag.merge` and
 >>> combined_dag = dag1.copy()
 >>> combined_dag.merge(dag2)
 
+Intersecting
+------------
+:class:`HistoryDag` also supports set-style intersection via ``&`` and ``&=``,
+so that the resulting history DAG contains the histories which were in both the
+intersected DAGs. In the following example, notice that both ``dag1`` and
+``dag2`` contain the history ``dag[0]``:
+
+>>> dag1 = dag[0] | (dag.sample() for _ in range(8))
+>>> dag2 = dag[0] | (dag.sample() for _ in range(8))
+>>> idag = dag1 & dag2
+>>> len(idag) >=1
+True
+>>> len(idag | dag1) == len(dag1)
+True
+>>> len(idag | dag2) == len(dag2)
+
+However, since a history DAG must contain at least a single history, empty
+intersections raise a :class:`dag.IntersectionError`:
+
+>>> dag[0] & dag[-1]
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/user/historydag/historydag/dag.py", line 1086, in history_complement
+    raise IntersectionError("The requested complement contains no histories,"
+historydag.dag.IntersectionError: The requested complement contains no histories, and a history DAG must contain at least one history.
+
+The ``&`` operator is shorthand for :meth:`HistoryDag.history_intersect`.
+
 Completion
 ----------
 
