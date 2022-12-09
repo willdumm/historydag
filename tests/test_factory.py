@@ -809,3 +809,12 @@ def test_sum_all_pair_rf_distance():
 
     # check matches truth on whole DAG vs self:
     assert dag.sum_rf_distances() == sum(dag.count_sum_rf_distances(dag).elements())
+
+def test_intersection():
+    dag = dags[-1]
+    dag1 = hdag.history_dag_from_histories(dag.sample() for _ in range(8)) | dag[0]
+    dag2 = hdag.history_dag_from_histories(dag.sample() for _ in range(8)) | dag[0]
+    idag = dag1 & dag2
+
+    assert len(idag | dag1) == len(dag1)
+    assert len(idag | dag2) == len(dag2)
