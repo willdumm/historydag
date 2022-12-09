@@ -385,8 +385,8 @@ number of nodes:
 ... )
 Counter({37: 173})
 
-The AddFuncDict
----------------
+The AddFuncDict Class
+---------------------
 
 Since the interfaces of these three methods are similar, we provide
 a special subclassed dictionary :class:`utils.AddFuncDict` for storing
@@ -435,11 +435,40 @@ A variety of useful :class:`utils.AddFuncDict` objects are provided:
   although this functionality is conveniently wrapped in
   :meth:`HistoryDag.to_newick` and :meth:`HistoryDag.to_newicks`.
 
+The HistoryDagFilter Class
+---------------------------
+
+In addition to an edge weight function, history DAG methods like
+:meth:`HistoryDag.trim_optimal_weight` require a choice of ``optimal_func``,
+usually specifying whether to minimize or maximize the weight of histories.
+
+The :class:`utils.HistoryDagFilter` class provides a container for
+a :class:`utils.AddFuncDict` and an ``optimal_func``, and provides a similar
+interface as :class:`utils.AddFuncDict`, allowing keyword argument unpacking:
+
+>>> dag.weight_count(**node_count_funcs)
+Counter({35: 17, 36: 325, 37: 173})
+>>> min_nodes = hdag.utils.HistoryDagFilter(node_count_funcs, min)
+>>> print(min_parsimony)
+HistoryDagFilter[minimum NodeCount]
+>>> dag.optimal_weight_annotate(**min_nodes)
+35
+
+However, :class:`utils.HistoryDagFilter` can also be used in history DAG
+filtering syntax, which is equivalent to calling
+:meth:`HistoryDag.trim_optimal_weight` on a copy:
+
+>>> filtered_dag = dag[min_nodes]
+>>> filtered_dag.weight_count(**min_nodes)
+Counter({35: 17})
+
+
 Combining Weights
 -----------------
 
-The primary advantage of a :class:`utils.AddFuncDict` object over a plain
-dictionary is its composability via the ``+`` operator.
+The primary advantage of a :class:`utils.AddFuncDict` and
+:class:`utils.HistoryDagFilter` objects over a plain
+dictionary are their composability via the ``+`` operator.
 
 Addition of two ``AddFuncDict`` objects returns a new ``AddFuncDict`` which
 computes the weights implemented by the original two ``AddFuncDict``'s
@@ -467,8 +496,43 @@ order of addition (note that nested tuples are avoided). The names of each
 weight are stored in the ``names`` attribute of the resulting data structure:
 
 >>> kwargs = utils.hamming_distance_countfuncs + utils.node_countfuncs
+>>> print(kwargs)
+AddFuncDict[HammingParsimony, NodeCount]
 >>> kwargs.names
 ('HammingParsimony', 'NodeCount')
+
+
+Similary, addition of two ``HistoryDagFilter`` objects returns a new
+``HistoryDagFilter`` which implements the added ``HistoryDagFilter`` operations
+sequentially. The contained ``AddFuncDict`` is the sum of the original two
+``AddFuncDicts``, so computes the weights implemented by
+the original two ``AddFuncDict``'s simultaneously, storing them in a tuple.
+
+>>> min_parsimony = utils.HistoryDagFilter(utils.hamming_distance_countfuncs, min)
+>>> max_node_count = utils.HistoryDagFilter(utils.node_countfuncs, max)
+>>> my_filter = min_parsimony + max_node_count
+>>> dag.weight_count(**my_filter)
+Counter({(73, 35): 17, (73, 36): 320, (74, 36): 5, (74, 37): 112, (73, 37): 61})
+>>> dag.trim_optimal_weight(**my_filter)
+(73, 37)
+
+The last expression above is faster than, but equivalent to:
+
+>>> dag.trim_optimal_weight(**min_parsimony)
+73
+>>> dag.trim_optimal_weight(**max_node_count)
+37
+
+Using filtering syntax, we can conveniently do the same thing without modifying the DAG
+in-place:
+
+>>> filtered_dag = dag[my_filter]
+
+The filter object can describe itself:
+
+>>> print(my_filter)
+HistoryDagFilter[minimum HammingParsimony then maximum NodeCount]
+
 
 Exporting Tree Data
 ===================
@@ -493,8 +557,8 @@ History DAGs, including histories, can also be easily visualized using the
 :meth:`HistoryDag.to_graphviz` method.
 
 
-TLDR: A Quick Tour
-==================
+A Quick Tour
+============
 
 In this package, the history DAG is a recursive data structure consisting of
 :class:`historydag.HistoryDagNode` objects storing label, clade, and adjacency

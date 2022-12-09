@@ -43,7 +43,10 @@ class CompactGenome:
         return not self.__lt__(other)
 
     def __repr__(self):
-        return f"CompactGenome({self.mutations}, '{self.reference}')"
+        return (
+            f"CompactGenome({self.mutations},"
+            f" <reference sequence str with id:{id(self.reference)}>)"
+        )
 
     def __str__(self):
         return f"CompactGenome[{', '.join(self.mutations_as_strings())}]"
@@ -89,6 +92,8 @@ class CompactGenome:
                     self.reference,
                 )
         else:
+            if self.reference[idx - 1] != oldbase:
+                warn("recorded old base in reference sequence doesn't match old base")
             return CompactGenome(
                 self.mutations.set(idx, (oldbase, newbase)), self.reference
             )
@@ -102,15 +107,23 @@ class CompactGenome:
         match the recorded old base in this compact genome.
 
         Args:
-            muts: The mutations to apply
+            muts: The mutations to apply, in the order they should be applied
             reverse: Apply the mutations in reverse, such as when the provided mutations
                 describe how to achieve this CompactGenome from the desired CompactGenome.
+                If True, the mutations in `muts` will also be applied in reversed order.
 
         Returns:
             The new CompactGenome
         """
         newcg = self
-        for mut in muts:
+        if reverse:
+            mod_func = reversed
+        else:
+
+            def mod_func(seq):
+                yield from seq
+
+        for mut in mod_func(muts):
             newcg = newcg.mutate(mut, reverse=reverse)
         return newcg
 

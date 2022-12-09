@@ -528,16 +528,30 @@ class HistoryDag:
 
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the history (tree-shaped sub-history DAG) in the current
-        history dag corresponding to the given index."""
-        length = self.count_histories()
-        if key < 0:
-            key = length + key
-        if isinstance(key, slice) or not type(key) == int:
-            raise TypeError(f"History DAG indices must be integers, not {type(key)}")
-        if not (key >= 0 and key < length):
-            raise IndexError
-        self.count_histories()
-        return self.__class__(self.dagroot._get_subhistory_by_subid(key))
+        history dag corresponding to the given index.
+
+        Alternatively, if ``key`` is a :class:`utils.HistoryDagFilter`
+        object, the returned history DAG is the result of
+        ``dag.trim_optimal_weight(**key)`` where ``dag`` is a copy of
+        ``self``.
+        """
+        if isinstance(key, utils.HistoryDagFilter):
+            dag = self.copy()
+            dag.trim_optimal_weight(**key)
+            return dag
+        elif isinstance(key, int):
+            length = self.count_histories()
+            if key < 0:
+                key = length + key
+            if not (key >= 0 and key < length):
+                raise IndexError
+            self.count_histories()
+            return self.__class__(self.dagroot._get_subhistory_by_subid(key))
+        else:
+            raise TypeError(
+                f"History DAG indices must be integers or utils.HistoryDagFilter"
+                f" objects, not {type(key)}"
+            )
 
     def get_label_type(self) -> type:
         """Return the type for labels on this dag's nodes."""
@@ -823,7 +837,12 @@ class HistoryDag:
 
     def get_leaves(self) -> Generator["HistoryDag", None, None]:
         """Return a generator containing all leaf nodes in the history DAG."""
-        return (node for node in self.postorder() if node.is_leaf())
+        return self.find_nodes(HistoryDagNode.is_leaf)
+
+    def num_edges(self) -> int:
+        """Return the number of edges in the DAG, including edges descending
+        from the UA node."""
+        return sum(len(list(n.children())) for n in self.preorder())
 
     def num_nodes(self) -> int:
         """Return the number of nodes in the DAG, not counting the UA node."""
@@ -832,6 +851,25 @@ class HistoryDag:
     def num_leaves(self) -> int:
         """Return the number of leaf nodes in the DAG."""
         return sum(1 for _ in self.get_leaves())
+
+    def find_nodes(
+        self, filter_func: Callable[[HistoryDagNode], bool]
+    ) -> Generator["HistoryDagNode", None, None]:
+        """Return a generator on (non-UA) nodes for which ``filter_func``
+        evaluates to True."""
+        for node in self.preorder(skip_ua_node=True):
+            if filter_func(node):
+                yield node
+
+    def find_node(
+        self, filter_func: Callable[[HistoryDagNode], bool]
+    ) -> HistoryDagNode:
+        """Return the first (non-UA) node for which ``filter_func`` evaluates
+        to True."""
+        try:
+            return next(self.find_nodes(filter_func))
+        except StopIteration:
+            raise ValueError("No matching node found.")
 
     def sample(self, edge_selector=lambda e: True) -> "HistoryDag":
         r"""Samples a history from the history DAG. (A history is a sub-history
@@ -1450,9 +1488,22 @@ class HistoryDag:
 
     def summary(self):
         """Print nicely formatted summary about the history DAG."""
-        print(f"Nodes:\t{sum(1 for _ in self.postorder())}")
-        print(f"Trees:\t{self.count_histories()}")
-        utils.hist(self.weight_counts_with_ambiguities())
+        print(type(self))
+        print(f"Nodes:\t{self.num_nodes()}")
+        print(f"Edges:\t{self.num_edges()}")
+        print(f"Histories:\t{self.count_histories()}")
+        print(f"Unique leaves in DAG:\t{self.num_leaves()}")
+        print(
+            f"Average number of parents of internal nodes:\t{self.internal_avg_parents()}"
+        )
+
+        print("\nIn histories in the DAG:")
+        min_leaves, max_leaves = self.weight_range_annotate(
+            edge_weight_func=lambda n1, n2: n2.is_leaf()
+        )
+        print(f"Leaf node count range: {min_leaves} to {max_leaves}")
+        min_nodes, max_nodes = self.weight_range_annotate(**utils.node_countfuncs)
+        print(f"Total node count range: {min_nodes} to {max_nodes}")
 
     def label_uncertainty_summary(self):
         """Print information about internal nodes which have the same child
@@ -1545,6 +1596,7 @@ class HistoryDag:
         ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
+        **kwargs,
     ) -> Weight:
         r"""A template method for finding the optimal tree weight in the DAG.
         Dynamically annotates each node in the DAG with the optimal weight of a
@@ -1577,6 +1629,7 @@ class HistoryDag:
             ["HistoryDagNode", "HistoryDagNode"], Weight
         ] = utils.wrapped_hamming_distance,
         accum_func: Callable[[List[Weight]], Weight] = sum,
+        **kwargs,
     ):
         r"""A template method for counting weights of trees expressed in the
         history DAG.
@@ -1597,6 +1650,53 @@ class HistoryDag:
             lambda n1, n2: Counter([edge_weight_func(n1, n2)]),
             counter_sum,
             lambda x: counter_prod(x, accum_func),
+        )
+
+    def weight_range_annotate(
+        self,
+        edge_weight_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight],
+        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
+        accum_func: Callable[[List[Weight]], Weight] = sum,
+        min_func: Callable[[List[Weight]], Weight] = min,
+        max_func: Callable[[List[Weight]], Weight] = max,
+        **kwargs,
+    ):
+        """Computes the minimum and maximum weight of any history in the
+        history DAG.
+
+        As a side-effect, this method also stores in each node's ``_dp_data`` attribute
+        a tuple containing the minimum and maximum weights of any sub-history beneath that node.
+
+        Args:
+            edge_func: A function which assigns a weight to pairs of labels, with the
+                parent node label the first argument
+            start_func: A function which assigns a weight to each leaf node
+            accum_func: A way to 'add' a list of weights together
+            min_func: A function which takes a list of weights and returns their "minimum"
+            max_func: A function which takes a list of weights and returns their "maximum"
+
+        Returns:
+            A tuple containing the minimum and maximum weight of any history in the history DAG.
+        """
+        single_kwarg = utils.AddFuncDict(
+            {
+                "start_func": start_func,
+                "edge_weight_func": edge_weight_func,
+                "accum_func": accum_func,
+            },
+            name="Weight",
+        )
+
+        pair_kwarg = single_kwarg + single_kwarg
+
+        def accum_within_clade(weight_list):
+            return (
+                min_func([t[0] for t in weight_list]),
+                max_func([t[1] for t in weight_list]),
+            )
+
+        return self.optimal_weight_annotate(
+            optimal_func=accum_within_clade, **pair_kwarg
         )
 
     def hamming_parsimony_count(self):
