@@ -2110,6 +2110,54 @@ class HistoryDag:
 
     # ######## End Abstract DP method derivatives ########
 
+    def sum_rf_distances(self, reference_dag=None: "HistoryDag"):
+        """Computes the sum of all Robinson-Foulds distances between a history in this DAG
+        and a history in the reference DAG.
+
+        This is rooted RF distance.
+
+        If T is the set of histories in the reference DAG, and T' is the set of histories in
+        this DAG, then the returned sum is:
+
+        .. math::
+
+            \sum_{t\in T} \sum_{t'\in T'} d(t, t')
+
+        That is, since RF distance is symmetric, when T = T' (such as when ``reference_dag=None``),
+        or when the intersection of T and T' is nonempty, some distances are counted twice.
+
+        Args:
+            reference_dag: If None, the sum of pairwise distances between histories in this DAG
+                is computed. If provided, the sum is over pairs containing one history in this DAG and
+                one from ``reference_dag``.
+
+        Returns:
+            An integer sum of RF distances.
+        """
+
+        def get_data(dag):
+            n_histories = dag.count_histories()
+            N = reference_dag.count_nodes(collapse=True)
+            for child in reference_dag.dagroot.children():
+                N[child.clade_union()] -= n_histories
+            try:
+                N.pop(frozenset())
+            except KeyError:
+                pass
+            return (n_histories, N)
+            
+
+        n_histories_prime, N_prime = get_data(self)
+        
+        if reference_dag is None:
+            n_histories, N = n_histories_prime, N_prime
+        else:
+            n_histories, N = get_data(reference_dag)
+
+        re
+
+
+
     def trim_optimal_weight(
         self,
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
