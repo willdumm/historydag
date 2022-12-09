@@ -526,31 +526,32 @@ class HistoryDag:
         # identical trees return True. TODO
         raise NotImplementedError
 
-    def __iand__(self, other: object) -> "HistoryDag":
-        if not isinstance(other, utils.HistoryDagFilter):
-            raise TypeError(
-                f"Filtering a HistoryDag object requires a HistoryDagFilter object, not f{type(other)}"
-            )
-        self.trim_optimal_weight(**other)
-        return self
-
-    def __and__(self, other: object) -> "HistoryDag":
-        outdag = self.copy()
-        outdag &= other
-        return outdag
-
     def __getitem__(self, key) -> "HistoryDag":
         r"""Returns the history (tree-shaped sub-history DAG) in the current
-        history dag corresponding to the given index."""
-        length = self.count_histories()
-        if key < 0:
-            key = length + key
-        if isinstance(key, slice) or not type(key) == int:
-            raise TypeError(f"History DAG indices must be integers, not {type(key)}")
-        if not (key >= 0 and key < length):
-            raise IndexError
-        self.count_histories()
-        return self.__class__(self.dagroot._get_subhistory_by_subid(key))
+        history dag corresponding to the given index.
+
+        Alternatively, if ``key`` is a :class:`utils.HistoryDagFilter`
+        object, the returned history DAG is the result of
+        ``dag.trim_optimal_weight(**key)`` where ``dag`` is a copy of
+        ``self``.
+        """
+        if isinstance(key, utils.HistoryDagFilter):
+            dag = self.copy()
+            dag.trim_optimal_weight(**key)
+            return dag
+        elif isinstance(key, int):
+            length = self.count_histories()
+            if key < 0:
+                key = length + key
+            if not (key >= 0 and key < length):
+                raise IndexError
+            self.count_histories()
+            return self.__class__(self.dagroot._get_subhistory_by_subid(key))
+        else:
+            raise TypeError(
+                f"History DAG indices must be integers or utils.HistoryDagFilter"
+                f" objects, not {type(key)}"
+            )
 
     def get_label_type(self) -> type:
         """Return the type for labels on this dag's nodes."""
@@ -1489,16 +1490,20 @@ class HistoryDag:
         """Print nicely formatted summary about the history DAG."""
         print(type(self))
         print(f"Nodes:\t{self.num_nodes()}")
-        print(f"Nodes:\t{self.num_edges()}")
-        print(f"Trees:\t{self.count_histories()}")
-        print(f"Leaves:\t{self.num_leaves()}")
-        min_nodes, max_nodes = self.weight_range_annotate(**utils.node_countfuncs)
-        print(
-            f"Smallest tree has {min_nodes} nodes, largest tree has {max_nodes} nodes"
-        )
+        print(f"Edges:\t{self.num_edges()}")
+        print(f"Histories:\t{self.count_histories()}")
+        print(f"Unique leaves in DAG:\t{self.num_leaves()}")
         print(
             f"Average number of parents of internal nodes:\t{self.internal_avg_parents()}"
         )
+
+        print("\nIn histories in the DAG:")
+        min_leaves, max_leaves = self.weight_range_annotate(
+            edge_weight_func=lambda n1, n2: n2.is_leaf()
+        )
+        print(f"Leaf node count range: {min_leaves} to {max_leaves}")
+        min_nodes, max_nodes = self.weight_range_annotate(**utils.node_countfuncs)
+        print(f"Total node count range: {min_nodes} to {max_nodes}")
 
     def label_uncertainty_summary(self):
         """Print information about internal nodes which have the same child

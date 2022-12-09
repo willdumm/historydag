@@ -751,16 +751,16 @@ def test_trim_filter():
     node_f = hdag.utils.HistoryDagFilter(node_d, max)
     p_n_f = pars_f + node_f
 
-    assert ((cdag & pars_f) & node_f).weight_count(**p_n_f) == (
-        cdag & p_n_f
-    ).weight_count(**p_n_f)
+    assert (cdag[pars_f][node_f]).weight_count(**p_n_f) == (cdag[p_n_f]).weight_count(
+        **p_n_f
+    )
     print("sequential trimming is the same as trimming with sum of filters")
     # >>
     rf_d = hdag.utils.make_rfdistance_countfuncs(dag[25])
     rf_f = hdag.utils.HistoryDagFilter(rf_d, min)
 
     pnf_f = p_n_f + rf_f
-    assert ((cdag & p_n_f) & rf_f).weight_count(**pnf_f) == (cdag & pnf_f).weight_count(
+    assert (cdag[p_n_f][rf_f]).weight_count(**pnf_f) == (cdag[pnf_f]).weight_count(
         **pnf_f
     )
     print("sequential addition of Filters works")
@@ -775,7 +775,7 @@ def test_trim_filter():
         for w in weights.elements()
         if sum(c * ww for c, ww in zip([1, 2, 0], w)) == min_weight
     )
-    assert (cdag & lc_f).weight_count(**pnf_f) == min_weights
+    assert (cdag[lc_f]).weight_count(**pnf_f) == min_weights
     print("linear combination trimming works")
 
     # >>

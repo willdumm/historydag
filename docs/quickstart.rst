@@ -458,7 +458,7 @@ However, :class:`utils.HistoryDagFilter` can also be used in history DAG
 filtering syntax, which is equivalent to calling
 :meth:`HistoryDag.trim_optimal_weight` on a copy:
 
->>> filtered_dag = dag & min_nodes
+>>> filtered_dag = dag[min_nodes]
 >>> filtered_dag.weight_count(**min_nodes)
 Counter({35: 17})
 
@@ -523,10 +523,10 @@ The last expression above is faster than, but equivalent to:
 >>> dag.trim_optimal_weight(**max_node_count)
 37
 
-Using filtering syntax, we can do the same thing without modifying the DAG
+Using filtering syntax, we can conveniently do the same thing without modifying the DAG
 in-place:
 
->>> filtered_dag = dag & my_filter
+>>> filtered_dag = dag[my_filter]
 
 The filter object can describe itself:
 
