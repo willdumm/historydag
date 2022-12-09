@@ -1552,6 +1552,7 @@ class HistoryDag:
         print(f"Leaf node count range: {min_leaves} to {max_leaves}")
         min_nodes, max_nodes = self.weight_range_annotate(**utils.node_countfuncs)
         print(f"Total node count range: {min_nodes} to {max_nodes}")
+        print(f"Average pairwise RF distance:\t{self.average_pairwise_rf_distance()}")
 
     def label_uncertainty_summary(self):
         """Print information about internal nodes which have the same child

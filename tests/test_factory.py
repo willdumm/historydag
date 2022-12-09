@@ -794,6 +794,7 @@ def test_weight_range_annotate():
             dag.optimal_weight_annotate(**kwargs, optimal_func=max),
         )
 
+
 def test_sum_all_pair_rf_distance():
     dag = dags[-1]
 
