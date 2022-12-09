@@ -2108,11 +2108,24 @@ class HistoryDag:
         kwargs = utils.make_rfdistance_countfuncs(history, rooted=rooted)
         return self.weight_count(**kwargs)
 
+    def count_sum_rf_distances(self, reference_dag: "HistoryDag", rooted: bool = False):
+        """Returns a Counter containing all sum RF distances to a given reference DAG.
+
+        The given history DAG must be on the same taxa as all trees in the DAG.
+
+        Since computing reference splits is expensive, it is better to use
+        :meth:`weight_count` and :meth:`utils.sum_rfdistance_funcs`
+        instead of making multiple calls to this method with the same reference
+        history DAG.
+        """
+        kwargs = utils.sum_rfdistance_funcs(reference_dag)
+        return self.weight_count(**kwargs)
+
     # ######## End Abstract DP method derivatives ########
 
-    def sum_rf_distances(self, reference_dag=None: "HistoryDag"):
-        """Computes the sum of all Robinson-Foulds distances between a history in this DAG
-        and a history in the reference DAG.
+    def sum_rf_distances(self, reference_dag: "HistoryDag" = None):
+        r"""Computes the sum of all Robinson-Foulds distances between a history
+        in this DAG and a history in the reference DAG.
 
         This is rooted RF distance.
 
@@ -2137,26 +2150,35 @@ class HistoryDag:
 
         def get_data(dag):
             n_histories = dag.count_histories()
-            N = reference_dag.count_nodes(collapse=True)
-            for child in reference_dag.dagroot.children():
+            N = dag.count_nodes(collapse=True)
+            for child in dag.dagroot.children():
                 N[child.clade_union()] -= n_histories
             try:
                 N.pop(frozenset())
             except KeyError:
                 pass
-            return (n_histories, N)
-            
 
-        n_histories_prime, N_prime = get_data(self)
-        
+            clade_count_sum = sum(N.values())
+            return (n_histories, N, clade_count_sum)
+
+        n_histories_prime, N_prime, clade_count_sum_prime = get_data(self)
+
         if reference_dag is None:
-            n_histories, N = n_histories_prime, N_prime
+            n_histories, N, clade_count_sum = n_histories_prime, N_prime, clade_count_sum_prime
         else:
-            n_histories, N = get_data(reference_dag)
+            n_histories, N, clade_count_sum = get_data(reference_dag)
 
-        re
+        intersection_term = sum(
+            count_prime * N[clade]
+            for clade, count_prime in N_prime.items()
+            if clade in N
+        )
 
-
+        return (
+            n_histories * clade_count_sum_prime
+            + n_histories_prime * clade_count_sum
+            - 2 * intersection_term
+        )
 
     def trim_optimal_weight(
         self,
