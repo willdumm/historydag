@@ -2201,8 +2201,6 @@ class HistoryDag:
         def get_data(dag):
             n_histories = dag.count_histories()
             N = dag.count_nodes(collapse=True)
-            for child in dag.dagroot.children():
-                N[child.clade_union()] -= n_histories
             try:
                 N.pop(frozenset())
             except KeyError:
