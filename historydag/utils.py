@@ -601,16 +601,18 @@ For use with :meth:`historydag.HistoryDag.weight_count`."""
 
 
 def natural_edge_probability(parent, child):
-    """Return the downward-conditional edge probability
-    of the edge from parent to child.
+    """Return the downward-conditional edge probability of the edge from parent
+    to child.
 
-    This is defined as 1/n, where n is the number of
-    edges descending from the same child clade of ``parent`` as this edge."""
+    This is defined as 1/n, where n is the number of edges descending
+    from the same child clade of ``parent`` as this edge.
+    """
     if parent.is_ua_node():
         return 1 / len(list(parent.children()))
     else:
         eset = parent.clades[child.clade_union()]
         return 1 / len(eset.targets)
+
 
 log_natural_probability_funcs = AddFuncDict(
     {
@@ -622,7 +624,7 @@ log_natural_probability_funcs = AddFuncDict(
 )
 """Provides functions to count the probabilities of histories in a DAG,
 according to the natural distribution induced by the DAG topology."""
-            
+
 
 def sum_rfdistance_funcs(reference_dag: "HistoryDag"):
     """Provides functions to compute the sum over all histories in the provided
@@ -642,7 +644,6 @@ def sum_rfdistance_funcs(reference_dag: "HistoryDag"):
     The weights are represented by an IntState object and are shifted by a constant K,
     which is the sum of number of clades in each tree in the DAG.
     """
-    n_histories = reference_dag.count_histories()
     N = reference_dag.count_nodes(collapse=True)
 
     # Remove the UA node clade union from N

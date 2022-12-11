@@ -498,7 +498,6 @@ def test_rf_rooted_distances():
 
         weight_to_self = ref_tree.optimal_weight_annotate(**weight_kwargs)
         if not (weight_to_self == 0):
-            print(ref_tree_ete)
             print("nonzero distance to self in this tree ^^: ", weight_to_self)
             assert False
 
@@ -508,32 +507,6 @@ def test_rf_rooted_distances():
         assert Counter(rf_distance(tree) for tree in dag) == dag.weight_count(
             **weight_kwargs
         )
-        
-        # if Counter(rf_distance(tree) for tree in dag) != dag.weight_count(
-        #     **weight_kwargs
-        # ):
-        #     print("label format ", next(dag.postorder()).label)
-        #     for tree in dag:
-        #         thistree = tree.to_ete(features=["sequence"])
-        #         tree_taxa = {n.sequence for n in thistree.get_leaves()}
-        #         if tree_taxa != ref_taxa:
-        #             continue
-        #         ref_dist = rf_distance(tree)
-        #         comp_dist = tree.optimal_weight_annotate(**weight_kwargs)
-        #         if ref_dist != comp_dist:
-        #             for node in thistree.get_leaves():
-        #                 node.name = node.sequence
-        #                 # node.name = str(namedict[node.sequence])
-        #             for node in ref_tree_ete.get_leaves():
-        #                 node.name = node.sequence
-        #                 # node.name = str(namedict[node.sequence])
-        #             print("reference tree:")
-        #             print(ref_tree_ete)
-        #             print("this tree:")
-        #             print(thistree)
-        #             print("correct RF: ", ref_dist)
-        #             print("computed RF: ", comp_dist)
-        #             assert False
 
 
 def test_rf_unrooted_distances():
