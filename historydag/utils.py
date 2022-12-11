@@ -1,6 +1,7 @@
 """Utility functions and classes for working with HistoryDag objects."""
 
 import ete3
+from math import log
 from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 from functools import wraps
@@ -599,6 +600,30 @@ node_countfuncs = AddFuncDict(
 For use with :meth:`historydag.HistoryDag.weight_count`."""
 
 
+def natural_edge_probability(parent, child):
+    """Return the downward-conditional edge probability
+    of the edge from parent to child.
+
+    This is defined as 1/n, where n is the number of
+    edges descending from the same child clade of ``parent`` as this edge."""
+    if parent.is_ua_node():
+        return 1 / len(list(parent.children()))
+    else:
+        eset = parent.clades[child.clade_union()]
+        return 1 / len(eset.targets)
+
+log_natural_probability_funcs = AddFuncDict(
+    {
+        "start_func": lambda n: 0,
+        "edge_weight_func": lambda n1, n2: log(natural_edge_probability(n1, n2)),
+        "accum_func": sum,
+    },
+    name="LogNaturalProbability",
+)
+"""Provides functions to count the probabilities of histories in a DAG,
+according to the natural distribution induced by the DAG topology."""
+            
+
 def sum_rfdistance_funcs(reference_dag: "HistoryDag"):
     """Provides functions to compute the sum over all histories in the provided
     reference DAG, of rooted RF distances to those histories.
@@ -620,10 +645,6 @@ def sum_rfdistance_funcs(reference_dag: "HistoryDag"):
     n_histories = reference_dag.count_histories()
     N = reference_dag.count_nodes(collapse=True)
 
-    # adjust clade union counts appearing on tree root nodes
-    for child in reference_dag.dagroot.children():
-        N[child.clade_union()] -= n_histories
-
     # Remove the UA node clade union from N
     try:
         N.pop(frozenset())
@@ -639,16 +660,13 @@ def sum_rfdistance_funcs(reference_dag: "HistoryDag"):
         return IntState(n + K, state=n)
 
     def edge_func(n1, n2):
-        if n1.is_ua_node():
-            return make_intstate(0)
+        clade = n2.clade_union()
+        if clade in N:
+            weight = num_trees - (2 * N[n2.clade_union()])
         else:
-            clade = n2.clade_union()
-            if clade in N:
-                weight = num_trees - (2 * N[n2.clade_union()])
-            else:
-                # This clade's count should then just be 0:
-                weight = num_trees
-            return make_intstate(weight)
+            # This clade's count should then just be 0:
+            weight = num_trees
+        return make_intstate(weight)
 
     kwargs = AddFuncDict(
         {
@@ -667,8 +685,13 @@ def make_rfdistance_countfuncs(ref_tree: "HistoryDag", rooted: bool = False):
     """Provides functions to compute Robinson-Foulds (RF) distances of trees in
     a DAG, relative to a fixed reference tree.
 
-    We use :meth:`ete3.TreeNode.robinson_foulds` as the reference implementation for both
-    rooted and unrooted RF distance.
+    We use :meth:`ete3.TreeNode.robinson_foulds` as the reference implementation for
+    unrooted RF distance.
+
+    Rooted Robinson-Foulds is simply the cardinality of the symmetric difference of
+    the clade sets of two trees, including the root clade.
+    Since we include the root clade in this calculation, our rooted RF distance does
+    not match the rooted :meth:`ete3.TreeNode.robinson_foulds` implementation.
 
     Args:
         ref_tree: A tree with respect to which Robinson-Foulds distance will be computed.
@@ -756,17 +779,13 @@ def make_rfdistance_countfuncs(ref_tree: "HistoryDag", rooted: bool = False):
         ref_cus = frozenset(
             node.clade_union() for node in ref_tree.preorder(skip_ua_node=True)
         )
-        ref_cus = ref_cus - {
-            taxa,
-        }
+
         shift = len(ref_cus)
 
         def make_intstate(n):
             return IntState(n + shift, state=n)
 
         def edge_func(n1, n2):
-            if n1.is_ua_node():
-                return make_intstate(0)
             if n2.clade_union() in ref_cus:
                 return make_intstate(-1)
             else:

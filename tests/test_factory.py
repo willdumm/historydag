@@ -485,23 +485,17 @@ def test_relabel():
     assert dag.weight_count() == odag.weight_count()
 
 
+def rooted_rf_distance(history1, history2):
+    cladeset1 = {n.clade_union() for n in history1.preorder(skip_ua_node=True)}
+    cladeset2 = {n.clade_union() for n in history2.preorder(skip_ua_node=True)}
+    return len(cladeset1 ^ cladeset2)
+
+
 def test_rf_rooted_distances():
     for dag in dags:
         ref_tree = dag.sample()
         weight_kwargs = dagutils.make_rfdistance_countfuncs(ref_tree, rooted=True)
-        ref_tree_ete = ref_tree.to_ete(features=["sequence"])
 
-        def add_root(tree):
-            newroot = ete3.TreeNode()
-            newroot.add_feature("sequence", "")
-            newroot.add_child(tree)
-            return newroot
-
-        ref_tree_ete = add_root(ref_tree_ete)
-
-        for node in ref_tree_ete.traverse():
-            node.name = node.sequence
-        ref_taxa = {n.sequence for n in ref_tree_ete.get_leaves()}
         weight_to_self = ref_tree.optimal_weight_annotate(**weight_kwargs)
         if not (weight_to_self == 0):
             print(ref_tree_ete)
@@ -509,37 +503,37 @@ def test_rf_rooted_distances():
             assert False
 
         def rf_distance(intree):
-            intreeete = intree.to_ete(features=["sequence"])
-            intreeete = add_root(intreeete)
-            return ref_tree_ete.robinson_foulds(
-                intreeete, attr_t1="sequence", attr_t2="sequence", unrooted_trees=False
-            )[0]
+            return rooted_rf_distance(intree, ref_tree)
 
-        if Counter(rf_distance(tree) for tree in dag) != dag.weight_count(
+        assert Counter(rf_distance(tree) for tree in dag) == dag.weight_count(
             **weight_kwargs
-        ):
-            print("label format ", next(dag.postorder()).label)
-            for tree in dag:
-                thistree = tree.to_ete(features=["sequence"])
-                tree_taxa = {n.sequence for n in thistree.get_leaves()}
-                if tree_taxa != ref_taxa:
-                    continue
-                ref_dist = rf_distance(tree)
-                comp_dist = tree.optimal_weight_annotate(**weight_kwargs)
-                if ref_dist != comp_dist:
-                    for node in thistree.get_leaves():
-                        node.name = node.sequence
-                        # node.name = str(namedict[node.sequence])
-                    for node in ref_tree_ete.get_leaves():
-                        node.name = node.sequence
-                        # node.name = str(namedict[node.sequence])
-                    print("reference tree:")
-                    print(ref_tree_ete)
-                    print("this tree:")
-                    print(thistree)
-                    print("correct RF: ", ref_dist)
-                    print("computed RF: ", comp_dist)
-                    assert False
+        )
+        
+        # if Counter(rf_distance(tree) for tree in dag) != dag.weight_count(
+        #     **weight_kwargs
+        # ):
+        #     print("label format ", next(dag.postorder()).label)
+        #     for tree in dag:
+        #         thistree = tree.to_ete(features=["sequence"])
+        #         tree_taxa = {n.sequence for n in thistree.get_leaves()}
+        #         if tree_taxa != ref_taxa:
+        #             continue
+        #         ref_dist = rf_distance(tree)
+        #         comp_dist = tree.optimal_weight_annotate(**weight_kwargs)
+        #         if ref_dist != comp_dist:
+        #             for node in thistree.get_leaves():
+        #                 node.name = node.sequence
+        #                 # node.name = str(namedict[node.sequence])
+        #             for node in ref_tree_ete.get_leaves():
+        #                 node.name = node.sequence
+        #                 # node.name = str(namedict[node.sequence])
+        #             print("reference tree:")
+        #             print(ref_tree_ete)
+        #             print("this tree:")
+        #             print(thistree)
+        #             print("correct RF: ", ref_dist)
+        #             print("computed RF: ", comp_dist)
+        #             assert False
 
 
 def test_rf_unrooted_distances():
