@@ -2262,7 +2262,7 @@ class HistoryDag:
             n1 = self.count_histories()
             n2 = reference_dag.count_histories()
             normalize_num = n1 * n2
-        return sum_pairwise_distance / normalize_num
+        return sum_pairwise_distance / max(1, normalize_num)
 
     def trim_optimal_weight(
         self,
