@@ -170,7 +170,10 @@ def sankoff_postorder_iter_accum(
     if any(postorder_iter):
         for node in postorder_iter:
             if node.is_leaf():
-                node._dp_data = {"cost_vectors": child_node_function(node), "subtree_cost": 0}
+                node._dp_data = {
+                    "cost_vectors": child_node_function(node),
+                    "subtree_cost": 0,
+                }
             else:
                 node._dp_data = node_clade_function(
                     [
@@ -187,6 +190,7 @@ def sankoff_postorder_iter_accum(
 
 def sankoff_upward(
     node_list,
+    seq_len,
     gap_as_char=False,
     transition_weights=None,
     use_internal_node_sequences=False,
@@ -221,7 +225,6 @@ def sankoff_upward(
                 return char
 
     if isinstance(node_list, ete3.TreeNode):
-        seq_len = len(next(node_list.iter_leaves()).sequence)
         adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
 
         # First pass of Sankoff: compute cost vectors
@@ -252,11 +255,6 @@ def sankoff_upward(
     elif isinstance(node_list, HistoryDag):
         node_list = list(node_list.postorder())
     if isinstance(node_list, list):
-        seq_len = 0
-        for n in node_list:
-            if n.is_leaf():
-                seq_len = len(n.label.sequence)
-                break
         adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
         max_transition_cost = np.amax(adj_arr) * seq_len
 
@@ -340,20 +338,18 @@ def sankoff_downward(
         trim: If False, the history DAG will not be trimmed to express only maximally parsimonious
             histories after Sankoff.
     """
+
+    seq_len = len(next(dag.get_leaves()).label.sequence)
     if partial_node_list is None:
         partial_node_list = list(dag.postorder())
     if compute_cvs:
         sankoff_upward(
             partial_node_list,
+            seq_len,
             gap_as_char=gap_as_char,
             transition_weights=transition_weights,
         )
     # save the field names/types of the label datatype for this dag
-    seq_len = 0
-    for n in dag.postorder():
-        if n.is_leaf():
-            seq_len = len(n.label.sequence)
-            break
     adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
     inverse_bases = {i: s for s, i in enumerate(bases)}
 

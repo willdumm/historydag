@@ -1,4 +1,5 @@
 import pickle
+import random
 import numpy as np
 import historydag as hdag
 import historydag.parsimony as dag_parsimony
@@ -13,8 +14,11 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
     s_ete = s.to_ete()
 
     # compute cost vectors for sample tree in dag and in ete3.Tree format to compare
-    a = dag_parsimony.sankoff_upward(s, transition_weights=transition_weights)
-    b = dag_parsimony.sankoff_upward(s_ete, transition_weights=transition_weights)
+    seq_len = len(next(s.get_leaves()).label.sequence)
+    a = dag_parsimony.sankoff_upward(s, seq_len, transition_weights=transition_weights)
+    b = dag_parsimony.sankoff_upward(
+        s_ete, seq_len, transition_weights=transition_weights
+    )
     assert a == b, (
         "Upward Sankoff on ete_Tree vs on the dag version of the tree produced different results: "
         + "%lf from the dag and %lf from the ete_Tree" % (a, b)
@@ -60,8 +64,9 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
 
 def check_sankoff_on_dag(dag, expected_score, transition_weights=None):
     # perform upward sweep of sankoff to calculate overall parsimony score and assign cost vectors to internal nodes
+    seq_len = len(next(dag.get_leaves()).label.sequence)
     upward_pass_min_cost = dag_parsimony.sankoff_upward(
-        dag, transition_weights=transition_weights
+        dag, seq_len, transition_weights=transition_weights
     )
     assert np.isclose([upward_pass_min_cost], [expected_score]), (
         "Upward pass of Sankoff on dag did not yield expected score: computed %lf, but expected %lf"
@@ -123,3 +128,49 @@ def test_sankoff_on_dag():
     for (w, tw) in tw_options:
         check_sankoff_on_dag(dg.copy(), w, transition_weights=tw)
         compare_dag_and_tree_parsimonies(dg.copy(), transition_weights=tw)
+
+
+def test_partial_sankoff_on_dag():
+    with open("sample_data/toy_trees.p", "rb") as f:
+        ete_trees = pickle.load(f)
+    dag = hdag.history_dag_from_etes(ete_trees, ["sequence"])
+
+    dagcp = dag.copy()
+    dagcp.recompute_parents()
+
+    # calculate number of trees and original parsimony score for dag
+    total_cost = dag_parsimony.sankoff_downward(dagcp)
+    orig_num_histories = dagcp.count_histories()
+
+    # sample a history from the DAG to do partial Sankoff on
+    # (note: all trees in this DAG are already maximally parsimonious,
+    # so performing Sankoff should not change parsimony score, though it
+    # could potentially increase the overall number of histories in the DAG.
+    first_tree = next(dagcp.get_histories())
+    dagnodes = {str(n): n for n in dagcp.postorder()}
+    new_total_cost_after_tree = dag_parsimony.sankoff_downward(
+        dagcp,
+        partial_node_list=[
+            dagnodes[str(nodelabel)] for nodelabel in first_tree.postorder()
+        ],
+    )
+    new_num_histories_after_tree = dagcp.count_histories()
+    assert (
+        new_total_cost_after_tree <= total_cost
+    ), "optimizing a subtree's cost resulted in a DAG with higher parsimony score overall"
+    assert (
+        new_num_histories_after_tree >= orig_num_histories
+    ), "Failed to reproduce MP tree in partial DAG Sankoff"
+
+    # sample a random subset of the nodes to perform Sankoff (check that connectivity of the subset is not required)
+    dag.recompute_parents()
+    nodes_to_change = random.sample(
+        [n for n in dag.postorder() if not (n.is_leaf() or n.is_ua_node())], 3
+    )
+
+    new_total_cost_after_random_sample = dag_parsimony.sankoff_downward(
+        dag, partial_node_list=nodes_to_change
+    )
+    assert (
+        new_total_cost_after_random_sample <= total_cost
+    ), "optimizing a random sample of nodes resulted in a DAG with higher parsimony score overall"
