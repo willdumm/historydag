@@ -155,8 +155,42 @@ def make_weighted_hamming_count_funcs(weight_mat, bases="AGCT-"):
     )
 
 
+def sankoff_postorder_iter_accum(
+    postorder_iter, node_clade_function, child_node_function
+):
+    """this is a re-take of :meth:`postorder_history_accum` that is altered so
+    that it does not require a complete DAG, and simplified for the specific
+    Sankoff algorithm.
+
+    Args:
+        postorder_iter: iterable of nodes to traverse.
+        node_clade_function: function to combine results for a given clade.
+        child_node_function: function that is applied to children for a given node.
+    """
+    if any(postorder_iter):
+        for node in postorder_iter:
+            if node.is_leaf():
+                node._dp_data = {
+                    "cost_vectors": child_node_function(node),
+                    "subtree_cost": 0,
+                }
+            else:
+                node._dp_data = node_clade_function(
+                    [
+                        [
+                            child_node_function(target)
+                            for target in node.children(clade=clade)
+                        ]
+                        for clade in node.clades
+                    ]
+                )
+        return node._dp_data
+    return {"cost_vectors": [], "subtree_cost": 0}
+
+
 def sankoff_upward(
-    tree,
+    node_list,
+    seq_len,
     gap_as_char=False,
     transition_weights=None,
     use_internal_node_sequences=False,
@@ -190,12 +224,11 @@ def sankoff_upward(
             else:
                 return char
 
-    if isinstance(tree, ete3.TreeNode):
-        seq_len = len(next(tree.iter_leaves()).sequence)
+    if isinstance(node_list, ete3.TreeNode):
         adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
 
         # First pass of Sankoff: compute cost vectors
-        for node in tree.traverse(strategy="postorder"):
+        for node in node_list.traverse(strategy="postorder"):
             node.add_feature(
                 "cost_vector",
                 np.array(
@@ -217,18 +250,12 @@ def sankoff_upward(
                 node.cost_vector += np.array(
                     [code_vectors[translate_base(base)] for base in node.sequence]
                 )
-        return np.sum(np.min(tree.cost_vector, axis=1))
+        return np.sum(np.min(node_list.cost_vector, axis=1))
 
-    elif isinstance(tree, HistoryDag):
-        seq_len = 0
-        for n in tree.postorder():
-            if n.is_leaf():
-                seq_len = len(n.label.sequence)
-                break
-        adj_arr = _get_adj_array(
-            seq_len,
-            transition_weights=transition_weights,
-        )
+    elif isinstance(node_list, HistoryDag):
+        node_list = list(node_list.postorder())
+    if isinstance(node_list, list):
+        adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
         max_transition_cost = np.amax(adj_arr) * seq_len
 
         def children_cost(child_cost_vectors):
@@ -238,29 +265,33 @@ def sankoff_upward(
                 costs.append(np.min(cost, axis=2))
             return np.sum(costs, axis=0)
 
-        def leaf_func(n):
-            return {
-                "cost_vectors": [
+        def cost_vector(node):
+            if node.is_leaf():
+                return [
                     np.array(
                         [
                             code_vectors[translate_base(base)].copy()
-                            for base in n.label.sequence
+                            for base in node.label.sequence
                         ]
                     )
-                ],
-                "subtree_cost": 0,
-            }
+                ]
+            elif isinstance(node._dp_data, dict):
+                return node._dp_data["cost_vectors"]
+            else:
+                return [
+                    np.array(
+                        [
+                            code_vectors[translate_base(base)].copy()
+                            for base in node.label.sequence
+                        ]
+                    )
+                ]
 
-        def accum_between_clade_with_filtering(clade_data):
+        def accum_between_clade(list_of_clade_cvs):
             cost_vectors = []
             min_cost = float("inf")
-            # iterate over each possible combination of edge choice across clades
-            for choice in product(*clade_data):
-                # compute every possible combination of cost vectors for the given edge choice
-                # (each child node has possibly multiple cost vectors that are all optimal)
-                for cost_vector_combination in product(
-                    *[c._dp_data["cost_vectors"] for c in choice]
-                ):
+            for choice in product(*list_of_clade_cvs):
+                for cost_vector_combination in product(*[c for c in choice]):
                     cv = children_cost(cost_vector_combination)
                     cost = np.sum(np.min(cv, axis=1))
                     if (cost + max_transition_cost) < min_cost:
@@ -273,12 +304,8 @@ def sankoff_upward(
                         cost_vectors.append(cv)
             return {"cost_vectors": cost_vectors, "subtree_cost": min_cost}
 
-        compute_val = tree.postorder_history_accum(
-            leaf_func=leaf_func,
-            edge_func=lambda x, y: y,
-            accum_within_clade=lambda x: x,
-            accum_between_clade=accum_between_clade_with_filtering,
-            accum_above_edge=lambda x, y: y,
+        compute_val = sankoff_postorder_iter_accum(
+            node_list, accum_between_clade, cost_vector
         )
         return compute_val["subtree_cost"]
     else:
@@ -287,8 +314,9 @@ def sankoff_upward(
 
 def sankoff_downward(
     dag,
-    compute_cvs=True,
+    partial_node_list=None,
     gap_as_char=False,
+    compute_cvs=True,
     transition_weights=None,
     trim=True,
 ):
@@ -310,21 +338,23 @@ def sankoff_downward(
         trim: If False, the history DAG will not be trimmed to express only maximally parsimonious
             histories after Sankoff.
     """
-    # this computes cost vectors for each node in an upward sweep of Sankoff
+
+    seq_len = len(next(dag.get_leaves()).label.sequence)
+    if partial_node_list is None:
+        partial_node_list = list(dag.postorder())
     if compute_cvs:
         sankoff_upward(
-            dag,
+            partial_node_list,
+            seq_len,
             gap_as_char=gap_as_char,
             transition_weights=transition_weights,
         )
-
     # save the field names/types of the label datatype for this dag
-    seq_len = 0
-    for n in dag.postorder():
-        if n.is_leaf():
-            seq_len = len(n.label.sequence)
-            break
     adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+    inverse_bases = {i: s for s, i in enumerate(bases)}
+
+    def transition_cost(seq):
+        return adj_arr[np.arange(len(seq)), [inverse_bases[s] for s in seq]]
 
     def compute_sequence_data(cost_vector):
         """Compute all possible sequences that minimize transition costs as given by cost_vector.
@@ -354,7 +384,7 @@ def sankoff_downward(
 
     dag_nodes = {}
     # downward pass of Sankoff: find and assign sequence labels to each internal node
-    for node in reversed(list(dag.postorder())):
+    for node in reversed(partial_node_list):
         if not (node.is_leaf() or node.is_ua_node()):
             node_data = {k: v for k, v in node._dp_data.items()}
             node_copies = {}
@@ -372,7 +402,7 @@ def sankoff_downward(
                         y
                         for cv in node._dp_data["cost_vectors"]
                         for y in compute_sequence_data(
-                            cv + p._dp_data["transition_cost"]
+                            cv + transition_cost(p.label.sequence)
                         )
                     ]
 
@@ -381,15 +411,12 @@ def sankoff_downward(
                 min_val = new_seq_data[0][-1]
                 if len(new_seq_data) > 1:
                     min_val = min(*list(zip(*new_seq_data))[-1])
-
                 for nsd in new_seq_data:
                     if (nsd[-1] <= min_val) and (nsd[0] not in node_copies):
                         new_node = node.empty_copy()
                         new_node.label = node.label._replace(sequence=nsd[0])
                         new_node._dp_data = deepcopy(node_data)
-                        new_node._dp_data["transition_cost"] = nsd[1]
                         node_copies[nsd[0]] = new_node
-
             for c in node_children:
                 c.parents.remove(node)
             for p in node_parents:
@@ -397,9 +424,7 @@ def sankoff_downward(
             # add all new copies of current node(with alt sequence labels) into the dag
             for new_sequence, new_node in node_copies.items():
                 if new_node in dag_nodes:
-                    tc = new_node._dp_data["transition_cost"]
                     new_node = dag_nodes[new_node]
-                    new_node._dp_data["transition_cost"] = tc
                 for c in node_children:
                     new_node.add_edge(c)
                     c.parents.add(new_node)
@@ -416,12 +441,10 @@ def sankoff_downward(
         weight_func = make_weighted_hamming_edge_func(adj_arr[0], bases=bases)
     else:
         weight_func = utils.wrapped_hamming_distance
-
     if trim:
         optimal_weight = dag.trim_optimal_weight(edge_weight_func=weight_func)
     else:
         optimal_weight = dag.optimal_weight_annotate(edge_weight_func=weight_func)
-
     return optimal_weight
 
 
