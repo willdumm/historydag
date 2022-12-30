@@ -384,8 +384,9 @@ def test_trim():
             dag.recompute_parents()
             dag._check_valid()
             all_weights = dag.weight_count(**kwargs)
+            optimal_count = dag.count_optimal_histories(**kwargs, optimal_func=opt_func)
             optimal_weight = dag.trim_optimal_weight(**kwargs, optimal_func=opt_func)
-            assert all_weights[optimal_weight] == dag.count_trees()
+            assert all_weights[optimal_weight] == dag.count_trees() == optimal_count
             dag._check_valid()
             dag.convert_to_collapsed()
             dag._check_valid()

@@ -857,6 +857,38 @@ def make_newickcountfuncs(
     )
 
 
+def edge_difference_funcs(reference_dag: "HistoryDag", key=lambda n: n):
+    """Provides functions to compute the number of edges in a history which do
+    not appear in a reference HistoryDag.
+
+    This is useful for taking history-wise intersections of DAGs, or counting
+    the number of histories which would appear in such an intersection.
+
+    Args:
+        reference_dag: The reference DAG. These functions will count the
+            number of edges in a history which do not appear in this DAG.
+
+    Returns:
+        :class:`utils.AddFuncDict` object for use with HistoryDag methods for
+        trimming and weight counting/annotation.
+    """
+    edge_set = set(
+        (key(n), key(c)) for n in reference_dag.preorder() for c in n.children()
+    )
+
+    def edge_weight_func(n1, n2):
+        return int((key(n1), key(n2)) not in edge_set)
+
+    return AddFuncDict(
+        {
+            "start_func": lambda n: 0,
+            "edge_weight_func": edge_weight_func,
+            "accum_func": sum,
+        },
+        name="EdgeDifference",
+    )
+
+
 def _history_method(method):
     """HistoryDagNode method decorator to ensure that the method is only run on
     history DAGs which are histories."""

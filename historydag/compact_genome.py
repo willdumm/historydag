@@ -133,7 +133,7 @@ class CompactGenome:
         newseq = list(self.reference)
         for idx, (ref_base, newbase) in self.mutations.items():
             if ref_base != newseq[idx - 1]:
-                print(
+                warn(
                     "CompactGenome.to_sequence warning: reference base doesn't match cg reference base"
                 )
             newseq[idx - 1] = newbase
