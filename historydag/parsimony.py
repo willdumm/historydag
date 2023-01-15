@@ -73,10 +73,15 @@ def _get_adj_array(seq_len, transition_weights=None):
 
 
 def replace_label_attr(original_label, list_of_replacements={}):
+    """Generalizes :meth: ``_replace()`` for namedtuple datatype to replace
+    multiple fields at once, and by string rather than as a keyword argument.
+
+    Caveat: the keys of ``list_of_replacements`` dict should be existing fields in the namedtuple object for ``original_label``
+    """
     fields = original_label._asdict()
     fields.update(list_of_replacements)
     return type(original_label)(**fields)
-    
+
 
 def weighted_hamming_distance_from_weight_matrix(weight_mat, bases="AGCT-"):
     """Returns a function for computing weighted hamming distance between two
@@ -110,7 +115,9 @@ def weighted_hamming_distance_from_weight_matrix(weight_mat, bases="AGCT-"):
     return weighted_hamming_distance
 
 
-def make_weighted_hamming_edge_func(weight_mat, sequence_attr_name="sequence", bases="AGCT-"):
+def make_weighted_hamming_edge_func(
+    weight_mat, sequence_attr_name="sequence", bases="AGCT-"
+):
     """Returns function for computing weighted hamming distance between two
     nodes' sequences.
 
@@ -132,7 +139,9 @@ def make_weighted_hamming_edge_func(weight_mat, sequence_attr_name="sequence", b
     )
 
 
-def make_weighted_hamming_count_funcs(weight_mat, sequence_attr_name="sequence", bases="AGCT-"):
+def make_weighted_hamming_count_funcs(
+    weight_mat, sequence_attr_name="sequence", bases="AGCT-"
+):
     """Returns an :class:`AddFuncDict` for computing weighted parsimony.
 
     The returned ``AddFuncDict`` is for use with :class:`HistoryDag` objects whose nodes
@@ -241,7 +250,7 @@ def sankoff_upward(
                 np.array(
                     [
                         code_vectors[translate_base(base)].copy()
-                        for base in node.sequence
+                        for base in getattr(node, sequence_attr_name)
                     ]
                 ),
             )
@@ -255,7 +264,10 @@ def sankoff_upward(
                 node.cost_vector = child_cost
             if use_internal_node_sequences:
                 node.cost_vector += np.array(
-                    [code_vectors[translate_base(base)] for base in node.sequence]
+                    [
+                        code_vectors[translate_base(base)]
+                        for base in getattr(node, sequence_attr_name)
+                    ]
                 )
         return np.sum(np.min(node_list.cost_vector, axis=1))
 
@@ -322,8 +334,8 @@ def sankoff_upward(
 
 def sankoff_downward(
     dag,
-    sequence_attr_name="sequence",
     partial_node_list=None,
+    sequence_attr_name="sequence",
     gap_as_char=False,
     compute_cvs=True,
     transition_weights=None,
@@ -425,7 +437,9 @@ def sankoff_downward(
                 for nsd in new_seq_data:
                     if (nsd[-1] <= min_val) and (nsd[0] not in node_copies):
                         new_node = node.empty_copy()
-                        new_node.label = replace_label_attr(node.label, {sequence_attr_name:nsd[0]})
+                        new_node.label = replace_label_attr(
+                            node.label, {sequence_attr_name: nsd[0]}
+                        )
                         new_node._dp_data = deepcopy(node_data)
                         node_copies[nsd[0]] = new_node
             for c in node_children:
@@ -449,9 +463,13 @@ def sankoff_downward(
     # parents/children to new nodes can yield suboptimal choices
 
     if transition_weights is not None:
-        weight_func = make_weighted_hamming_edge_func(adj_arr[0], sequence_attr_name=sequence_attr_name, bases=bases)
+        weight_func = make_weighted_hamming_edge_func(
+            adj_arr[0], sequence_attr_name=sequence_attr_name, bases=bases
+        )
     else:
-        weight_func = utils.wrapped_hamming_distance
+        weight_func = utils.access_nodefield_default(sequence_attr_name, 0)(
+            utils.hamming_distance
+        )
     if trim:
         optimal_weight = dag.trim_optimal_weight(edge_weight_func=weight_func)
     else:
