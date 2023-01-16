@@ -176,15 +176,19 @@ def test_partial_sankoff_on_dag():
         new_total_cost_after_random_sample <= total_cost
     ), "optimizing a random sample of nodes resulted in a DAG with higher parsimony score overall"
 
-def add_attr_to_hdag(dag, attr_name, attr_values = lambda n:""):
+
+def add_attr_to_hdag(dag, attr_name, attr_values=lambda n: ""):
     old_label = next(dag.get_leaves()).label
     if attr_name in old_label._fields:
         return dag
-    new_label = namedtuple("new_label", old_label._fields + (attr_name, ))
+    new_label = namedtuple("new_label", old_label._fields + (attr_name,))
+
     def add_field(node):
         updated_fields = [x for x in node.label] + [attr_values[node]]
         return new_label(*updated_fields)
+
     return dag.relabel(add_field)
+
 
 def test_sankoff_with_alternative_sequence_name():
     with open("sample_data/toy_trees.p", "rb") as f:
@@ -198,11 +202,15 @@ def test_sankoff_with_alternative_sequence_name():
     for n in dg.postorder():
         vals[n] = ""
         if n.is_leaf():
-            vals[n] = "A" if i < num_leaves/2 else "C"
+            vals[n] = "A" if i < num_leaves / 2 else "C"
             i = i + 1
 
     dg = add_attr_to_hdag(dg, "location", vals)
 
-    upward_cost = dag_parsimony.sankoff_upward(dg, seq_len=1, sequence_attr_name="location")
+    upward_cost = dag_parsimony.sankoff_upward(
+        dg, seq_len=1, sequence_attr_name="location"
+    )
     downward_cost = dag_parsimony.sankoff_downward(dg, sequence_attr_name="location")
-    assert(upward_cost == downward_cost), "upward and downward costs for sankoff on alt sequence label name are different"
+    assert (
+        upward_cost == downward_cost
+    ), "upward and downward costs for sankoff on alt sequence label name are different"
