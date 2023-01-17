@@ -22,7 +22,7 @@ from typing import (
     Union,
     Sequence,
 )
-from collections import Counter
+from collections import Counter, namedtuple
 from copy import deepcopy
 from historydag import utils
 from historydag.utils import Weight, Label, UALabel, prod
@@ -1062,6 +1062,25 @@ class HistoryDag:
         # do any necessary collapsing
         newdag = newdag.sample() | newdag
         return newdag
+
+    def add_label_fields(self, new_field_names=[], new_field_values=lambda n: []):
+        """Adds list of new fields to each node's label in the DAG.
+
+        Args:
+            new_field_names: A list of strings consisting of the names of the new fields to add.
+            new_field_values: A callable object that takes a node and returns the ordered list
+                of values for each new field name to assign to that node.
+        """
+        old_label = self.get_label_type()
+        if any(field_name in old_label._fields for field_name in new_field_names):
+            raise ValueError("One or more field names are already found in the DAG")
+        new_label = namedtuple("new_label", old_label._fields + tuple(new_field_names))
+
+        def add_fields(node):
+            updated_fields = [x for x in node.label] + list(new_field_values[node])
+            return new_label(*updated_fields)
+
+        return self.relabel(add_fields)
 
     def is_history(self) -> bool:
         """Returns whether history DAG is a history.

@@ -3,7 +3,6 @@ import random
 import numpy as np
 import historydag as hdag
 import historydag.parsimony as dag_parsimony
-from collections import namedtuple
 
 
 def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
@@ -177,19 +176,6 @@ def test_partial_sankoff_on_dag():
     ), "optimizing a random sample of nodes resulted in a DAG with higher parsimony score overall"
 
 
-def add_attr_to_hdag(dag, attr_name, attr_values=lambda n: ""):
-    old_label = next(dag.get_leaves()).label
-    if attr_name in old_label._fields:
-        return dag
-    new_label = namedtuple("new_label", old_label._fields + (attr_name,))
-
-    def add_field(node):
-        updated_fields = [x for x in node.label] + [attr_values[node]]
-        return new_label(*updated_fields)
-
-    return dag.relabel(add_field)
-
-
 def test_sankoff_with_alternative_sequence_name():
     with open("sample_data/toy_trees.p", "rb") as f:
         ts = pickle.load(f)
@@ -200,17 +186,26 @@ def test_sankoff_with_alternative_sequence_name():
     i = 0
     vals = {}
     for n in dg.postorder():
-        vals[n] = ""
+        vals[n] = [""]
         if n.is_leaf():
-            vals[n] = "A" if i < num_leaves / 2 else "C"
+            vals[n] = ["A" if i < num_leaves / 2 else "B"]
             i = i + 1
 
-    dg = add_attr_to_hdag(dg, "location", vals)
+    dg = dg.add_label_fields(["location"], vals)
 
     upward_cost = dag_parsimony.sankoff_upward(
-        dg, seq_len=1, sequence_attr_name="location"
+        dg,
+        seq_len=1,
+        sequence_attr_name="location",
+        bases=["A", "B"],
+        transition_weights=np.array([[0, 1], [1, 0]]),
     )
-    downward_cost = dag_parsimony.sankoff_downward(dg, sequence_attr_name="location")
+    downward_cost = dag_parsimony.sankoff_downward(
+        dg,
+        sequence_attr_name="location",
+        bases=["A", "B"],
+        transition_weights=np.array([[0, 1], [1, 0]]),
+    )
     assert (
         upward_cost == downward_cost
     ), "upward and downward costs for sankoff on alt sequence label name are different"

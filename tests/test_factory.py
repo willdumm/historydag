@@ -486,6 +486,16 @@ def test_relabel():
     assert dag.weight_count() == odag.weight_count()
 
 
+def test_add_label_fields():
+    dag = dags[-1]
+    old_fieldset = next(dag.get_leaves()).label._fields + ("isLeaf", "originalLocation")
+    new_field_values = {n: [n.is_leaf(), "new location"] for n in dag.postorder()}
+    ndag = dag.add_label_fields(["isLeaf", "originalLocation"], new_field_values)
+    ndag._check_valid()
+    new_fieldset = next(ndag.get_leaves()).label._fields
+    assert old_fieldset == new_fieldset
+
+
 def rooted_rf_distance(history1, history2):
     cladeset1 = {n.clade_union() for n in history1.preorder(skip_ua_node=True)}
     cladeset2 = {n.clade_union() for n in history2.preorder(skip_ua_node=True)}

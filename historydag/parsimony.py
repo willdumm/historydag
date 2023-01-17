@@ -55,19 +55,21 @@ ambiguous_codes_from_vecs = {
 }
 
 
-def _get_adj_array(seq_len, transition_weights=None):
+def _get_adj_array(seq_len, transition_weights=None, bases="AGCT-"):
     if transition_weights is None:
         transition_weights = _yey
     else:
         transition_weights = np.array(transition_weights)
 
-    if transition_weights.shape == (5, 5):
+    num_bases = len(bases)
+    if transition_weights.shape == (num_bases, num_bases):
         adj_arr = np.array([transition_weights] * seq_len)
-    elif transition_weights.shape == (seq_len, 5, 5):
+    elif transition_weights.shape == (seq_len, num_bases, num_bases):
         adj_arr = transition_weights
     else:
         raise RuntimeError(
-            "Transition weight matrix must have shape (5, 5) or (sequence_length, 5, 5)."
+            "Transition weight matrix must have shape (%d, %d) or (sequence_length, %d, %d)."
+            % (num_bases, num_bases, num_bases, num_bases)
         )
     return adj_arr
 
@@ -208,6 +210,7 @@ def sankoff_upward(
     seq_len,
     sequence_attr_name="sequence",
     gap_as_char=False,
+    bases=bases,
     transition_weights=None,
     use_internal_node_sequences=False,
 ):
@@ -240,8 +243,14 @@ def sankoff_upward(
             else:
                 return char
 
+    code_vectors = {
+        code: [0 if b == code else float("inf") for b in bases] for code in bases
+    }
+
     if isinstance(node_list, ete3.TreeNode):
-        adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+        adj_arr = _get_adj_array(
+            seq_len, transition_weights=transition_weights, bases=bases
+        )
 
         # First pass of Sankoff: compute cost vectors
         for node in node_list.traverse(strategy="postorder"):
@@ -257,7 +266,9 @@ def sankoff_upward(
             if not node.is_leaf():
                 child_costs = []
                 for child in node.children:
-                    stacked_child_cv = np.stack((child.cost_vector,) * 5, axis=1)
+                    stacked_child_cv = np.stack(
+                        (child.cost_vector,) * len(bases), axis=1
+                    )
                     total_cost = adj_arr + stacked_child_cv
                     child_costs.append(np.min(total_cost, axis=2))
                 child_cost = np.sum(child_costs, axis=0)
@@ -275,13 +286,15 @@ def sankoff_upward(
         node_list = list(node_list.postorder())
     if isinstance(node_list, list):
         sequence_attr_idx = node_list[0].label._fields.index(sequence_attr_name)
-        adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+        adj_arr = _get_adj_array(
+            seq_len, transition_weights=transition_weights, bases=bases
+        )
         max_transition_cost = np.amax(adj_arr) * seq_len
 
         def children_cost(child_cost_vectors):
             costs = []
             for c in child_cost_vectors:
-                cost = adj_arr + np.stack((c,) * 5, axis=1)
+                cost = adj_arr + np.stack((c,) * len(bases), axis=1)
                 costs.append(np.min(cost, axis=2))
             return np.sum(costs, axis=0)
 
@@ -338,6 +351,7 @@ def sankoff_downward(
     sequence_attr_name="sequence",
     gap_as_char=False,
     compute_cvs=True,
+    bases=bases,
     transition_weights=None,
     trim=True,
 ):
@@ -370,10 +384,13 @@ def sankoff_downward(
             seq_len,
             sequence_attr_name=sequence_attr_name,
             gap_as_char=gap_as_char,
+            bases=bases,
             transition_weights=transition_weights,
         )
     # save the field names/types of the label datatype for this dag
-    adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+    adj_arr = _get_adj_array(
+        seq_len, transition_weights=transition_weights, bases=bases
+    )
     inverse_bases = {i: s for s, i in enumerate(bases)}
 
     def transition_cost(seq):
@@ -525,7 +542,7 @@ def disambiguate(
     for node in preorder:
         if min_ambiguities:
             adj_vec = node.cost_vector != np.stack(
-                (node.cost_vector.min(axis=1),) * 5, axis=1
+                (node.cost_vector.min(axis=1),) * len(bases), axis=1
             )
             new_seq = [
                 ambiguous_codes_from_vecs[tuple(map(float, row))] for row in adj_vec
