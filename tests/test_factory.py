@@ -488,11 +488,24 @@ def test_relabel():
 
 def test_add_label_fields():
     dag = dags[-1]
-    old_fieldset = next(dag.get_leaves()).label._fields + ("isLeaf", "originalLocation")
+    old_fieldset = dag.get_label_type()._fields + tuple(["isLeaf", "originalLocation"])
     new_field_values = {n: [n.is_leaf(), "new location"] for n in dag.postorder()}
     ndag = dag.add_label_fields(["isLeaf", "originalLocation"], new_field_values)
     ndag._check_valid()
-    new_fieldset = next(ndag.get_leaves()).label._fields
+    new_fieldset = ndag.get_label_type()._fields
+    assert old_fieldset == new_fieldset
+
+
+def test_remove_label_fields():
+    dag = dags[-1]
+    old_fieldset = dag.get_label_type()._fields
+    new_field_values = {n: [n.is_leaf()] for n in dag.postorder()}
+    ndag = dag.add_label_fields(["added_field"], new_field_values)
+    ndag._check_valid()
+    # test removing a field that isn't there and one that is
+    odag = dag.remove_label_fields(["removed_field", "added_field"])
+    new_fieldset = odag.get_label_type()._fields
+    odag._check_valid()
     assert old_fieldset == new_fieldset
 
 

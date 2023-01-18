@@ -1077,10 +1077,33 @@ class HistoryDag:
         new_label = namedtuple("new_label", old_label._fields + tuple(new_field_names))
 
         def add_fields(node):
-            updated_fields = [x for x in node.label] + list(new_field_values[node])
+            updated_fields = [x for x in node.label] + new_field_values[node]
             return new_label(*updated_fields)
 
         return self.relabel(add_fields)
+
+    def remove_label_fields(self, fields_to_remove=[]):
+        """Removes a list of fields from each node's label in the DAG.
+
+        Args:
+            fields_to_remove: A list of strings consisting of the names of the new fields to remove.
+        """
+        old_label = self.get_label_type()
+        if len(set(old_label._fields) - set(fields_to_remove)) < 1:
+            return self.unlabel()
+
+        field_indices_to_keep = [
+            i for i, x in enumerate(old_label._fields) if x not in fields_to_remove
+        ]
+        new_label = namedtuple(
+            "new_label", tuple([old_label._fields[i] for i in field_indices_to_keep])
+        )
+
+        def update_fields(node):
+            updated_fields = [node.label[i] for i in field_indices_to_keep]
+            return new_label(*updated_fields)
+
+        return self.relabel(update_fields)
 
     def is_history(self) -> bool:
         """Returns whether history DAG is a history.
