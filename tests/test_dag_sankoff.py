@@ -174,3 +174,38 @@ def test_partial_sankoff_on_dag():
     assert (
         new_total_cost_after_random_sample <= total_cost
     ), "optimizing a random sample of nodes resulted in a DAG with higher parsimony score overall"
+
+
+def test_sankoff_with_alternative_sequence_name():
+    with open("sample_data/toy_trees.p", "rb") as f:
+        ts = pickle.load(f)
+    dg = hdag.history_dag_from_etes(ts, ["sequence"])
+    num_leaves = len(list(dg.get_leaves()))
+
+    # add the attribute location to each node
+    i = 0
+    vals = {}
+    for n in dg.postorder():
+        vals[n] = [""]
+        if n.is_leaf():
+            vals[n] = ["A" if i < num_leaves / 2 else "B"]
+            i = i + 1
+
+    dg = dg.add_label_fields(["location"], vals)
+
+    upward_cost = dag_parsimony.sankoff_upward(
+        dg,
+        seq_len=1,
+        sequence_attr_name="location",
+        bases=["A", "B"],
+        transition_weights=np.array([[0, 1], [1, 0]]),
+    )
+    downward_cost = dag_parsimony.sankoff_downward(
+        dg,
+        sequence_attr_name="location",
+        bases=["A", "B"],
+        transition_weights=np.array([[0, 1], [1, 0]]),
+    )
+    assert (
+        upward_cost == downward_cost
+    ), "upward and downward costs for sankoff on alt sequence label name are different"

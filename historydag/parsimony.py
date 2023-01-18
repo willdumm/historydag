@@ -55,21 +55,34 @@ ambiguous_codes_from_vecs = {
 }
 
 
-def _get_adj_array(seq_len, transition_weights=None):
+def _get_adj_array(seq_len, transition_weights=None, bases="AGCT-"):
     if transition_weights is None:
         transition_weights = _yey
     else:
         transition_weights = np.array(transition_weights)
 
-    if transition_weights.shape == (5, 5):
+    num_bases = len(bases)
+    if transition_weights.shape == (num_bases, num_bases):
         adj_arr = np.array([transition_weights] * seq_len)
-    elif transition_weights.shape == (seq_len, 5, 5):
+    elif transition_weights.shape == (seq_len, num_bases, num_bases):
         adj_arr = transition_weights
     else:
         raise RuntimeError(
-            "Transition weight matrix must have shape (5, 5) or (sequence_length, 5, 5)."
+            "Transition weight matrix must have shape (%d, %d) or (sequence_length, %d, %d)."
+            % (num_bases, num_bases, num_bases, num_bases)
         )
     return adj_arr
+
+
+def replace_label_attr(original_label, list_of_replacements={}):
+    """Generalizes :meth: ``_replace()`` for namedtuple datatype to replace
+    multiple fields at once, and by string rather than as a keyword argument.
+
+    Caveat: the keys of ``list_of_replacements`` dict should be existing fields in the namedtuple object for ``original_label``
+    """
+    fields = original_label._asdict()
+    fields.update(list_of_replacements)
+    return type(original_label)(**fields)
 
 
 def weighted_hamming_distance_from_weight_matrix(weight_mat, bases="AGCT-"):
@@ -104,7 +117,9 @@ def weighted_hamming_distance_from_weight_matrix(weight_mat, bases="AGCT-"):
     return weighted_hamming_distance
 
 
-def make_weighted_hamming_edge_func(weight_mat, bases="AGCT-"):
+def make_weighted_hamming_edge_func(
+    weight_mat, sequence_attr_name="sequence", bases="AGCT-"
+):
     """Returns function for computing weighted hamming distance between two
     nodes' sequences.
 
@@ -121,12 +136,14 @@ def make_weighted_hamming_edge_func(weight_mat, bases="AGCT-"):
         n1 is the UA node.
     """
 
-    return utils.access_nodefield_default("sequence", 0)(
+    return utils.access_nodefield_default(sequence_attr_name, 0)(
         weighted_hamming_distance_from_weight_matrix(weight_mat, bases=bases)
     )
 
 
-def make_weighted_hamming_count_funcs(weight_mat, bases="AGCT-"):
+def make_weighted_hamming_count_funcs(
+    weight_mat, sequence_attr_name="sequence", bases="AGCT-"
+):
     """Returns an :class:`AddFuncDict` for computing weighted parsimony.
 
     The returned ``AddFuncDict`` is for use with :class:`HistoryDag` objects whose nodes
@@ -147,7 +164,7 @@ def make_weighted_hamming_count_funcs(weight_mat, bases="AGCT-"):
         {
             "start_func": lambda n: 0,
             "edge_weight_func": make_weighted_hamming_edge_func(
-                weight_mat, bases=bases
+                weight_mat, sequence_attr_name=sequence_attr_name, bases=bases
             ),
             "accum_func": sum,
         },
@@ -191,7 +208,9 @@ def sankoff_postorder_iter_accum(
 def sankoff_upward(
     node_list,
     seq_len,
+    sequence_attr_name="sequence",
     gap_as_char=False,
+    bases=bases,
     transition_weights=None,
     use_internal_node_sequences=False,
 ):
@@ -224,8 +243,14 @@ def sankoff_upward(
             else:
                 return char
 
+    code_vectors = {
+        code: [0 if b == code else float("inf") for b in bases] for code in bases
+    }
+
     if isinstance(node_list, ete3.TreeNode):
-        adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+        adj_arr = _get_adj_array(
+            seq_len, transition_weights=transition_weights, bases=bases
+        )
 
         # First pass of Sankoff: compute cost vectors
         for node in node_list.traverse(strategy="postorder"):
@@ -234,34 +259,42 @@ def sankoff_upward(
                 np.array(
                     [
                         code_vectors[translate_base(base)].copy()
-                        for base in node.sequence
+                        for base in getattr(node, sequence_attr_name)
                     ]
                 ),
             )
             if not node.is_leaf():
                 child_costs = []
                 for child in node.children:
-                    stacked_child_cv = np.stack((child.cost_vector,) * 5, axis=1)
+                    stacked_child_cv = np.stack(
+                        (child.cost_vector,) * len(bases), axis=1
+                    )
                     total_cost = adj_arr + stacked_child_cv
                     child_costs.append(np.min(total_cost, axis=2))
                 child_cost = np.sum(child_costs, axis=0)
                 node.cost_vector = child_cost
             if use_internal_node_sequences:
                 node.cost_vector += np.array(
-                    [code_vectors[translate_base(base)] for base in node.sequence]
+                    [
+                        code_vectors[translate_base(base)]
+                        for base in getattr(node, sequence_attr_name)
+                    ]
                 )
         return np.sum(np.min(node_list.cost_vector, axis=1))
 
     elif isinstance(node_list, HistoryDag):
         node_list = list(node_list.postorder())
     if isinstance(node_list, list):
-        adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+        sequence_attr_idx = node_list[0].label._fields.index(sequence_attr_name)
+        adj_arr = _get_adj_array(
+            seq_len, transition_weights=transition_weights, bases=bases
+        )
         max_transition_cost = np.amax(adj_arr) * seq_len
 
         def children_cost(child_cost_vectors):
             costs = []
             for c in child_cost_vectors:
-                cost = adj_arr + np.stack((c,) * 5, axis=1)
+                cost = adj_arr + np.stack((c,) * len(bases), axis=1)
                 costs.append(np.min(cost, axis=2))
             return np.sum(costs, axis=0)
 
@@ -271,7 +304,7 @@ def sankoff_upward(
                     np.array(
                         [
                             code_vectors[translate_base(base)].copy()
-                            for base in node.label.sequence
+                            for base in node.label[sequence_attr_idx]
                         ]
                     )
                 ]
@@ -282,7 +315,7 @@ def sankoff_upward(
                     np.array(
                         [
                             code_vectors[translate_base(base)].copy()
-                            for base in node.label.sequence
+                            for base in node.label[sequence_attr_idx]
                         ]
                     )
                 ]
@@ -315,8 +348,10 @@ def sankoff_upward(
 def sankoff_downward(
     dag,
     partial_node_list=None,
+    sequence_attr_name="sequence",
     gap_as_char=False,
     compute_cvs=True,
+    bases=bases,
     transition_weights=None,
     trim=True,
 ):
@@ -339,18 +374,23 @@ def sankoff_downward(
             histories after Sankoff.
     """
 
-    seq_len = len(next(dag.get_leaves()).label.sequence)
+    sequence_attr_idx = next(dag.get_leaves()).label._fields.index(sequence_attr_name)
+    seq_len = len(next(dag.get_leaves()).label[sequence_attr_idx])
     if partial_node_list is None:
         partial_node_list = list(dag.postorder())
     if compute_cvs:
         sankoff_upward(
             partial_node_list,
             seq_len,
+            sequence_attr_name=sequence_attr_name,
             gap_as_char=gap_as_char,
+            bases=bases,
             transition_weights=transition_weights,
         )
     # save the field names/types of the label datatype for this dag
-    adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+    adj_arr = _get_adj_array(
+        seq_len, transition_weights=transition_weights, bases=bases
+    )
     inverse_bases = {i: s for s, i in enumerate(bases)}
 
     def transition_cost(seq):
@@ -402,7 +442,7 @@ def sankoff_downward(
                         y
                         for cv in node._dp_data["cost_vectors"]
                         for y in compute_sequence_data(
-                            cv + transition_cost(p.label.sequence)
+                            cv + transition_cost(p.label[sequence_attr_idx])
                         )
                     ]
 
@@ -414,7 +454,9 @@ def sankoff_downward(
                 for nsd in new_seq_data:
                     if (nsd[-1] <= min_val) and (nsd[0] not in node_copies):
                         new_node = node.empty_copy()
-                        new_node.label = node.label._replace(sequence=nsd[0])
+                        new_node.label = replace_label_attr(
+                            node.label, {sequence_attr_name: nsd[0]}
+                        )
                         new_node._dp_data = deepcopy(node_data)
                         node_copies[nsd[0]] = new_node
             for c in node_children:
@@ -438,9 +480,13 @@ def sankoff_downward(
     # parents/children to new nodes can yield suboptimal choices
 
     if transition_weights is not None:
-        weight_func = make_weighted_hamming_edge_func(adj_arr[0], bases=bases)
+        weight_func = make_weighted_hamming_edge_func(
+            adj_arr[0], sequence_attr_name=sequence_attr_name, bases=bases
+        )
     else:
-        weight_func = utils.wrapped_hamming_distance
+        weight_func = utils.access_nodefield_default(sequence_attr_name, 0)(
+            utils.hamming_distance
+        )
     if trim:
         optimal_weight = dag.trim_optimal_weight(edge_weight_func=weight_func)
     else:
@@ -496,7 +542,7 @@ def disambiguate(
     for node in preorder:
         if min_ambiguities:
             adj_vec = node.cost_vector != np.stack(
-                (node.cost_vector.min(axis=1),) * 5, axis=1
+                (node.cost_vector.min(axis=1),) * len(bases), axis=1
             )
             new_seq = [
                 ambiguous_codes_from_vecs[tuple(map(float, row))] for row in adj_vec
