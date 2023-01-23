@@ -23,7 +23,7 @@ from . import (  # noqa
 
 try:
     # requires dendropy
-    from . import beast_loader
+    from . import beast_loader  # noqa
 except ModuleNotFoundError:
     pass
 
