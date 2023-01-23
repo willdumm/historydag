@@ -81,22 +81,23 @@ class CompactGenome:
         if reverse:
             oldbase, newbase = newbase, oldbase
         idx = int(mutstring[1:-1])
-        if idx in self.mutations:
-            if self.mutations[idx][0] == newbase:
+        ref_base = self.reference[idx - 1]
+        idx_present = idx in self.mutations
+        if idx_present:
+            old_recorded_base = self.mutations[idx][1]
+        else:
+            old_recorded_base = ref_base
+
+        if oldbase != old_recorded_base:
+            warn("recorded old base in sequence doesn't match old base")
+        if ref_base == newbase:
+            if idx_present:
                 return CompactGenome(self.mutations.delete(idx), self.reference)
             else:
-                if self.mutations[idx][1] != oldbase:
-                    warn("recorded old base in sequence doesn't match old base")
-                return CompactGenome(
-                    self.mutations.set(idx, (self.mutations[idx][0], newbase)),
-                    self.reference,
-                )
-        else:
-            if self.reference[idx - 1] != oldbase:
-                warn("recorded old base in reference sequence doesn't match old base")
-            return CompactGenome(
-                self.mutations.set(idx, (oldbase, newbase)), self.reference
-            )
+                return self
+        return CompactGenome(
+            self.mutations.set(idx, (ref_base, newbase)), self.reference
+        )
 
     def apply_muts(self, muts: Sequence[str], reverse: bool = False):
         """Apply a sequence of mutstrings like 'A110G' to this compact genome.
@@ -138,6 +139,35 @@ class CompactGenome:
                 )
             newseq[idx - 1] = newbase
         return "".join(newseq)
+
+    def mask_sites(self, sites, one_based=True):
+        """Remove any mutations on sites in `sites`, leaving the reference
+        sequence unchanged.
+
+        Args:
+            sites: A collection of sites to be masked
+            one_based: If True, the provided sites will be interpreted as one-based sites. Otherwise,
+                they will be interpreted as 0-based sites.
+        """
+        sites = set(sites)
+        if one_based:
+
+            def site_translate(site):
+                return site
+
+        else:
+
+            def site_translate(site):
+                return site - 1
+
+        return CompactGenome(
+            {
+                site: data
+                for site, data in self.mutations.items()
+                if site_translate(site) not in sites
+            },
+            self.reference,
+        )
 
 
 def compact_genome_from_sequence(sequence: str, reference: str):

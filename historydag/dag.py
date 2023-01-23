@@ -1105,6 +1105,32 @@ class HistoryDag:
 
         return self.relabel(update_fields)
 
+    def update_label_fields(self, field_names, new_field_values):
+        """Changes label field values to values returned by the function
+        new_field_values.
+
+        Args:
+            field_names: A list of strings containing names of label fields whose contents are to be modified
+            new_field_values: A function taking a node and returning a tuple of field values whose order matches field_names
+        """
+        label_type = self.get_label_type()
+        field_dict = {field: index for index, field in enumerate(label_type._fields)}
+        try:
+            update_indices = (field_dict[field] for field in field_names)
+        except KeyError:
+            raise KeyError(
+                "One of the field names you provided does not appear on node labels."
+            )
+
+        def update_fields(node):
+            old_data = list(node.label)
+            new_data = new_field_values(node)
+            for idx, new_val in zip(update_indices, new_data):
+                old_data[idx] = new_val
+            return label_type(*old_data)
+
+        return self.relabel(update_fields)
+
     def is_history(self) -> bool:
         """Returns whether history DAG is a history.
 
