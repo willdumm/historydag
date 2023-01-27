@@ -5,7 +5,9 @@ import historydag as hdag
 import historydag.parsimony as dag_parsimony
 
 
-def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
+def compare_dag_and_tree_parsimonies(
+    dag, transition_model=dag_parsimony.default_aa_transitions
+):
 
     # extract sample tree
     s = dag.sample().copy()
@@ -15,10 +17,8 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
 
     # compute cost vectors for sample tree in dag and in ete3.Tree format to compare
     seq_len = len(next(s.get_leaves()).label.sequence)
-    a = dag_parsimony.sankoff_upward(s, seq_len, transition_weights=transition_weights)
-    b = dag_parsimony.sankoff_upward(
-        s_ete, seq_len, transition_weights=transition_weights
-    )
+    a = dag_parsimony.sankoff_upward(s, seq_len, transition_model=transition_model)
+    b = dag_parsimony.sankoff_upward(s_ete, seq_len, transition_model=transition_model)
     assert a == b, (
         "Upward Sankoff on ete_Tree vs on the dag version of the tree produced different results: "
         + "%lf from the dag and %lf from the ete_Tree" % (a, b)
@@ -28,26 +28,18 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
     s_weight = dag_parsimony.sankoff_downward(
         s,
         compute_cvs=False,
-        transition_weights=transition_weights,
+        transition_model=transition_model,
     )
     s_ete = dag_parsimony.disambiguate(
-        s_ete, compute_cvs=False, transition_weights=transition_weights
+        s_ete, compute_cvs=False, transition_model=transition_model
     )
     # convert ete3.Tree back to a HistoryDag object so as to compare, but keeping the data calculated using ete3 structure
     s_ete_as_dag = hdag.history_dag_from_etes([s_ete], label_features=["sequence"])
 
-    # parsimony score depends on the choice of `transition_weights` arg
-    if transition_weights is not None:
+    # parsimony score depends on the choice of `transition_model` arg
 
-        weight_func = dag_parsimony.make_weighted_hamming_edge_func(
-            transition_weights, bases=dag_parsimony.bases
-        )
-
-        s_ete_weight = s_ete_as_dag.optimal_weight_annotate(
-            edge_weight_func=weight_func
-        )
-    else:
-        s_ete_weight = s_ete_as_dag.optimal_weight_annotate()
+    weight_func = transition_model.weighted_hamming_edge_weight("sequence")
+    s_ete_weight = s_ete_as_dag.optimal_weight_annotate(edge_weight_func=weight_func)
     assert s_weight == s_ete_weight, (
         "Downward sankoff on ete_Tree vs on the dag version of the tree produced different results: "
         + "%lf from the dag and %lf from the ete_Tree" % (s_weight, s_ete_weight)
@@ -62,11 +54,13 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
     ), "DAG Sankoff missed a label that occurs in the tree Sankoff."
 
 
-def check_sankoff_on_dag(dag, expected_score, transition_weights=None):
+def check_sankoff_on_dag(
+    dag, expected_score, transition_model=dag_parsimony.default_aa_gaps_transitions
+):
     # perform upward sweep of sankoff to calculate overall parsimony score and assign cost vectors to internal nodes
     seq_len = len(next(dag.get_leaves()).label.sequence)
     upward_pass_min_cost = dag_parsimony.sankoff_upward(
-        dag, seq_len, transition_weights=transition_weights
+        dag, seq_len, transition_model=transition_model
     )
     assert np.isclose([upward_pass_min_cost], [expected_score]), (
         "Upward pass of Sankoff on dag did not yield expected score: computed %lf, but expected %lf"
@@ -76,7 +70,7 @@ def check_sankoff_on_dag(dag, expected_score, transition_weights=None):
     # perform downward sweep of sankoff to calculate all possible internal node sequences.
     downward_pass_min_cost = dag_parsimony.sankoff_downward(
         dag,
-        transition_weights=transition_weights,
+        transition_model=transition_model,
         compute_cvs=False,
     )
     dag._check_valid()
@@ -98,36 +92,42 @@ def test_sankoff_on_dag():
     dg.convert_to_collapsed()
 
     tw_options = [
-        (75, None),
+        (75, dag_parsimony.default_aa_transitions),
         (
             93,
-            np.array(
-                [
-                    [0, 1, 2.5, 1, 1],
-                    [1, 0, 1, 2.5, 1],
-                    [2.5, 1, 0, 1, 1],
-                    [1, 2.5, 1, 0, 1],
-                    [1, 1, 1, 1, 0],
-                ]
+            dag_parsimony.TransitionAlphabet(
+                bases="AGCT-",
+                transition_weights=np.array(
+                    [
+                        [0, 1, 2.5, 1, 1],
+                        [1, 0, 1, 2.5, 1],
+                        [2.5, 1, 0, 1, 1],
+                        [1, 2.5, 1, 0, 1],
+                        [1, 1, 1, 1, 0],
+                    ]
+                ),
             ),
         ),
         (
             106,
-            np.array(
-                [
-                    [0, 1, 5, 1, 1],
-                    [1, 0, 1, 5, 1],
-                    [5, 1, 0, 1, 1],
-                    [1, 5, 1, 0, 1],
-                    [1, 1, 1, 1, 0],
-                ]
+            dag_parsimony.TransitionAlphabet(
+                bases="AGCT-",
+                transition_weights=np.array(
+                    [
+                        [0, 1, 5, 1, 1],
+                        [1, 0, 1, 5, 1],
+                        [5, 1, 0, 1, 1],
+                        [1, 5, 1, 0, 1],
+                        [1, 1, 1, 1, 0],
+                    ]
+                ),
             ),
         ),
     ]
 
-    for (w, tw) in tw_options:
-        check_sankoff_on_dag(dg.copy(), w, transition_weights=tw)
-        compare_dag_and_tree_parsimonies(dg.copy(), transition_weights=tw)
+    for (w, tm) in tw_options:
+        check_sankoff_on_dag(dg.copy(), w, transition_model=tm)
+        compare_dag_and_tree_parsimonies(dg.copy(), transition_model=tm)
 
 
 def test_partial_sankoff_on_dag():
@@ -192,19 +192,18 @@ def test_sankoff_with_alternative_sequence_name():
             i = i + 1
 
     dg = dg.add_label_fields(["location"], vals)
+    transition_model = dag_parsimony.TransitionAlphabet(bases="AB")
 
     upward_cost = dag_parsimony.sankoff_upward(
         dg,
         seq_len=1,
         sequence_attr_name="location",
-        bases=["A", "B"],
-        transition_weights=np.array([[0, 1], [1, 0]]),
+        transition_model=transition_model,
     )
     downward_cost = dag_parsimony.sankoff_downward(
         dg,
         sequence_attr_name="location",
-        bases=["A", "B"],
-        transition_weights=np.array([[0, 1], [1, 0]]),
+        transition_model=transition_model,
     )
     assert (
         upward_cost == downward_cost

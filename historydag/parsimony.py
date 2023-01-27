@@ -4,6 +4,7 @@ import random
 import ete3
 import numpy as np
 import Bio.Data.IUPACData
+from frozendict import frozendict
 from itertools import product
 from historydag.dag import (
     history_dag_from_histories,
@@ -13,65 +14,274 @@ from historydag.dag import (
 )
 from copy import deepcopy
 
-bases = "AGCT-"
-ambiguous_dna_values = Bio.Data.IUPACData.ambiguous_dna_values.copy()
-ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
 
+class AmbiguityMap:
+    """Implements a bijection between a subset of the power set of an alphabet
+    of bases, and an expanded alphabet of ambiguity codes.
 
-def hamming_distance(seq1: str, seq2: str) -> int:
-    r"""Hamming distance between two sequences of equal length.
+    To look up the set of bases represented by an ambiguity code, use the object like a dictionary.
+    To look up an ambiguity code representing a set of bases, use the ``reversed`` attribute.
 
     Args:
-        seq1: sequence 1
-        seq2: sequence 2
+        ambiguity_character_map: A mapping from ambiguity codes to collections of bases represented by that code.
+        bases: A collection of bases. If not provided, this will be inferred from the ambiguity_character_map.
     """
-    if len(seq1) != len(seq2):
-        raise ValueError("sequence lengths do not match!")
-    return sum(x != y for x, y in zip(seq1, seq2))
+
+    def __init__(self, ambiguity_character_map, bases=None):
+        ambiguous_values = {
+            char: frozenset(bases) for char, bases in ambiguity_character_map.items()
+        }
+        if bases is None:
+            self.bases = frozenset(
+                base for bset in self.ambiguous_values for base in bset
+            )
+        else:
+            self.bases = frozenset(bases)
+
+        ambiguous_values.update({base: frozenset({base}) for base in self.bases})
+        self.ambiguous_values = frozendict(ambiguous_values)
+        self.reversed = ReversedAmbiguityMap(
+            {bases: char for char, bases in self.ambiguous_values.items()}
+        )
+
+    def __getitem__(self, key):
+        try:
+            return self.ambiguous_values[key]
+        except KeyError:
+            raise KeyError(f"{key} is not a valid ambiguity code for this map.")
+
+    def __iter__(self):
+        return self.ambiguous_values.__iter__()
+
+    def items(self):
+        return self.ambiguous_values.items()
 
 
-_yey = np.array(
-    [
-        [0, 1, 1, 1, 1],
-        [1, 0, 1, 1, 1],
-        [1, 1, 0, 1, 1],
-        [1, 1, 1, 0, 1],
-        [1, 1, 1, 1, 0],
-    ]
+class ReversedAmbiguityMap(frozendict):
+    def __getitem__(self, key):
+        try:
+            return super().__getitem__(key)
+        except KeyError:
+            raise KeyError(f"No ambiguity code is defined for the set of bases {key}")
+
+
+_ambiguous_dna_values_gap_as_char = Bio.Data.IUPACData.ambiguous_dna_values.copy()
+_ambiguous_dna_values_gap_as_char.update({"?": "GATC-", "-": "-"})
+_ambiguous_dna_values = Bio.Data.IUPACData.ambiguous_dna_values.copy()
+_ambiguous_dna_values.update({"?": "GATC", "-": "GATC"})
+
+standard_aa_ambiguity_map = AmbiguityMap(_ambiguous_dna_values, "AGCT")
+standard_aa_ambiguity_map_gap_as_char = AmbiguityMap(
+    _ambiguous_dna_values_gap_as_char, "AGCT-"
 )
 
-# This is applicable even when diagonal entries in transition rate matrix are
-# nonzero, since it is only a mask on allowable sites based on each base.
-code_vectors = {
-    code: np.array(
-        [0 if base in ambiguous_dna_values[code] else float("inf") for base in bases]
-    )
-    for code in ambiguous_dna_values
-}
 
-ambiguous_codes_from_vecs = {
-    tuple(0 if base in base_set else 1 for base in bases): code
-    for code, base_set in ambiguous_dna_values.items()
-}
-
-
-def _get_adj_array(seq_len, transition_weights=None, bases="AGCT-"):
-    if transition_weights is None:
-        transition_weights = _yey
-    else:
-        transition_weights = np.array(transition_weights)
-
-    num_bases = len(bases)
-    if transition_weights.shape == (num_bases, num_bases):
-        adj_arr = np.array([transition_weights] * seq_len)
-    elif transition_weights.shape == (seq_len, num_bases, num_bases):
-        adj_arr = transition_weights
-    else:
-        raise RuntimeError(
-            "Transition weight matrix must have shape (%d, %d) or (sequence_length, %d, %d)."
-            % (num_bases, num_bases, num_bases, num_bases)
+class TransitionAlphabet:
+    def __init__(
+        self, bases=tuple("AGCT"), transition_weights=None, ambiguity_map=None
+    ):
+        self.bases = tuple(bases)
+        self.base_indices = frozendict({base: idx for idx, base in enumerate(bases)})
+        self.yey = np.array(
+            [[i != j for i in range(len(self.bases))] for j in range(len(self.bases))]
         )
-    return adj_arr
+        if transition_weights is None:
+            self.transition_weights = self.yey
+        else:
+            if len(transition_weights) != len(self.bases) or len(
+                transition_weights[0]
+            ) != len(self.bases):
+                raise ValueError(
+                    "transition_weights must be a nxn matrix, with n=len(bases)"
+                )
+            self.transition_weights = transition_weights
+        if ambiguity_map is None:
+            if self.bases == tuple("AGCT"):
+                self.ambiguity_map = standard_aa_ambiguity_map
+            elif self.bases == tuple("AGCT-"):
+                self.ambiguity_map = standard_aa_ambiguity_map_gap_as_char
+            else:
+                self.ambiguity_map = AmbiguityMap({}, self.bases)
+        else:
+            self.ambiguity_map = ambiguity_map
+
+        # This is applicable even when diagonal entries in transition rate matrix are
+        # nonzero, since it is only a mask on allowable sites based on each base.
+        self.mask_vectors = {
+            code: np.array(
+                [
+                    0 if base in self.ambiguity_map[code] else float("inf")
+                    for base in self.bases
+                ]
+            )
+            for code in self.ambiguity_map
+        }
+
+    def get_ambiguity_from_tuple(self, tup):
+        """Retrieve an ambiguity code encoded by tup, which encodes a set of
+        bases with a tuple of 0's and 1's.
+
+        For example, with ``bases='AGCT'``, ``(0, 1, 1, 1)`` would
+        return `A`.
+        """
+        return self.ambiguity_map.reversed[
+            frozenset(self.bases[i] for i, flag in enumerate(tup) if flag == 0)
+        ]
+
+    def character_distance(self, parent_char, child_char):
+        return self.transition_weights[self.base_indices[parent_char]][
+            self.base_indices[child_char]
+        ]
+
+    def weighted_hamming_distance(self, parent_seq, child_seq):
+        if len(parent_seq) != len(child_seq):
+            raise ValueError("sequence lengths do not match!")
+        return sum(
+            self.character_distance(pchar, cchar)
+            for pchar, cchar in zip(parent_seq, child_seq)
+        )
+
+    def min_character_distance(self, parent_char, child_char):
+        """Allowing child_char to be ambiguous, returns the minimum possible
+        transition weight between parent_char and child_char."""
+        child_set = self.ambiguity_map[child_char]
+        p_idx = self.base_indices[parent_char]
+        return min(
+            self.transition_weights[p_idx][self.base_indices[cbase]]
+            for cbase in child_set
+        )
+
+    def min_weighted_hamming_distance(self, parent_seq, child_seq):
+        """Assuming the child_seq may contain ambiguous characters, returns the
+        minimum possible transition weight between parent_seq and child_seq."""
+        if len(parent_seq) != len(child_seq):
+            raise ValueError("sequence lengths do not match!")
+        return sum(
+            self.min_character_distance(pchar, cchar)
+            for pchar, cchar in zip(parent_seq, child_seq)
+        )
+
+    def get_adjacency_array(self, seq_len):
+        return np.array([self.transition_weights] * seq_len)
+
+    def weighted_hamming_edge_weight(self, field_name):
+        """Returns a function for computing weighted hamming distance between
+        two nodes' sequences.
+
+        Args:
+            field_name: The name of the node label field which contains sequences.
+
+        Returns:
+            A function accepting two :class:`HistoryDagNode` objects ``n1`` and ``n2`` and returning
+            a float: the transition cost from ``n1.label.<field_name>`` to ``n2.label.<field_name>``, or 0 if
+            n1 is the UA node.
+        """
+
+        @utils.access_nodefield_default(field_name, 0)
+        def edge_weight(parent, child):
+            return self.weighted_hamming_distance(parent, child)
+
+        return edge_weight
+
+    def min_weighted_hamming_edge_weight(self, field_name):
+        """Returns a function for computing weighted hamming distance between
+        two nodes' sequences.
+
+        If the child node is a leaf node, and its sequence contains ambiguities, the minimum possible
+        transition cost from parent to child will be returned.
+
+        Args:
+            field_name: The name of the node label field which contains sequences.
+
+        Returns:
+            A function accepting two :class:`HistoryDagNode` objects ``n1`` and ``n2`` and returning
+            a float: the transition cost from ``n1.label.<field_name>`` to ``n2.label.<field_name>``, or 0 if
+            n1 is the UA node.
+        """
+
+        def edge_weight(parent, child):
+            if parent.is_ua_node():
+                return 0
+            elif child.is_leaf():
+                return self.min_weighted_hamming_distance(
+                    getattr(parent.label, field_name), getattr(child.label, field_name)
+                )
+            else:
+                return self.weighted_hamming_distance(
+                    getattr(parent.label, field_name), getattr(child.label, field_name)
+                )
+
+        return edge_weight
+
+
+class UnitTransitionAlphabet(TransitionAlphabet):
+    """A subclass of :class:`TransitionAlphabet` to be used when all
+    transitions have unit cost."""
+
+    def __init__(self, bases="AGCT", ambiguity_map=None):
+        super().__init__(bases=bases, ambiguity_map=None)
+
+    def min_character_distance(self, parent_char, child_char):
+        return int(parent_char not in self.ambiguity_map[child_char])
+
+    def weighted_hamming_distance(self, parent_seq, child_seq):
+        if len(parent_seq) != len(child_seq):
+            raise ValueError("sequence lengths do not match!")
+        return sum(x != y for x, y in zip(parent_seq, child_seq))
+
+
+class VariableTransitionAlphabet(TransitionAlphabet):
+    """A subclass of :class:`TransitionAlphabet` to be used when transition
+    costs depend on site."""
+
+    def __init__(self, bases="AGCT", transition_matrix=None, ambiguity_map=None):
+        assert transition_matrix.shape[1:] == (len(bases), len(bases))
+        super().__init__(bases=bases, ambiguity_map=None)
+        self.transition_weights = None
+        self.sitewise_transition_matrix = transition_matrix
+        self._seq_len
+
+    def character_distance(self, parent_char, child_char, site):
+        return self.sitewise_transition_matrix[site - 1][parent_char][child_char]
+
+    def weighted_hamming_distance(self, parent_seq, child_seq):
+        if len(parent_seq) != self._seq_len or len(child_seq) != self._seq_len:
+            raise ValueError("Sequence lengths must match transition matrix length")
+        return sum(
+            self.character_distance(pchar, cchar, idx + 1)
+            for idx, (pchar, cchar) in enumerate(zip(parent_seq, child_seq))
+        )
+
+    def min_character_distance(self, parent_char, child_char, site):
+        """Allowing child_char to be ambiguous, returns the minimum possible
+        transition weight between parent_char and child_char."""
+        child_set = self.ambiguity_map[child_char]
+        p_idx = self.base_indices[parent_char]
+        return min(
+            self.transition_weights[site - 1][p_idx][self.base_indices[cbase]]
+            for cbase in child_set
+        )
+
+    def min_weighted_hamming_distance(self, parent_seq, child_seq):
+        """Assuming the child_seq may contain ambiguous characters, returns the
+        minimum possible transition weight between parent_seq and child_seq."""
+        if len(parent_seq) != len(child_seq):
+            raise ValueError("sequence lengths do not match!")
+        return sum(
+            self.min_character_distance(pchar, cchar, idx + 1)
+            for idx, (pchar, cchar) in enumerate(zip(parent_seq, child_seq))
+        )
+
+    def get_adjacency_array(self, seq_len):
+        if seq_len != self._seq_len:
+            raise ValueError(
+                f"VariableTransitionAlphabet instance supports sequence length of {self._seq_len}"
+            )
+        return self.sitewise_transition_matrix
+
+
+default_aa_transitions = UnitTransitionAlphabet(bases="AGCT")
+default_aa_gaps_transitions = UnitTransitionAlphabet(bases="AGCT-")
 
 
 def replace_label_attr(original_label, list_of_replacements={}):
@@ -85,64 +295,10 @@ def replace_label_attr(original_label, list_of_replacements={}):
     return type(original_label)(**fields)
 
 
-def weighted_hamming_distance_from_weight_matrix(weight_mat, bases="AGCT-"):
-    """Returns a function for computing weighted hamming distance between two
-    sequences.
-
-    Args:
-        weight_mat: A transition matrix describing the cost of transitions between bases in ``bases``.
-            For example, with bases ``AGCT-``, ``weight_mat[0][3]`` should contain the cost of a transition
-            from A to T.
-        bases: A sequence of characters describing the order of bases whose transition weights are expressed
-            in ``weight_mat``.
-
-    Returns:
-        A function taking two sequences of equal length and returning a float: the cost of transition
-            from the first sequence to the second.
-    """
-
-    if len(weight_mat) != len(bases) or len(weight_mat[0]) != len(bases):
-        raise ValueError(
-            "``weight_mat`` must be a n x n matrix, where ``n = len(bases)``."
-        )
-    base_indices = {k: v for v, k in enumerate(bases)}
-
-    def weighted_hamming_distance(seq1, seq2):
-        if len(seq1) != len(seq2):
-            raise ValueError("Sequences must have the same length!")
-        return sum(
-            weight_mat[base_indices[x], base_indices[y]] for x, y in zip(seq1, seq2)
-        )
-
-    return weighted_hamming_distance
-
-
-def make_weighted_hamming_edge_func(
-    weight_mat, sequence_attr_name="sequence", bases="AGCT-"
-):
-    """Returns function for computing weighted hamming distance between two
-    nodes' sequences.
-
-    Args:
-        weight_mat: A transition matrix describing the cost of transitions between bases in ``bases``.
-            For example, with bases ``AGCT-``, ``weight_mat[0][3]`` should contain the cost of a transition
-            from A to T.
-        bases: A sequence of characters describing the order of bases whose transition weights are expressed
-            in ``weight_mat``.
-
-    Returns:
-        A function accepting two :class:`HistoryDagNode` objects ``n1`` and ``n2`` and returning
-        a float: the transition cost from ``n1.label.sequence`` to ``n2.label.sequence``, or 0 if
-        n1 is the UA node.
-    """
-
-    return utils.access_nodefield_default(sequence_attr_name, 0)(
-        weighted_hamming_distance_from_weight_matrix(weight_mat, bases=bases)
-    )
-
-
 def make_weighted_hamming_count_funcs(
-    weight_mat, sequence_attr_name="sequence", bases="AGCT-"
+    transition_model=default_aa_transitions,
+    allow_ambiguous_leaves=False,
+    sequence_label="sequence",
 ):
     """Returns an :class:`AddFuncDict` for computing weighted parsimony.
 
@@ -150,22 +306,19 @@ def make_weighted_hamming_count_funcs(
     have unambiguous sequences stored in label attributes named ``sequence``.
 
     Args:
-        weight_mat: A transition matrix describing the cost of transitions between bases in ``bases``.
-            For example, with bases ``AGCT-``, ``weight_mat[0][3]`` should contain the cost of a transition
-            from A to T.
-        bases: A sequence of characters describing the order of bases whose transition weights are expressed
-            in ``weight_mat``.
 
     Returns:
         :class:`AddFuncDict` object for computing weighted parsimony.
     """
 
+    if allow_ambiguous_leaves:
+        weight_func = transition_model.min_weighted_hamming_edge_weight(sequence_label)
+    else:
+        weight_func = transition_model.weighted_hamming_edge_weight(sequence_label)
     return utils.AddFuncDict(
         {
             "start_func": lambda n: 0,
-            "edge_weight_func": make_weighted_hamming_edge_func(
-                weight_mat, sequence_attr_name=sequence_attr_name, bases=bases
-            ),
+            "edge_weight_func": weight_func,
             "accum_func": sum,
         },
         name="WeightedParsimony",
@@ -209,9 +362,7 @@ def sankoff_upward(
     node_list,
     seq_len,
     sequence_attr_name="sequence",
-    gap_as_char=False,
-    bases=bases,
-    transition_weights=None,
+    transition_model=default_aa_transitions,
     use_internal_node_sequences=False,
 ):
     """Compute Sankoff cost vectors at nodes in a postorder traversal, and
@@ -230,35 +381,16 @@ def sankoff_upward(
             the transition cost for sequences assigned to internal nodes. This assumes that internal
             nodes have a field with name ``sequence``.
     """
-    if gap_as_char:
 
-        def translate_base(char):
-            return char
-
-    else:
-
-        def translate_base(char):
-            if char == "-":
-                return "N"
-            else:
-                return char
-
-    code_vectors = {
-        code: [0 if b == code else float("inf") for b in bases] for code in bases
-    }
-
+    adj_arr = transition_model.get_adjacency_array(seq_len)
     if isinstance(node_list, ete3.TreeNode):
-        adj_arr = _get_adj_array(
-            seq_len, transition_weights=transition_weights, bases=bases
-        )
-
         # First pass of Sankoff: compute cost vectors
         for node in node_list.traverse(strategy="postorder"):
             node.add_feature(
                 "cost_vector",
                 np.array(
                     [
-                        code_vectors[translate_base(base)].copy()
+                        transition_model.mask_vectors[base].copy()
                         for base in getattr(node, sequence_attr_name)
                     ]
                 ),
@@ -267,7 +399,7 @@ def sankoff_upward(
                 child_costs = []
                 for child in node.children:
                     stacked_child_cv = np.stack(
-                        (child.cost_vector,) * len(bases), axis=1
+                        (child.cost_vector,) * len(transition_model.bases), axis=1
                     )
                     total_cost = adj_arr + stacked_child_cv
                     child_costs.append(np.min(total_cost, axis=2))
@@ -276,7 +408,7 @@ def sankoff_upward(
             if use_internal_node_sequences:
                 node.cost_vector += np.array(
                     [
-                        code_vectors[translate_base(base)]
+                        transition_model.mask_vectors[base]
                         for base in getattr(node, sequence_attr_name)
                     ]
                 )
@@ -286,15 +418,12 @@ def sankoff_upward(
         node_list = list(node_list.postorder())
     if isinstance(node_list, list):
         sequence_attr_idx = node_list[0].label._fields.index(sequence_attr_name)
-        adj_arr = _get_adj_array(
-            seq_len, transition_weights=transition_weights, bases=bases
-        )
         max_transition_cost = np.amax(adj_arr) * seq_len
 
         def children_cost(child_cost_vectors):
             costs = []
             for c in child_cost_vectors:
-                cost = adj_arr + np.stack((c,) * len(bases), axis=1)
+                cost = adj_arr + np.stack((c,) * len(transition_model.bases), axis=1)
                 costs.append(np.min(cost, axis=2))
             return np.sum(costs, axis=0)
 
@@ -303,7 +432,7 @@ def sankoff_upward(
                 return [
                     np.array(
                         [
-                            code_vectors[translate_base(base)].copy()
+                            transition_model.mask_vectors[base].copy()
                             for base in node.label[sequence_attr_idx]
                         ]
                     )
@@ -314,7 +443,7 @@ def sankoff_upward(
                 return [
                     np.array(
                         [
-                            code_vectors[translate_base(base)].copy()
+                            transition_model.mask_vectors[base].copy()
                             for base in node.label[sequence_attr_idx]
                         ]
                     )
@@ -349,10 +478,8 @@ def sankoff_downward(
     dag,
     partial_node_list=None,
     sequence_attr_name="sequence",
-    gap_as_char=False,
     compute_cvs=True,
-    bases=bases,
-    transition_weights=None,
+    transition_model=default_aa_transitions,
     trim=True,
 ):
     """Assign sequences to internal nodes of dag using a weighted Sankoff
@@ -383,18 +510,15 @@ def sankoff_downward(
             partial_node_list,
             seq_len,
             sequence_attr_name=sequence_attr_name,
-            gap_as_char=gap_as_char,
-            bases=bases,
-            transition_weights=transition_weights,
+            transition_model=transition_model,
         )
     # save the field names/types of the label datatype for this dag
-    adj_arr = _get_adj_array(
-        seq_len, transition_weights=transition_weights, bases=bases
-    )
-    inverse_bases = {i: s for s, i in enumerate(bases)}
+    adj_arr = transition_model.get_adjacency_array(seq_len)
 
     def transition_cost(seq):
-        return adj_arr[np.arange(len(seq)), [inverse_bases[s] for s in seq]]
+        return adj_arr[
+            np.arange(len(seq)), [transition_model.base_indices[s] for s in seq]
+        ]
 
     def compute_sequence_data(cost_vector):
         """Compute all possible sequences that minimize transition costs as given by cost_vector.
@@ -417,7 +541,7 @@ def sankoff_downward(
             for base_indices in all_base_indices
         ]
         new_sequence = [
-            "".join([bases[base_index] for base_index in base_indices])
+            "".join([transition_model.bases[base_index] for base_index in base_indices])
             for base_indices in all_base_indices
         ]
         return list(zip(new_sequence, adj_vec, [min_cost] * len(new_sequence)))
@@ -479,14 +603,9 @@ def sankoff_downward(
     # still need to trim the dag since the final addition of all
     # parents/children to new nodes can yield suboptimal choices
 
-    if transition_weights is not None:
-        weight_func = make_weighted_hamming_edge_func(
-            adj_arr[0], sequence_attr_name=sequence_attr_name, bases=bases
-        )
-    else:
-        weight_func = utils.access_nodefield_default(sequence_attr_name, 0)(
-            utils.hamming_distance
-        )
+    weight_func = utils.access_nodefield_default(sequence_attr_name, 0)(
+        transition_model.weighted_hamming_distance
+    )
     if trim:
         optimal_weight = dag.trim_optimal_weight(edge_weight_func=weight_func)
     else:
@@ -500,8 +619,7 @@ def disambiguate(
     random_state=None,
     remove_cvs=False,
     adj_dist=False,
-    gap_as_char=False,
-    transition_weights=None,
+    transition_model=default_aa_transitions,
     min_ambiguities=False,
 ):
     """Randomly resolve ambiguous bases using a two-pass Sankoff Algorithm on
@@ -515,14 +633,6 @@ def disambiguate(
         remove_cvs: Remove sankoff cost vectors from tree nodes after disambiguation.
         adj_dist: Recompute hamming parsimony distances on tree after disambiguation, and store them
             in ``dist`` node attributes.
-        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
-            it will be treated the same as an ``N``.
-        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.
-            Rows contain targeting weights. That is, the first row contains the transition weights
-            from `A` to each possible target base. Alternatively, a sequence-length array of these
-            transition weight matrices, if transition weights vary by-site. By default, a constant
-            weight matrix will be used containing 1 in all off-diagonal positions, equivalent
-            to Hamming parsimony.
         min_ambiguities: If True, leaves ambiguities in reconstructed sequences, expressing which
             bases are possible at each site in a maximally parsimonious disambiguation of the given
             topology. In the history DAG paper, this is known as a strictly min-weight ambiguous labeling.
@@ -534,18 +644,19 @@ def disambiguate(
         random.setstate(random_state)
 
     seq_len = len(next(tree.iter_leaves()).sequence)
-    adj_arr = _get_adj_array(seq_len, transition_weights=transition_weights)
+    adj_arr = transition_model.get_adjacency_array(seq_len)
     if compute_cvs:
-        sankoff_upward(tree, gap_as_char=gap_as_char)
+        sankoff_upward(tree, transition_model=transition_model)
     # Second pass of Sankoff: choose bases
     preorder = list(tree.traverse(strategy="preorder"))
     for node in preorder:
         if min_ambiguities:
             adj_vec = node.cost_vector != np.stack(
-                (node.cost_vector.min(axis=1),) * len(bases), axis=1
+                (node.cost_vector.min(axis=1),) * len(transition_model.bases), axis=1
             )
             new_seq = [
-                ambiguous_codes_from_vecs[tuple(map(float, row))] for row in adj_vec
+                transition_model.get_ambiguity_from_tuple(tuple(map(float, row)))
+                for row in adj_vec
             ]
         else:
             base_indices = []
@@ -561,7 +672,9 @@ def disambiguate(
                 base_indices.append(base_index)
 
             adj_vec = adj_arr[np.arange(seq_len), base_indices]
-            new_seq = [bases[base_index] for base_index in base_indices]
+            new_seq = [
+                transition_model.bases[base_index] for base_index in base_indices
+            ]
 
         # Adjust child cost vectors
         for child in node.children:
@@ -577,7 +690,9 @@ def disambiguate(
     if adj_dist:
         tree.dist = 0
         for node in tree.iter_descendants():
-            node.dist = hamming_distance(node.up.sequence, node.sequence)
+            node.dist = transition_model.weighted_hamming_distance(
+                node.up.sequence, node.sequence
+            )
     return tree
 
 
@@ -658,13 +773,13 @@ def build_trees_from_files(newickfiles, fastafile, **kwargs):
         yield build_tree(newick, fasta_map, **kwargs)
 
 
-def parsimony_score(tree):
+def parsimony_score(tree, transition_model=default_aa_transitions):
     """returns the parsimony score of a (disambiguated) ete tree.
 
     Tree must have 'sequence' attributes on all nodes.
     """
     return sum(
-        hamming_distance(node.up.sequence, node.sequence)
+        transition_model.weighted_hamming_distance(node.up.sequence, node.sequence)
         for node in tree.iter_descendants()
     )
 
@@ -743,15 +858,6 @@ def build_dag_from_trees(trees):
         trees,
         ["sequence"],
     )
-
-
-def summarize_dag(dag):
-    """print summary information about the provided history DAG."""
-    print("DAG contains")
-    print("trees: ", dag.count_histories())
-    print("nodes: ", len(list(dag.preorder())))
-    print("edges: ", sum(len(list(node.children())) for node in dag.preorder()))
-    print("parsimony scores: ", dag.weight_count())
 
 
 def disambiguate_history(history):

@@ -3,16 +3,17 @@ from warnings import warn
 from functools import lru_cache
 import dendropy
 import xml.etree.ElementTree as ET
-from historydag.parsimony import ambiguous_dna_values
+
+# from historydag.parsimony import ambiguous_dna_values
 
 
-ambiguous_dna_values = ambiguous_dna_values.copy()
-# Set '-' to be equivalent to 'N'.
-ambiguous_dna_values.update({"?": "GATC", "-": "GATC"})
-character_lookup = {
-    frozenset(char_set): character
-    for character, char_set in ambiguous_dna_values.items()
-}
+# ambiguous_dna_values = ambiguous_dna_values.copy()
+# # Set '-' to be equivalent to 'N'.
+# ambiguous_dna_values.update({"?": "GATC", "-": "GATC"})
+# character_lookup = {
+#     frozenset(char_set): character
+#     for character, char_set in ambiguous_dna_values.items()
+# }
 
 
 def dag_from_beast_trees(
@@ -20,6 +21,7 @@ def dag_from_beast_trees(
     beast_output_file,
     reference_sequence=None,
     mask_ambiguous_sites=True,
+    use_original_leaves=True,
 ):
     """A convenience method to build a dag out of the output from
     :meth:`load_beast_trees`."""
@@ -29,17 +31,31 @@ def dag_from_beast_trees(
         reference_sequence=reference_sequence,
         mask_ambiguous_sites=mask_ambiguous_sites,
     )
+
+    if use_original_leaves:
+
+        def cg_func(node):
+            if node.is_leaf():
+                return node.observed_cg
+            else:
+                return node.cg
+
+    else:
+
+        def cg_func(node):
+            return node.cg
+
     dag = hdag.history_dag_from_trees(
         [tree.seed_node for tree in dp_trees],
         [],
         label_functions={
-            "compact_genome": lambda n: n.cg,
+            "compact_genome": cg_func,
         },
         attr_func=lambda n: {"name": (n.taxon.label if n.is_leaf() else "internal")},
         child_node_func=dendropy.Node.child_nodes,
         leaf_node_func=dendropy.Node.leaf_iter,
     )
-    return hdag.mutation_annotated_dag.CGHistoryDag.from_history_dag(dag)
+    return hdag.mutation_annotated_dag.AmbiguousLeafCGHistoryDag.from_history_dag(dag)
 
 
 def load_beast_trees(
@@ -67,30 +83,17 @@ def load_beast_trees(
             for that tree
         * cg attribute on all nodes, containing a compact genome relative to the reference
             sequence
+        * observed_cg attribute on leaf nodes, containing a compact genome describing the original
+            observed sequence, with ambiguities, but with sites ignored by BEAST removed.
         * mut attribute on all nodes containing a list of mutations on parent branch, in
             order of occurrence
     """
-    # get alignment from xml:
-    _etree = ET.parse("clade_13.GTR.xml")
-    _alignment = _etree.getroot().find("alignment")
-    unmasked_fasta = {
-        a[0].attrib["idref"].strip(): a[0].tail.strip() for a in _alignment
-    }
-    masked_sites = {
-        i
-        for i in range(len(next(iter(unmasked_fasta.values()))))
-        if len({seq[i] for seq in unmasked_fasta.values()} - {"N", "?"}) == 0
-    }
-
-    def mask_sequence(unmasked):
-        return "".join(char for i, char in enumerate(unmasked) if i not in masked_sites)
-
-    fasta = {key: mask_sequence(val) for key, val in unmasked_fasta.items()}
+    fasta = fasta_from_beast_file(beast_xml_file, remove_ignored_sites=True)[0]
 
     # dendropy doesn't parse nested lists correctly in metadata, so we load the
     # trees with raw comment strings using `extract_comment_metadata`
     dp_trees = dendropy.TreeList.get(
-        path="clade_13.GTR.history.trees",
+        path=beast_output_file,
         schema="nexus",
         extract_comment_metadata=False,
     )
@@ -133,6 +136,12 @@ def load_beast_trees(
             return parent_cg_mut.apply_muts(node.muts)
 
         for node in tree.preorder_node_iter():
+            if node.is_leaf():
+                node.observed_cg = cg_transform(
+                    hdag.compact_genome.compact_genome_from_sequence(
+                        fasta[node.taxon.label], reference_sequence
+                    )
+                )
             node.cg = cg_transform(compute_cg(node))
 
     for tree in dp_trees:
@@ -205,3 +214,41 @@ def _recover_reference(tree, fasta):
             sequence_dict[node] = sequence
     mut_upward_child(tree.seed_node)
     return "".join(sequence_dict[tree.seed_node])
+
+
+def fasta_from_beast_file(filepath, remove_ignored_sites=True):
+    """Produces an alignment dictionary from a BEAST xml file.
+
+    Args:
+        filepath: path to the BEAST xml file, containing an `alignment` block
+        remove_ignored_sites: remove sites which are 'N' or '?' in all samples
+
+    Returns:
+        The resulting alignment dictionary, containing sequences keyed by names,
+        and a tuple containing masked sites (this is empty if ``remove_ignored_sites``
+        is False).
+    """
+    _etree = ET.parse(filepath)
+    _alignment = _etree.getroot().find("alignment")
+    unmasked_fasta = {
+        a[0].attrib["idref"].strip(): a[0].tail.strip() for a in _alignment
+    }
+    masked_sites = {
+        i
+        for i in range(len(next(iter(unmasked_fasta.values()))))
+        if len({seq[i] for seq in unmasked_fasta.values()} - {"N", "?"}) == 0
+    }
+
+    if remove_ignored_sites:
+
+        def mask_sequence(unmasked):
+            return "".join(
+                char for i, char in enumerate(unmasked) if i not in masked_sites
+            )
+
+        return (
+            {key: mask_sequence(val) for key, val in unmasked_fasta.items()},
+            tuple(masked_sites),
+        )
+    else:
+        return (unmasked_fasta, tuple())

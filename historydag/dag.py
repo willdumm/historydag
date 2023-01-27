@@ -853,14 +853,26 @@ class HistoryDag:
         """Deprecated name for :meth:`get_histories`"""
         return self.get_histories()
 
-    def get_leaves(self) -> Generator["HistoryDag", None, None]:
+    def get_leaves(self) -> Generator["HistoryDagNode", None, None]:
         """Return a generator containing all leaf nodes in the history DAG."""
         return self.find_nodes(HistoryDagNode.is_leaf)
 
-    def num_edges(self) -> int:
+    def get_edges(
+        self, skip_ua_node=False
+    ) -> Generator[Tuple["HistoryDagNode", "HistoryDagNode"], None, None]:
+        """Return a generator containing all edges in the history DAG, as
+        parent, child node tuples.
+
+        Edges' parent nodes will be in preorder.
+        """
+        for parent in self.preorder(skip_ua_node=skip_ua_node):
+            for child in parent.children():
+                yield (parent, child)
+
+    def num_edges(self, skip_ua_node=False) -> int:
         """Return the number of edges in the DAG, including edges descending
-        from the UA node."""
-        return sum(len(list(n.children())) for n in self.preorder())
+        from the UA node, unless skip_ua_node is True."""
+        return sum(1 for _ in self.get_edges(skip_ua_node=skip_ua_node))
 
     def num_nodes(self) -> int:
         """Return the number of nodes in the DAG, not counting the UA node."""

@@ -16,10 +16,12 @@ from historydag.compact_genome import (
     compact_genome_from_sequence,
     wrapped_cg_hamming_distance,
     cg_diff,
+    wrapped_ambiguous_cg_hamming_distance,
 )
 import historydag.dag_pb2 as dpb
 import json
 from typing import NamedTuple
+
 
 _pb_nuc_lookup = {0: "A", 1: "C", 2: "G", 3: "T"}
 _pb_nuc_codes = {nuc: code for code, nuc in _pb_nuc_lookup.items()}
@@ -338,6 +340,98 @@ class CGHistoryDag(HistoryDag):
             fh.write(self.to_json(sort_compact_genomes=sort_compact_genomes))
 
 
+class AmbiguousLeafCGHistoryDag(CGHistoryDag):
+    """A HistoryDag subclass with node labels containing compact genomes.
+
+    The constructor for this class requires that each node label contain a 'compact_genome'
+    field, which is expected to hold a :class:`compact_genome.CompactGenome` object, which is
+    expected to hold an unambiguous sequence if the node is internal. The sequence may contain
+    ambiguities if the node is a leaf.
+
+    A HistoryDag containing 'sequence' node label fields may be automatically converted to
+    this subclass by calling the class method :meth:`CGHistoryDag.from_dag`, providing the
+    HistoryDag object to be converted, and the reference sequence to the keyword argument
+    'reference'.
+    """
+
+    # #### Overridden Methods ####
+
+    def weight_count(
+        self,
+        *args,
+        edge_weight_func=wrapped_ambiguous_cg_hamming_distance,
+        **kwargs,
+    ):
+        """See :meth:`historydag.HistoryDag.weight_count`"""
+        return super().weight_count(*args, edge_weight_func=edge_weight_func, **kwargs)
+
+    def optimal_weight_annotate(
+        self, *args, edge_weight_func=wrapped_ambiguous_cg_hamming_distance, **kwargs
+    ) -> Weight:
+        """See :meth:`historydag.HistoryDag.optimal_weight_annotate`"""
+        return super().optimal_weight_annotate(
+            *args, edge_weight_func=edge_weight_func, **kwargs
+        )
+
+    def trim_optimal_weight(
+        self,
+        *args,
+        edge_weight_func=wrapped_ambiguous_cg_hamming_distance,
+        **kwargs,
+    ) -> Weight:
+        """See :meth:`historydag.HistoryDag.trim_optimal_weight`"""
+        return super().trim_optimal_weight(
+            *args, edge_weight_func=edge_weight_func, **kwargs
+        )
+
+    def trim_within_range(
+        self,
+        *args,
+        edge_weight_func=wrapped_ambiguous_cg_hamming_distance,
+        **kwargs,
+    ):
+        """See :meth:`historydag.HistoryDag.trim_within_range`"""
+        return super().trim_within_range(
+            *args, edge_weight_func=edge_weight_func, **kwargs
+        )
+
+    def trim_below_weight(
+        self,
+        *args,
+        edge_weight_func=wrapped_ambiguous_cg_hamming_distance,
+        **kwargs,
+    ):
+        """See :meth:`historydag.HistoryDag.trim_below_weight`"""
+        return super().trim_below_weight(
+            *args, edge_weight_func=edge_weight_func, **kwargs
+        )
+
+    def insert_node(
+        self,
+        *args,
+        dist=wrapped_ambiguous_cg_hamming_distance,
+        **kwargs,
+    ):
+        """See :meth:`historydag.HistoryDag.insert_node`"""
+        return super().insert_node(*args, dist=dist, **kwargs)
+
+    def hamming_parsimony_count(self):
+        """See :meth:`historydag.sequence_dag.SequenceHistoryDag.hamming_parsim
+        ony_count`"""
+        return self.weight_count(
+            **leaf_ambiguous_compact_genome_hamming_distance_countfuncs
+        )
+
+    def summary(self):
+        HistoryDag.summary(self)
+        min_pars, max_pars = self.weight_range_annotate(
+            **leaf_ambiguous_compact_genome_hamming_distance_countfuncs
+        )
+        print(f"Parsimony score range {min_pars} to {max_pars}")
+
+    # #### End Overridden Methods ####
+
+
 def load_json_file(filename):
     """Load a Mutation Annotated DAG stored in a JSON file and return a
     CGHistoryDag."""
@@ -530,3 +624,18 @@ compact_genome_hamming_distance_countfuncs = historydag.utils.AddFuncDict(
 """Provides functions to count hamming distance parsimony when sequences are
 stored as CompactGenomes.
 For use with :meth:`historydag.CGHistoryDag.weight_count`."""
+
+
+leaf_ambiguous_compact_genome_hamming_distance_countfuncs = (
+    historydag.utils.AddFuncDict(
+        {
+            "start_func": lambda n: 0,
+            "edge_weight_func": wrapped_ambiguous_cg_hamming_distance,
+            "accum_func": sum,
+        },
+        name="HammingParsimony",
+    )
+)
+"""Provides functions to count hamming distance parsimony when leaf compact genomes
+may be ambiguous.
+For use with :meth:`historydag.AmbiguousLeafCGHistoryDag.weight_count`."""

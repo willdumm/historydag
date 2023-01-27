@@ -3,6 +3,9 @@ from typing import Dict, Sequence
 from warnings import warn
 import historydag.utils
 
+# from historydag.parsimony import ambiguous_dna_values
+import functools
+
 
 class CompactGenome:
     """A collection of mutations relative to a reference sequence.
@@ -50,6 +53,14 @@ class CompactGenome:
 
     def __str__(self):
         return f"CompactGenome[{', '.join(self.mutations_as_strings())}]"
+
+    def get_site(self, site):
+        """Get the base at the provided (one-based) site index."""
+        mut = self.mutations.get(site)
+        if mut is None:
+            return self.reference[site - 1]
+        else:
+            return mut[-1]
 
     def mutations_as_strings(self):
         """Return mutations as a tuple of strings of the format '<reference
@@ -212,19 +223,49 @@ def wrapped_cg_hamming_distance(s1, s2) -> int:
     return cg_hamming_distance(s1, s2)
 
 
+@functools.lru_cache(maxsize=20000)
+def ambiguous_cg_hamming_distance(
+    parent_cg: CompactGenome, child_cg: CompactGenome
+) -> int:
+    """The minimum possible sitewise sum of base differences between a parent
+    and child compact genome, where the child compact genome may contain
+    ambiguous bases."""
+    if parent_cg.reference != child_cg.reference:
+        raise ValueError("Reference sequences do not match!")
+    s1 = set(parent_cg.mutations.keys())
+    s2 = set(child_cg.mutations.keys())
+
+    def differences():
+        for key in s1 | s2:
+            parent_bases = set(ambiguous_dna_values[parent_cg.get_site(key)])
+            child_bases = set(ambiguous_dna_values[child_cg.get_site(key)])
+            yield len(parent_bases & child_bases) == 0
+
+    return sum(differences())
+
+
+def wrapped_ambiguous_cg_hamming_distance(node1, node2):
+    """Returns the hamming distance between node1.label.compact_genome and
+    node2.label.compact_genome.
+
+    If node2 is a leaf node, then its sequence may be ambiguous, and the
+    minimum possible distance will be returned.
+    """
+    if node2.is_leaf():
+        return ambiguous_cg_hamming_distance(
+            node1.label.compact_genome, node2.label.compact_genome
+        )
+    else:
+        return wrapped_cg_hamming_distance(node1, node2)
+
+
 def cg_diff(parent_cg: CompactGenome, child_cg: CompactGenome):
     """Yields mutations in the format (parent_nuc, child_nuc, sequence_index)
     distinguishing two compact genomes, such that applying the resulting
     mutations to `parent_cg` would yield `child_cg`"""
     keys = set(parent_cg.mutations.keys()) | set(child_cg.mutations.keys())
     for key in keys:
-        if key in parent_cg.mutations:
-            parent_base = parent_cg.mutations[key][1]
-        else:
-            parent_base = child_cg.mutations[key][0]
-        if key in child_cg.mutations:
-            new_base = child_cg.mutations[key][1]
-        else:
-            new_base = parent_cg.mutations[key][0]
-        if parent_base != new_base:
-            yield (parent_base, new_base, key)
+        parent_base = parent_cg.get_site(key)
+        child_base = child_cg.get_site(key)
+        if parent_base != child_base:
+            yield (parent_base, child_base, key)

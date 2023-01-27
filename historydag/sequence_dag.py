@@ -3,6 +3,8 @@ from functools import lru_cache
 import historydag.utils
 from historydag.utils import Weight
 
+# from historydag.parsimony import ambiguous_dna_values
+
 
 def nonleaf_sequence_resolutions(node):
     if node.is_leaf():
@@ -14,7 +16,7 @@ def nonleaf_sequence_resolutions(node):
 @lru_cache(maxsize=20000)
 def _ambiguous_hamming_distance(node1, node2):
     return sum(
-        pbase not in historydag.utils.ambiguous_dna_values[cbase]
+        pbase not in historydag.parsimony.ambiguous_dna_values[cbase]
         for pbase, cbase in zip(node1.label.sequence, node2.label.sequence)
     )
 
