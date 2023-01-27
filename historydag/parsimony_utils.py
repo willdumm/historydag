@@ -32,6 +32,11 @@ class AmbiguityMap:
         self.reversed = ReversedAmbiguityMap(
             {bases: char for char, bases in self.ambiguous_values.items()}
         )
+        self.uninformative_chars = frozenset(
+            char
+            for char, base_set in self.ambiguous_values.items()
+            if base_set == self.bases
+        )
 
     def __getitem__(self, key):
         try:
@@ -279,7 +284,9 @@ class TransitionAlphabet:
 
         return edge_weight
 
-    def get_weighted_cg_parsimony_countfuncs(self, field_name, leaf_ambiguities=False, name="WeightedParsimony"):
+    def get_weighted_cg_parsimony_countfuncs(
+        self, field_name, leaf_ambiguities=False, name="WeightedParsimony"
+    ):
         if leaf_ambiguities:
             edge_weight = self.min_weighted_cg_hamming_edge_weight(field_name)
         else:
@@ -293,7 +300,9 @@ class TransitionAlphabet:
             name=name,
         )
 
-    def get_weighted_parsimony_countfuncs(self, field_name, leaf_ambiguities=False, name="WeightedParsimony"):
+    def get_weighted_parsimony_countfuncs(
+        self, field_name, leaf_ambiguities=False, name="WeightedParsimony"
+    ):
         if leaf_ambiguities:
             edge_weight = self.min_weighted_hamming_edge_weight(field_name)
         else:
@@ -321,11 +330,19 @@ class UnitTransitionAlphabet(TransitionAlphabet):
     def min_character_distance(self, parent_char, child_char, site=None):
         return int(parent_char not in self.ambiguity_map[child_char])
 
-    def get_weighted_cg_parsimony_countfuncs(self, field_name, leaf_ambiguities=False, name="HammingParsimony"):
-        return super().get_weighted_cg_parsimony_countfuncs(field_name, leaf_ambiguities=leaf_ambiguities, name=name)
+    def get_weighted_cg_parsimony_countfuncs(
+        self, field_name, leaf_ambiguities=False, name="HammingParsimony"
+    ):
+        return super().get_weighted_cg_parsimony_countfuncs(
+            field_name, leaf_ambiguities=leaf_ambiguities, name=name
+        )
 
-    def get_weighted_parsimony_countfuncs(self, field_name, leaf_ambiguities=False, name="HammingParsimony"):
-        return super().get_weighted_parsimony_countfuncs(field_name, leaf_ambiguities=leaf_ambiguities, name=name)
+    def get_weighted_parsimony_countfuncs(
+        self, field_name, leaf_ambiguities=False, name="HammingParsimony"
+    ):
+        return super().get_weighted_parsimony_countfuncs(
+            field_name, leaf_ambiguities=leaf_ambiguities, name=name
+        )
 
 
 class VariableTransitionAlphabet(TransitionAlphabet):
@@ -374,3 +391,22 @@ hamming_cg_edge_weight = default_aa_transitions.weighted_cg_hamming_edge_weight(
 hamming_cg_edge_weight_ambiguous_leaves = (
     default_aa_transitions.min_weighted_cg_hamming_edge_weight("compact_genome")
 )
+
+compact_genome_hamming_distance_countfuncs = (
+    default_aa_transitions.get_weighted_cg_parsimony_countfuncs(
+        "compact_genome", leaf_ambiguities=False
+    )
+)
+"""Provides functions to count hamming distance parsimony when sequences are
+stored as CompactGenomes.
+For use with :meth:`historydag.CGHistoryDag.weight_count`."""
+
+
+leaf_ambiguous_compact_genome_hamming_distance_countfuncs = (
+    default_aa_transitions.get_weighted_cg_parsimony_countfuncs(
+        "compact_genome", leaf_ambiguities=True
+    )
+)
+"""Provides functions to count hamming distance parsimony when leaf compact genomes
+may be ambiguous.
+For use with :meth:`historydag.AmbiguousLeafCGHistoryDag.weight_count`."""

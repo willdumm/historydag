@@ -1,10 +1,6 @@
 from frozendict import frozendict
 from typing import Dict, Sequence
 from warnings import warn
-import historydag.utils
-
-# from historydag.parsimony import ambiguous_dna_values
-import functools
 
 
 class CompactGenome:

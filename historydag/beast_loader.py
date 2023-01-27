@@ -3,17 +3,7 @@ from warnings import warn
 from functools import lru_cache
 import dendropy
 import xml.etree.ElementTree as ET
-
-# from historydag.parsimony import ambiguous_dna_values
-
-
-# ambiguous_dna_values = ambiguous_dna_values.copy()
-# # Set '-' to be equivalent to 'N'.
-# ambiguous_dna_values.update({"?": "GATC", "-": "GATC"})
-# character_lookup = {
-#     frozenset(char_set): character
-#     for character, char_set in ambiguous_dna_values.items()
-# }
+import historydag.parsimony_utils as parsimony_utils
 
 
 def dag_from_beast_trees(
@@ -22,6 +12,7 @@ def dag_from_beast_trees(
     reference_sequence=None,
     mask_ambiguous_sites=True,
     use_original_leaves=True,
+    transition_model=parsimony_utils.default_aa_transitions,
 ):
     """A convenience method to build a dag out of the output from
     :meth:`load_beast_trees`."""
@@ -30,6 +21,7 @@ def dag_from_beast_trees(
         beast_output_file,
         reference_sequence=reference_sequence,
         mask_ambiguous_sites=mask_ambiguous_sites,
+        transition_model=transition_model,
     )
 
     if use_original_leaves:
@@ -63,6 +55,7 @@ def load_beast_trees(
     beast_output_file,
     reference_sequence=None,
     mask_ambiguous_sites=True,
+    transition_model=parsimony_utils.default_aa_transitions,
 ):
     """Load trees from BEAST output.
 
@@ -101,7 +94,9 @@ def load_beast_trees(
     for tree in dp_trees:
         for node in tree.postorder_node_iter():
             node.muts = list(_comment_parser(node.comments))
-        tree.ancestral_sequence = _recover_reference(tree, fasta)
+        tree.ancestral_sequence = _recover_reference(
+            tree, fasta, transition_model.ambiguity_map
+        )
 
     if reference_sequence is None:
         reference_sequence = dp_trees[0].ancestral_sequence
@@ -111,7 +106,11 @@ def load_beast_trees(
             extra_masked_sites = {
                 i
                 for i in range(len(next(iter(fasta.values()))))
-                if len({seq[i] for seq in fasta.values()} - {"N", "?", "-"}) == 0
+                if len(
+                    {seq[i] for seq in fasta.values()}
+                    - transition_model.ambiguity_map.uninformative_chars
+                )
+                == 0
             }
 
             def cg_transform(cg):
@@ -171,14 +170,13 @@ def _comment_parser(node_comments):
                     idx_str, _, from_base, to_base = mut.split(",")
                 except ValueError:
                     raise ValueError("comment_parser failed on: " + str(node_comments))
-                assert to_base in "AGCT"
                 yield from_base + idx_str + to_base
         else:
             yield from ()
             return
 
 
-def _recover_reference(tree, fasta):
+def _recover_reference(tree, fasta, ambiguity_map):
     sequence_dict = {}
 
     def mut_upward_child(c_node):
@@ -186,7 +184,7 @@ def _recover_reference(tree, fasta):
             upbase = mut[0]
             downbase = mut[-1]
             site = int(mut[1:-1]) - 1
-            if downbase not in ambiguous_dna_values[sequence_dict[c_node][site]]:
+            if downbase not in ambiguity_map[sequence_dict[c_node][site]]:
                 warn("child base doesn't match mut base")
             sequence_dict[c_node][site] = upbase
 
@@ -202,15 +200,15 @@ def _recover_reference(tree, fasta):
                 for site, (obase, nbase) in enumerate(
                     zip(sequence, sequence_dict[child])
                 ):
-                    intersection = frozenset(ambiguous_dna_values[obase]) & frozenset(
-                        ambiguous_dna_values[nbase]
+                    intersection = frozenset(ambiguity_map[obase]) & frozenset(
+                        ambiguity_map[nbase]
                     )
                     if len(intersection) == 0:
                         warn(
                             "conflicting base found between children, using base from first child"
                         )
                     else:
-                        sequence[site] = character_lookup[intersection]
+                        sequence[site] = ambiguity_map.reversed[intersection]
             sequence_dict[node] = sequence
     mut_upward_child(tree.seed_node)
     return "".join(sequence_dict[tree.seed_node])

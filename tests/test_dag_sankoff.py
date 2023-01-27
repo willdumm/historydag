@@ -3,10 +3,11 @@ import random
 import numpy as np
 import historydag as hdag
 import historydag.parsimony as dag_parsimony
+import historydag.parsimony_utils as parsimony_utils
 
 
 def compare_dag_and_tree_parsimonies(
-    dag, transition_model=dag_parsimony.default_aa_transitions
+    dag, transition_model=parsimony_utils.default_aa_transitions
 ):
 
     # extract sample tree
@@ -55,7 +56,7 @@ def compare_dag_and_tree_parsimonies(
 
 
 def check_sankoff_on_dag(
-    dag, expected_score, transition_model=dag_parsimony.default_aa_gaps_transitions
+    dag, expected_score, transition_model=parsimony_utils.default_aa_gaps_transitions
 ):
     # perform upward sweep of sankoff to calculate overall parsimony score and assign cost vectors to internal nodes
     seq_len = len(next(dag.get_leaves()).label.sequence)
@@ -92,10 +93,10 @@ def test_sankoff_on_dag():
     dg.convert_to_collapsed()
 
     tw_options = [
-        (75, dag_parsimony.default_aa_transitions),
+        (75, parsimony_utils.default_aa_transitions),
         (
             93,
-            dag_parsimony.TransitionAlphabet(
+            parsimony_utils.TransitionAlphabet(
                 bases="AGCT-",
                 transition_weights=np.array(
                     [
@@ -110,7 +111,7 @@ def test_sankoff_on_dag():
         ),
         (
             106,
-            dag_parsimony.TransitionAlphabet(
+            parsimony_utils.TransitionAlphabet(
                 bases="AGCT-",
                 transition_weights=np.array(
                     [
@@ -192,7 +193,7 @@ def test_sankoff_with_alternative_sequence_name():
             i = i + 1
 
     dg = dg.add_label_fields(["location"], vals)
-    transition_model = dag_parsimony.TransitionAlphabet(bases="AB")
+    transition_model = parsimony_utils.TransitionAlphabet(bases="AB")
 
     upward_cost = dag_parsimony.sankoff_upward(
         dg,

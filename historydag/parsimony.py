@@ -12,6 +12,7 @@ from historydag.dag import (
 from copy import deepcopy
 import historydag.parsimony_utils as parsimony_utils
 
+
 def replace_label_attr(original_label, list_of_replacements={}):
     """Generalizes :meth: ``_replace()`` for namedtuple datatype to replace
     multiple fields at once, and by string rather than as a keyword argument.
