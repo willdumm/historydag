@@ -2,7 +2,6 @@
 
 import ete3
 from math import log
-from Bio.Data.IUPACData import ambiguous_dna_values
 from collections import Counter
 from functools import wraps
 import operator
@@ -47,10 +46,6 @@ class UALabel(str):
 
     def _asdict(self):
         raise RuntimeError("Attempted to iterate from dag root UALabel")
-
-
-bases = "AGCT-"
-ambiguous_dna_values.update({"?": bases, "-": "-"})
 
 
 # ######## Decorators ########
@@ -154,47 +149,6 @@ def explode_label(labelfield: str):
 # ######## Distances and comparisons... ########
 
 
-def hamming_distance(s1: str, s2: str) -> int:
-    """The sitewise sum of base differences between s1 and s2."""
-    if len(s1) != len(s2):
-        raise ValueError("Sequences must have the same length!")
-    return sum(x != y for x, y in zip(s1, s2))
-
-
-@access_nodefield_default("sequence", 0)
-def wrapped_hamming_distance(s1, s2) -> int:
-    """The sitewise sum of base differences between sequence field contents of
-    two nodes.
-
-    Takes two HistoryDagNodes as arguments.
-
-    If l1 or l2 is a UANode, returns 0.
-    """
-    return hamming_distance(s1, s2)
-
-
-def hamming_distance_leaf_ambiguous(n1, n2):
-    """Same as wrapped_hamming_distance, but correctly calculates parsimony
-    scores if leaf nodes have ambiguous sequences."""
-    if n2.is_leaf():
-        # Then its sequence may be ambiguous
-        s1 = n1.label.sequence
-        s2 = n2.label.sequence
-        if len(s1) != len(s2):
-            raise ValueError("Sequences must have the same length!")
-        return sum(
-            pbase not in ambiguous_dna_values[cbase] for pbase, cbase in zip(s1, s2)
-        )
-    else:
-        return wrapped_hamming_distance(n1, n2)
-
-
-def is_ambiguous(sequence: str) -> bool:
-    """Returns whether the provided sequence contains IUPAC nucleotide
-    ambiguity codes."""
-    return any(code not in bases for code in sequence)
-
-
 def cartesian_product(
     optionlist: List[Callable[[], Iterable]], accum=tuple()
 ) -> Generator[Tuple, None, None]:
@@ -210,42 +164,6 @@ def cartesian_product(
             yield from cartesian_product(optionlist[1:], accum=(accum + (term,)))
     else:
         yield accum
-
-
-@explode_label("sequence")
-def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
-    """Iterates through possible disambiguations of sequence, recursively.
-
-    Recursion-depth-limited by number of ambiguity codes in sequence,
-    not sequence length.
-    """
-
-    def _sequence_resolutions(sequence, _accum=""):
-        if sequence:
-            for index, base in enumerate(sequence):
-                if base in bases:
-                    _accum += base
-                else:
-                    for newbase in ambiguous_dna_values[base]:
-                        yield from _sequence_resolutions(
-                            sequence[index + 1 :], _accum=(_accum + newbase)
-                        )
-                    return
-        yield _accum
-
-    return _sequence_resolutions(sequence)
-
-
-@access_field("sequence")
-def sequence_resolutions_count(sequence: str) -> int:
-    """Count the number of possible sequence resolutions Equivalent to the
-    length of the list returned by :meth:`sequence_resolutions`."""
-    base_options = [
-        len(ambiguous_dna_values[base])
-        for base in sequence
-        if base in ambiguous_dna_values
-    ]
-    return prod(base_options)
 
 
 def hist(c: Counter, samples: int = 1):
@@ -277,10 +195,7 @@ def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
     to_delete = []
     for node in tree.get_descendants():
         # This must stay invariably hamming distance, since it's measuring equality of strings
-        if (
-            not node.is_leaf()
-            and hamming_distance(node.up.sequence, node.sequence) == 0
-        ):
+        if not node.is_leaf() and node.up.sequence == node.sequence:
             to_delete.append(node)
     for node in to_delete:
         node.delete()
@@ -299,7 +214,7 @@ class AddFuncDict(UserDict):
     annotate a :meth:`historydag.HistoryDag` according to the weight that the
     contained functions implement.
 
-    For example, `dag.weight_count(**(utils.hamming_distance_countfuncs + make_newickcountfuncs()))`
+    For example, `dag.weight_count(**(parsimony_utils.hamming_distance_countfuncs + make_newickcountfuncs()))`
     would return a Counter object in which the weights are tuples containing hamming parsimony and newickstrings.
 
     Args:
@@ -576,17 +491,6 @@ class HistoryDagFilter:
     #     ret.ordering_names = ((new_optimal_func_name, n),)
     #     return ret
 
-
-hamming_distance_countfuncs = AddFuncDict(
-    {
-        "start_func": lambda n: 0,
-        "edge_weight_func": wrapped_hamming_distance,
-        "accum_func": sum,
-    },
-    name="HammingParsimony",
-)
-"""Provides functions to count hamming distance parsimony.
-For use with :meth:`historydag.HistoryDag.weight_count`."""
 
 node_countfuncs = AddFuncDict(
     {

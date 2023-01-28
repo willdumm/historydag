@@ -1,11 +1,15 @@
 from historydag.utils import (
-    hamming_distance,
     hist,
     AddFuncDict,
-    hamming_distance_countfuncs,
     prod,
 )
 from collections import Counter
+from historydag.parsimony_utils import (
+    hamming_distance_countfuncs,
+    default_aa_transitions,
+)
+
+hamming_distance = default_aa_transitions.weighted_hamming_distance
 
 
 def test_hamming_distance():

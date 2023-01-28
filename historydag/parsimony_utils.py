@@ -2,6 +2,9 @@ import numpy as np
 import historydag.utils as utils
 import Bio.Data.IUPACData
 from frozendict import frozendict
+from typing import (
+    Generator,
+)
 
 
 class AmbiguityMap:
@@ -49,6 +52,61 @@ class AmbiguityMap:
 
     def items(self):
         return self.ambiguous_values.items()
+
+    def is_ambiguous(self, sequence: str) -> bool:
+        """Returns whether the provided sequence contains IUPAC nucleotide
+        ambiguity codes."""
+        return any(code not in self.bases for code in sequence)
+
+    def sequence_resolutions(self, sequence: str) -> Generator[str, None, None]:
+        """Iterates through possible disambiguations of sequence, recursively.
+
+        Recursion-depth-limited by number of ambiguity codes in
+        sequence, not sequence length.
+        """
+
+        def _sequence_resolutions(sequence, _accum=""):
+            if sequence:
+                for index, base in enumerate(sequence):
+                    if base in self.bases:
+                        _accum += base
+                    else:
+                        for newbase in self.ambiguous_values[base]:
+                            yield from _sequence_resolutions(
+                                sequence[index + 1 :], _accum=(_accum + newbase)
+                            )
+                        return
+            yield _accum
+
+        return _sequence_resolutions(sequence)
+
+    def get_sequence_resolution_func(self, field_name):
+        """Returns a function which takes a Label, and returns a generator on
+        labels containing all possible resolutions of the sequence in that
+        node's label's field_name attribute."""
+
+        @utils.explode_label(field_name)
+        def sequence_resolutions(sequence: str) -> Generator[str, None, None]:
+            return self.sequence_resolutions(sequence)
+
+        return sequence_resolutions
+
+    def sequence_resolution_count(self, sequence: str) -> int:
+        """Count the number of possible sequence resolutions Equivalent to the
+        length of the list returned by :meth:`sequence_resolutions`."""
+        base_options = [
+            len(self.ambiguous_values[base])
+            for base in sequence
+            if base in self.ambiguous_values
+        ]
+        return utils.prod(base_options)
+
+    def get_sequence_resolution_count_func(self, field_name):
+        @utils.access_field(field_name)
+        def sequence_resolution_count(sequence) -> int:
+            return self.sequence_resolution_count(sequence)
+
+        return sequence_resolution_count
 
 
 class ReversedAmbiguityMap(frozendict):
@@ -391,6 +449,31 @@ hamming_cg_edge_weight = default_aa_transitions.weighted_cg_hamming_edge_weight(
 hamming_cg_edge_weight_ambiguous_leaves = (
     default_aa_transitions.min_weighted_cg_hamming_edge_weight("compact_genome")
 )
+
+hamming_distance_countfuncs = utils.AddFuncDict(
+    {
+        "start_func": lambda n: 0,
+        "edge_weight_func": hamming_edge_weight,
+        "accum_func": sum,
+    },
+    name="HammingParsimony",
+)
+"""Provides functions to count hamming distance parsimony when leaf sequences
+may be ambiguous.
+For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`."""
+
+leaf_ambiguous_hamming_distance_countfuncs = utils.AddFuncDict(
+    {
+        "start_func": lambda n: 0,
+        "edge_weight_func": hamming_edge_weight_ambiguous_leaves,
+        "accum_func": sum,
+    },
+    name="HammingParsimony",
+)
+"""Provides functions to count hamming distance parsimony when leaf sequences
+may be ambiguous.
+For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`."""
+
 
 compact_genome_hamming_distance_countfuncs = (
     default_aa_transitions.get_weighted_cg_parsimony_countfuncs(

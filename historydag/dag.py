@@ -27,6 +27,7 @@ from copy import deepcopy
 from historydag import utils
 from historydag.utils import Weight, Label, UALabel, prod
 from historydag.counterops import counter_sum, counter_prod
+import historydag.parsimony_utils as parsimony_utils
 
 
 class IntersectionError(ValueError):
@@ -568,7 +569,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         min_possible_weight=-float("inf"),
         max_possible_weight=float("inf"),
     ):
@@ -591,7 +592,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         min_possible_weight=-float("inf"),
     ):
         """Trim the dag to contain at least all the histories within the
@@ -1477,7 +1478,11 @@ class HistoryDag:
 
     def explode_nodes(
         self,
-        expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
+        expand_func: Callable[
+            [Label], Iterable[Label]
+        ] = parsimony_utils.default_aa_transitions.ambiguity_map.get_sequence_resolution_func(
+            "sequence"
+        ),
         expand_node_func: Callable[[HistoryDagNode], Iterable[Label]] = None,
         expandable_func: Callable[[Label], bool] = None,
     ) -> int:
@@ -1736,7 +1741,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         **kwargs,
@@ -1770,7 +1775,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
@@ -1825,7 +1830,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         **kwargs,
     ):
@@ -2158,10 +2163,18 @@ class HistoryDag:
         self,
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_func: Callable[[Label, Label], Weight] = lambda l1, l2: (
-            0 if isinstance(l1, UALabel) else utils.hamming_distance(l1.sequence, l2.sequence)  # type: ignore
+            0
+            if isinstance(l1, UALabel)
+            else parsimony_utils.default_aa_transitions.weighted_hamming_distance(
+                l1.sequence, l2.sequence
+            )
         ),
         accum_func: Callable[[List[Weight]], Weight] = sum,
-        expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
+        expand_func: Callable[
+            [Label], Iterable[Label]
+        ] = parsimony_utils.default_aa_transitions.ambiguity_map.get_sequence_resolution_func(
+            "sequence"
+        ),
     ):
         r"""Template method for counting tree weights in the DAG, with exploded
         labels. Like :meth:`HistoryDag.weight_count`, but creates dictionaries
@@ -2427,7 +2440,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         # max_weight: Weight = None,
@@ -2678,7 +2691,7 @@ class HistoryDag:
         id_name: str = "sequence",
         dist: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
     ):
         """Inserts a sequence into the DAG.
 

@@ -2,6 +2,7 @@ from historydag import utils
 from historydag import dag as hdag
 import ete3
 from Bio.Data.IUPACData import ambiguous_dna_values
+from historydag import parsimony_utils
 
 bases = "AGCT-"
 ambiguous_dna_values.update({"?": "GATC-", "-": "-"})
@@ -112,7 +113,10 @@ def disambiguate_sitewise(tree: ete3.TreeNode) -> ete3.TreeNode:
     return disambiguated
 
 
-def disambiguate(tree: ete3.Tree, dist_func=utils.hamming_distance):
+def disambiguate(
+    tree: ete3.Tree,
+    dist_func=parsimony_utils.default_aa_transitions.weighted_hamming_distance,
+):
     """Resolve ambiguous bases using a two-pass Sankoff Algorithm on entire tree and entire sequence at each node.
     This does not disambiguate sitewise, so trees with many ambiguities may make this run very slowly.
     Returns a list of all possible disambiguations, minimizing the passed distance function dist_func.
@@ -136,7 +140,9 @@ def disambiguate(tree: ete3.Tree, dist_func=utils.hamming_distance):
 
     def incremental_disambiguate(ambig_tree):
         for node in ambig_tree.traverse(strategy="preorder"):
-            if not utils.is_ambiguous(node.sequence):
+            if not parsimony_utils.default_aa_transitions.ambiguity_map.is_ambiguous(
+                node.sequence
+            ):
                 continue
             else:
                 if not node.is_root():
