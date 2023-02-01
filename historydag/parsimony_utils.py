@@ -176,13 +176,14 @@ _ambiguous_dna_values = Bio.Data.IUPACData.ambiguous_dna_values.copy()
 _ambiguous_dna_values.update({"?": "GATC", "-": "GATC"})
 
 standard_nt_ambiguity_map = AmbiguityMap(_ambiguous_dna_values, "AGCT")
-"""The standard IUPAC nucleotide ambiguity map, in which 'N', '?', and '-' are all considered fully ambiguous."""
+"""The standard IUPAC nucleotide ambiguity map, in which 'N', '?', and '-' are
+all considered fully ambiguous."""
 
 standard_nt_ambiguity_map_gap_as_char = AmbiguityMap(
     _ambiguous_dna_values_gap_as_char, "AGCT-"
 )
-"""The standard IUPAC nucleotide ambiguity map, in which '-' is treated as a fifth base, '?' is fully ambiguous,
-and the ambiguity 'N' excludes '-'."""
+"""The standard IUPAC nucleotide ambiguity map, in which '-' is treated as a
+fifth base, '?' is fully ambiguous, and the ambiguity 'N' excludes '-'."""
 
 
 class TransitionModel:
@@ -684,38 +685,46 @@ class SitewiseTransitionModel(TransitionModel):
 
 
 default_nt_transitions = UnitTransitionModel(bases="AGCT")
-"""A transition model for nucleotides using unit transition weights, and the standard IUPAC
-ambiguity codes, with base order ``AGCT`` and ``N``, ``?`` and ``-`` treated as fully ambiguous
-characters."""
+"""A transition model for nucleotides using unit transition weights, and the
+standard IUPAC ambiguity codes, with base order ``AGCT`` and ``N``, ``?`` and
+``-`` treated as fully ambiguous characters."""
 
 default_nt_gaps_transitions = UnitTransitionModel(bases="AGCT-")
-"""A transition model for nucleotides using unit transition weights, and the standard IUPAC
-nucleotide ambiguity map, with '-' is treated as a fifth base, '?' fully ambiguous,
-and the ambiguity 'N' excluding only '-'."""
+"""A transition model for nucleotides using unit transition weights, and the
+standard IUPAC nucleotide ambiguity map, with '-' is treated as a fifth base,
+'?' fully ambiguous, and the ambiguity 'N' excluding only '-'."""
 
 hamming_edge_weight = default_nt_transitions.weighted_hamming_edge_weight("sequence")
-"""An edge weight function accepting (parent, child) pairs of HistoryDagNodes, and returning
-the hamming distance between the sequences stored in the ``sequence`` attributes of their labels."""
+"""An edge weight function accepting (parent, child) pairs of HistoryDagNodes,
+and returning the hamming distance between the sequences stored in the
+``sequence`` attributes of their labels."""
 hamming_edge_weight_ambiguous_leaves = (
     default_nt_transitions.min_weighted_hamming_edge_weight("sequence")
 )
-"""An edge weight function accepting (parent, child) pairs of HistoryDagNodes, and returning
-the hamming distance between the sequences stored in the ``sequence`` attributes of their labels.
-This edge weight function allows leaf nodes to have ambiguous sequences."""
+"""An edge weight function accepting (parent, child) pairs of HistoryDagNodes,
+and returning the hamming distance between the sequences stored in the
+``sequence`` attributes of their labels.
+
+This edge weight function allows leaf nodes to have ambiguous sequences.
+"""
 
 hamming_cg_edge_weight = default_nt_transitions.weighted_cg_hamming_edge_weight(
     "compact_genome"
 )
-"""An edge weight function accepting (parent, child) pairs of HistoryDagNodes, and returning
-the hamming distance between the compact genomes stored in the ``compact_genome`` attributes of their labels.
-"""
+"""An edge weight function accepting (parent, child) pairs of HistoryDagNodes,
+and returning the hamming distance between the compact genomes stored in the
+``compact_genome`` attributes of their labels."""
 
 hamming_cg_edge_weight_ambiguous_leaves = (
     default_nt_transitions.min_weighted_cg_hamming_edge_weight("compact_genome")
 )
-"""An edge weight function accepting (parent, child) pairs of HistoryDagNodes, and returning
-the hamming distance between the compact genomes stored in the ``compact_genome`` attributes of their labels.
-This edge weight function allows leaf nodes to have ambiguous compact genomes."""
+"""An edge weight function accepting (parent, child) pairs of HistoryDagNodes,
+and returning the hamming distance between the compact genomes stored in the
+``compact_genome`` attributes of their labels.
+
+This edge weight function allows leaf nodes to have ambiguous compact
+genomes.
+"""
 
 hamming_distance_countfuncs = AddFuncDict(
     {
@@ -727,7 +736,9 @@ hamming_distance_countfuncs = AddFuncDict(
 )
 """Provides functions to count hamming distance parsimony when leaf sequences
 may be ambiguous.
-For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`."""
+
+For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`.
+"""
 
 leaf_ambiguous_hamming_distance_countfuncs = AddFuncDict(
     {
@@ -739,7 +750,9 @@ leaf_ambiguous_hamming_distance_countfuncs = AddFuncDict(
 )
 """Provides functions to count hamming distance parsimony when leaf sequences
 may be ambiguous.
-For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`."""
+
+For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`.
+"""
 
 
 compact_genome_hamming_distance_countfuncs = (
@@ -749,7 +762,9 @@ compact_genome_hamming_distance_countfuncs = (
 )
 """Provides functions to count hamming distance parsimony when sequences are
 stored as CompactGenomes.
-For use with :meth:`historydag.CGHistoryDag.weight_count`."""
+
+For use with :meth:`historydag.CGHistoryDag.weight_count`.
+"""
 
 
 leaf_ambiguous_compact_genome_hamming_distance_countfuncs = (
@@ -757,6 +772,8 @@ leaf_ambiguous_compact_genome_hamming_distance_countfuncs = (
         "compact_genome", leaf_ambiguities=True
     )
 )
-"""Provides functions to count hamming distance parsimony when leaf compact genomes
-may be ambiguous.
-For use with :meth:`historydag.AmbiguousLeafCGHistoryDag.weight_count`."""
+"""Provides functions to count hamming distance parsimony when leaf compact
+genomes may be ambiguous.
+
+For use with :meth:`historydag.AmbiguousLeafCGHistoryDag.weight_count`.
+"""
