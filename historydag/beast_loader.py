@@ -259,7 +259,6 @@ def fasta_from_beast_file(filepath, remove_ignored_sites=True):
     }
 
     if remove_ignored_sites:
-
         return (
             {
                 key: mask_sequence(val, masked_sites)

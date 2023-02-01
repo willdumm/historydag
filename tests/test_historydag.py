@@ -307,7 +307,6 @@ def test_to_graphviz():
 
 
 def test_reproducible():
-
     dag = history_dag_from_newicks(
         [newickstring1, newickstring2, newickstring3], ["sequence"]
     )

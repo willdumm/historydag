@@ -3131,6 +3131,7 @@ def from_tree(
         HistoryDag object, which has the same topology as the input tree, with the required
         UA node added as a new root.
     """
+
     # see https://stackoverflow.com/questions/50298582/why-does-python-asyncio-loop-call-soon-overwrite-data
     # or https://stackoverflow.com/questions/25670516/strange-overwriting-occurring-when-using-lambda-functions-as-dict-values
     # for why we can't just use lambda funcs defined in dict comprehension.

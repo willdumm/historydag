@@ -9,7 +9,6 @@ import historydag.parsimony_utils as parsimony_utils
 def compare_dag_and_tree_parsimonies(
     dag, transition_model=parsimony_utils.default_nt_transitions
 ):
-
     # extract sample tree
     s = dag.sample().copy()
     s.recompute_parents()
@@ -126,7 +125,7 @@ def test_sankoff_on_dag():
         ),
     ]
 
-    for (w, tm) in tw_options:
+    for w, tm in tw_options:
         check_sankoff_on_dag(dg.copy(), w, transition_model=tm)
         compare_dag_and_tree_parsimonies(dg.copy(), transition_model=tm)
 
