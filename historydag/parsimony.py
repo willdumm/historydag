@@ -25,7 +25,7 @@ def replace_label_attr(original_label, list_of_replacements={}):
 
 
 def make_weighted_hamming_count_funcs(
-    transition_model=parsimony_utils.default_aa_transitions,
+    transition_model=parsimony_utils.default_nt_transitions,
     allow_ambiguous_leaves=False,
     sequence_label="sequence",
 ):
@@ -91,7 +91,7 @@ def sankoff_upward(
     node_list,
     seq_len,
     sequence_attr_name="sequence",
-    transition_model=parsimony_utils.default_aa_transitions,
+    transition_model=parsimony_utils.default_nt_transitions,
     use_internal_node_sequences=False,
 ):
     """Compute Sankoff cost vectors at nodes in a postorder traversal, and
@@ -208,7 +208,7 @@ def sankoff_downward(
     partial_node_list=None,
     sequence_attr_name="sequence",
     compute_cvs=True,
-    transition_model=parsimony_utils.default_aa_transitions,
+    transition_model=parsimony_utils.default_nt_transitions,
     trim=True,
 ):
     """Assign sequences to internal nodes of dag using a weighted Sankoff
@@ -348,7 +348,7 @@ def disambiguate(
     random_state=None,
     remove_cvs=False,
     adj_dist=False,
-    transition_model=parsimony_utils.default_aa_transitions,
+    transition_model=parsimony_utils.default_nt_transitions,
     min_ambiguities=False,
 ):
     """Randomly resolve ambiguous bases using a two-pass Sankoff Algorithm on
@@ -502,7 +502,7 @@ def build_trees_from_files(newickfiles, fastafile, **kwargs):
         yield build_tree(newick, fasta_map, **kwargs)
 
 
-def parsimony_score(tree, transition_model=parsimony_utils.default_aa_transitions):
+def parsimony_score(tree, transition_model=parsimony_utils.default_nt_transitions):
     """returns the parsimony score of a (disambiguated) ete tree.
 
     Tree must have 'sequence' attributes on all nodes.

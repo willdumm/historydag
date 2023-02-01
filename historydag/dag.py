@@ -1480,7 +1480,7 @@ class HistoryDag:
         self,
         expand_func: Callable[
             [Label], Iterable[Label]
-        ] = parsimony_utils.default_aa_transitions.ambiguity_map.get_sequence_resolution_func(
+        ] = parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
             "sequence"
         ),
         expand_node_func: Callable[[HistoryDagNode], Iterable[Label]] = None,
@@ -2165,14 +2165,14 @@ class HistoryDag:
         edge_func: Callable[[Label, Label], Weight] = lambda l1, l2: (
             0
             if isinstance(l1, UALabel)
-            else parsimony_utils.default_aa_transitions.weighted_hamming_distance(
+            else parsimony_utils.default_nt_transitions.weighted_hamming_distance(
                 l1.sequence, l2.sequence
             )
         ),
         accum_func: Callable[[List[Weight]], Weight] = sum,
         expand_func: Callable[
             [Label], Iterable[Label]
-        ] = parsimony_utils.default_aa_transitions.ambiguity_map.get_sequence_resolution_func(
+        ] = parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
             "sequence"
         ),
     ):

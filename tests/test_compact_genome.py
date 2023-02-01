@@ -1,6 +1,6 @@
 import historydag.compact_genome as compact_genome
 from historydag.compact_genome import CompactGenome
-from historydag.parsimony_utils import default_aa_transitions
+from historydag.parsimony_utils import default_nt_transitions
 
 
 def test_sequence_cg_convert():
@@ -68,10 +68,10 @@ def test_ambiguous_cg_distance():
     s3 = compact_genome.CompactGenome({1: ("A", "T")}, reference_seq)
     s4 = compact_genome.CompactGenome({8: ("N", "C")}, reference_seq)
 
-    assert default_aa_transitions.min_weighted_cg_hamming_distance(s1, s2) == 0
-    assert default_aa_transitions.min_weighted_cg_hamming_distance(s1, s3) == 1
-    assert default_aa_transitions.min_weighted_cg_hamming_distance(s1, s4) == 3
-    assert default_aa_transitions.min_weighted_cg_hamming_distance(s4, s1) == 2
-    assert default_aa_transitions.min_weighted_cg_hamming_distance(s3, s2) == 0
-    assert default_aa_transitions.min_weighted_cg_hamming_distance(s4, s2) == 1
-    assert default_aa_transitions.min_weighted_cg_hamming_distance(s4, s3) == 1
+    assert default_nt_transitions.min_weighted_cg_hamming_distance(s1, s2) == 0
+    assert default_nt_transitions.min_weighted_cg_hamming_distance(s1, s3) == 1
+    assert default_nt_transitions.min_weighted_cg_hamming_distance(s1, s4) == 3
+    assert default_nt_transitions.min_weighted_cg_hamming_distance(s4, s1) == 2
+    assert default_nt_transitions.min_weighted_cg_hamming_distance(s3, s2) == 0
+    assert default_nt_transitions.min_weighted_cg_hamming_distance(s4, s2) == 1
+    assert default_nt_transitions.min_weighted_cg_hamming_distance(s4, s3) == 1

@@ -22,7 +22,7 @@ def collapse_adjacent_sequences(tree: ete3.TreeNode) -> ete3.TreeNode:
         # This must stay invariably hamming distance, since it's measuring equality of strings
         if (
             not node.is_leaf()
-            and parsimony_utils.default_aa_transitions.weighted_hamming_distance(
+            and parsimony_utils.default_nt_transitions.weighted_hamming_distance(
                 node.up.sequence, node.sequence
             )
             == 0

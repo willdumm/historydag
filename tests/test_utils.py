@@ -6,10 +6,10 @@ from historydag.utils import (
 from collections import Counter
 from historydag.parsimony_utils import (
     hamming_distance_countfuncs,
-    default_aa_transitions,
+    default_nt_transitions,
 )
 
-hamming_distance = default_aa_transitions.weighted_hamming_distance
+hamming_distance = default_nt_transitions.weighted_hamming_distance
 
 
 def test_hamming_distance():

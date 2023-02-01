@@ -115,7 +115,7 @@ def disambiguate_sitewise(tree: ete3.TreeNode) -> ete3.TreeNode:
 
 def disambiguate(
     tree: ete3.Tree,
-    dist_func=parsimony_utils.default_aa_transitions.weighted_hamming_distance,
+    dist_func=parsimony_utils.default_nt_transitions.weighted_hamming_distance,
 ):
     """Resolve ambiguous bases using a two-pass Sankoff Algorithm on entire tree and entire sequence at each node.
     This does not disambiguate sitewise, so trees with many ambiguities may make this run very slowly.
@@ -140,7 +140,7 @@ def disambiguate(
 
     def incremental_disambiguate(ambig_tree):
         for node in ambig_tree.traverse(strategy="preorder"):
-            if not parsimony_utils.default_aa_transitions.ambiguity_map.is_ambiguous(
+            if not parsimony_utils.default_nt_transitions.ambiguity_map.is_ambiguous(
                 node.sequence
             ):
                 continue

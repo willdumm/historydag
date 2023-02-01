@@ -1,4 +1,5 @@
-import parsimony as pars
+import historydag.parsimony as pars
+import historydag.parsimony_utils as pars_utils
 import click
 import pickle
 
@@ -95,12 +96,16 @@ def _cli_build_trees(
         reference_id=root_id,
         ignore_internal_sequences=(not include_internal_sequences),
     )
+    if gap_as_char:
+        transition_model = pars_utils.default_nt_gaps_transitions
+    else:
+        transition_model = pars_utils.default_nt_gaps_transitions
     trees = (
         pars.disambiguate(
             tree,
-            gap_as_char=gap_as_char,
             min_ambiguities=preserve_ambiguities,
             remove_cvs=clean_trees,
+            transition_model=transition_model,
         )
         for tree in trees
     )
@@ -185,6 +190,10 @@ def _cli_parsimony_score_from_files(
         print(treepath)
         print(score)
 
+    if gap_as_char:
+        transition_model = pars_utils.default_nt_gaps_transitions
+    else:
+        transition_model = pars_utils.default_nt_gaps_transitions
     if save_to_dag is not None:
         trees = pars.build_trees_from_files(
             treefiles,
@@ -194,7 +203,9 @@ def _cli_parsimony_score_from_files(
         )
         trees = (
             pars.disambiguate(
-                tree, gap_as_char=gap_as_char, min_ambiguities=preserve_ambiguities
+                tree,
+                transition_model=transition_model,
+                min_ambiguities=preserve_ambiguities,
             )
             for tree in trees
         )

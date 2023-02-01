@@ -11,8 +11,9 @@ def dag_from_beast_trees(
     beast_output_file,
     reference_sequence=None,
     mask_ambiguous_sites=True,
+    remove_ambiguous_sites=False,
     use_original_leaves=True,
-    transition_model=parsimony_utils.default_aa_transitions,
+    transition_model=parsimony_utils.default_nt_transitions,
 ):
     """A convenience method to build a dag out of the output from
     :meth:`load_beast_trees`."""
@@ -21,8 +22,9 @@ def dag_from_beast_trees(
         beast_output_file,
         reference_sequence=reference_sequence,
         mask_ambiguous_sites=mask_ambiguous_sites,
+        remove_ambiguous_sites=remove_ambiguous_sites,
         transition_model=transition_model,
-    )
+    )[0]
 
     if use_original_leaves:
 
@@ -55,7 +57,8 @@ def load_beast_trees(
     beast_output_file,
     reference_sequence=None,
     mask_ambiguous_sites=True,
-    transition_model=parsimony_utils.default_aa_transitions,
+    remove_ambiguous_sites=False,
+    transition_model=parsimony_utils.default_nt_transitions,
 ):
     """Load trees from BEAST output.
 
@@ -69,9 +72,14 @@ def load_beast_trees(
             compact genomes. By default, uses the ancestral sequence of the first tree.
         mask_ambiguous_sites: If True, ignore mutations for all sites whose observed set
             of characters is a subset of {N, -, ?} (recommended).
+        remove_ambiguous_sites: If True, acts like ``mask_ambiguous_sites=True``, except
+            the sites in question are actually removed from the sequence, rather than masked.
 
     Returns:
-        A :class:`dendropy.TreeList` containing the trees output by BEAST. Each tree has:
+        A :class:`dendropy.TreeList` containing the trees output by BEAST, and a set of 0-based sites
+        which are removed from sequences. If remove_ambiguous_sites is False, this set contains only
+        sites ignored by BEAST. Otherwise, it also contains additional sites removed.
+        Each tree has:
         * ancestral sequence attribute on each tree object, containing the complete reference
             for that tree
         * cg attribute on all nodes, containing a compact genome relative to the reference
@@ -81,8 +89,11 @@ def load_beast_trees(
         * mut attribute on all nodes containing a list of mutations on parent branch, in
             order of occurrence
     """
-    fasta = fasta_from_beast_file(beast_xml_file, remove_ignored_sites=True)[0]
+    fasta, all_removed_sites = fasta_from_beast_file(
+        beast_xml_file, remove_ignored_sites=True
+    )
 
+    all_removed_sites = set(all_removed_sites)
     # dendropy doesn't parse nested lists correctly in metadata, so we load the
     # trees with raw comment strings using `extract_comment_metadata`
     dp_trees = dendropy.TreeList.get(
@@ -102,7 +113,7 @@ def load_beast_trees(
         reference_sequence = dp_trees[0].ancestral_sequence
 
     def compute_cgs(tree):
-        if mask_ambiguous_sites:
+        if mask_ambiguous_sites or remove_ambiguous_sites:
             extra_masked_sites = {
                 i
                 for i in range(len(next(iter(fasta.values()))))
@@ -112,9 +123,19 @@ def load_beast_trees(
                 )
                 == 0
             }
+            if remove_ambiguous_sites:
+                all_removed_sites.update(extra_masked_sites)
+                new_reference = mask_sequence(reference_sequence, extra_masked_sites)
 
-            def cg_transform(cg):
-                return cg.mask_sites(extra_masked_sites, one_based=False)
+                def cg_transform(cg):
+                    return cg.remove_sites(
+                        extra_masked_sites, one_based=False, new_reference=new_reference
+                    )
+
+            elif mask_ambiguous_sites:
+
+                def cg_transform(cg):
+                    return cg.mask_sites(extra_masked_sites, one_based=False)
 
         else:
 
@@ -146,7 +167,7 @@ def load_beast_trees(
     for tree in dp_trees:
         compute_cgs(tree)
 
-    return dp_trees
+    return dp_trees, all_removed_sites
 
 
 def _comment_parser(node_comments):
@@ -224,7 +245,7 @@ def fasta_from_beast_file(filepath, remove_ignored_sites=True):
     Returns:
         The resulting alignment dictionary, containing sequences keyed by names,
         and a tuple containing masked sites (this is empty if ``remove_ignored_sites``
-        is False).
+        is False). Site indices are 0-based.
     """
     _etree = ET.parse(filepath)
     _alignment = _etree.getroot().find("alignment")
@@ -239,14 +260,18 @@ def fasta_from_beast_file(filepath, remove_ignored_sites=True):
 
     if remove_ignored_sites:
 
-        def mask_sequence(unmasked):
-            return "".join(
-                char for i, char in enumerate(unmasked) if i not in masked_sites
-            )
-
         return (
-            {key: mask_sequence(val) for key, val in unmasked_fasta.items()},
+            {
+                key: mask_sequence(val, masked_sites)
+                for key, val in unmasked_fasta.items()
+            },
             tuple(masked_sites),
         )
     else:
         return (unmasked_fasta, tuple())
+
+
+def mask_sequence(unmasked, masked_sites):
+    """Remove the 0-based indices in ``masked_sites`` from the sequence
+    ``unmasked``, and return the resulting sequence."""
+    return "".join(char for i, char in enumerate(unmasked) if i not in masked_sites)

@@ -166,7 +166,7 @@ def test_parsimony_counts():
     def parsimony(tree):
         etetree = tree.to_ete(features=["sequence"])
         return sum(
-            parsimony_utils.default_aa_transitions.weighted_hamming_distance(
+            parsimony_utils.default_nt_transitions.weighted_hamming_distance(
                 n.up.sequence, n.sequence
             )
             for n in etetree.iter_descendants()
@@ -269,7 +269,7 @@ def test_count_histories_expanded():
         ndag.explode_nodes()
         assert (
             dag.count_histories(
-                expand_func=parsimony_utils.default_aa_transitions.ambiguity_map.get_sequence_resolution_func(
+                expand_func=parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
                     "sequence"
                 )
             )

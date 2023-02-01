@@ -21,7 +21,13 @@ class CompactGenome:
         return hash(self.mutations)
 
     def __eq__(self, other):
-        return (self.mutations, self.reference) == (other.mutations, other.reference)
+        if isinstance(other, CompactGenome):
+            return (self.mutations, self.reference) == (
+                other.mutations,
+                other.reference,
+            )
+        else:
+            raise NotImplementedError
 
     def __le__(self, other: object) -> bool:
         if isinstance(other, CompactGenome):
@@ -175,6 +181,55 @@ class CompactGenome:
             },
             self.reference,
         )
+
+    def remove_sites(self, sites, one_based=True, new_reference=None):
+        """Remove all sites in ``sites``, and adjust the reference sequence.
+
+        Args:
+            sites: A collection of sites to be removed
+            one_based: If True, the provided sites will be interpreted as one-based sites. Otherwise,
+                they will be interpreted as 0-based sites.
+            new_reference: If provided, this new reference sequence will be used instead of
+                computing the new reference sequence directly.
+        """
+        if one_based:
+            site_adjust = 0
+        else:
+            site_adjust = 1
+
+        if new_reference is None:
+            new_reference = "".join(
+                base
+                for site, base in enumerate(self.reference, start=1)
+                if (site - site_adjust) not in sites
+            )
+
+        return CompactGenome(
+            {
+                mod_site: self.mutations[site]
+                for mod_site, site in _iter_adjusted_sites(
+                    self.mutations.keys(), sites, site_adjust
+                )
+            },
+            new_reference,
+        )
+
+
+def _iter_adjusted_sites(recorded_sites, removed_sites, site_adjust):
+    """Adjusts recorded_sites if removed_sites are removed.
+
+    For each one, returns a pair (modified site, unmodified site).
+    site_adjust is the amount by which removed_sites base index is
+    smaller than recorded_sites' base index.
+    """
+    all_sites = {site: False for site in recorded_sites}
+    all_sites.update({site + site_adjust: True for site in removed_sites})
+    shift = 0
+    for site, removed in sorted(all_sites.items()):
+        if removed:
+            shift += 1
+        else:
+            yield site - shift, site
 
 
 def compact_genome_from_sequence(sequence: str, reference: str):
