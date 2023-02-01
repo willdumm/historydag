@@ -13,6 +13,11 @@ format:
 	black tests
 	docformatter --in-place historydag/*.py
 
+checkformat:
+	black --check historydag --exclude historydag/dag_pb2.py
+	black --check tests
+	docformatter --in-place historydag/*.py
+
 lint:
 	# stop the build if there are Python syntax errors or undefined names
 	flake8 historydag --count --select=E9,F63,F7,F82 --show-source --statistics --exclude historydag/dag_pb2.py
