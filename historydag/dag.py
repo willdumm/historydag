@@ -2228,9 +2228,9 @@ class HistoryDag:
         )[0]
 
     def underestimate_rf_diameter(self):
-        """Returns an under-estimate of the RF diameter of the DAG.
+        """Returns an underestimate of the RF diameter of the DAG.
         This estimate is calculated by calculating the maximal sum RF distance
-        between the DAG and a random tree from the a topological outlier.
+        between the DAG and a random tree from a topological outlier.
 
         On a set of DAGs with 2000 or less histories, this underestimate is quite
         accurate compared to the actual computed RF diameter.
@@ -2240,7 +2240,14 @@ class HistoryDag:
         ref_history = dag_copy.sample()
         return self.optimal_rf_distance(ref_history, optimal_func=max)
 
-    def overestimate_rf_dimater(self):
+    def overestimate_rf_diameter(self):
+        """Returns an overestimate of the RF diameter of the DAG.
+        This estimate is calculated by calculating twice of the maximal sum RF
+        distance between the DAG and a random tree from the median tree.
+
+        On a set of DAGs with 2000 or less histories, this underestimate was not close compared to the
+        actual RF diameter. However, the overestimate was never more than twice of the actual RF diameter.
+        """
         dag_copy = self.copy()
         dag_copy.trim_optimal_sum_rf_distance(dag_copy, optimal_func=min)
         ref_history = dag_copy.sample()
