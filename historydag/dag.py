@@ -1,6 +1,7 @@
 """A module providing the class HistoryDag, and supporting functions."""
 
 import pickle
+from functools import wraps
 from math import log
 import graphviz as gv
 import ete3
@@ -373,6 +374,26 @@ class UANode(HistoryDagNode):
         return True
 
 
+def get_default_args(argnamelist, positional_count=0):
+    def weight_count_args(func):
+        @wraps(func)
+        def wrapper(instance, *args, **kwargs):
+            nargs = len(args)
+            # To make argument management simpler, we require this:
+            if nargs < positional_count or nargs > positional_count:
+                raise TypeError(
+                    f"{func.__qualname__} requires exactly {positional_count} positional argument but received {nargs}"
+                )
+            for argname in argnamelist:
+                if argname not in kwargs or kwargs[argname] is None:
+                    kwargs[argname] = instance._default_args[argname]
+            return func(instance, *args, **kwargs)
+
+        return wrapper
+
+    return weight_count_args
+
+
 class HistoryDag:
     r"""An object to represent a collection of internally labeled trees. A
     wrapper object to contain exposed HistoryDag methods and point to a
@@ -397,6 +418,20 @@ class HistoryDag:
     conversion functions and their keywords, in each subclass's docstring.
     """
     _required_label_fields = dict()
+    _default_args = dict(parsimony_utils.hamming_distance_countfuncs) | {
+        "start_func": (lambda n: 0),
+        "edge_func": lambda l1, l2: (
+            0
+            if isinstance(l1, UALabel)
+            else parsimony_utils.default_nt_transitions.weighted_hamming_distance(
+                l1.sequence, l2.sequence
+            )
+        ),
+        "expand_func": parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
+            "sequence"
+        ),
+        "optimal_func": min,
+    }
 
     @classmethod
     def from_history_dag(
@@ -562,6 +597,7 @@ class HistoryDag:
         """Return the type for labels on this dag's nodes."""
         return type(next(self.dagroot.children()).label)
 
+    @get_default_args(["start_func", "edge_weight_func"])
     def trim_within_range(
         self,
         min_weight=None,
@@ -575,24 +611,26 @@ class HistoryDag:
     ):
         if max_weight is not None:
             self.trim_below_weight(
-                max_weight, start_func, edge_weight_func, min_possible_weight
+                max_weight,
+                start_func=start_func,
+                edge_weight_func=edge_weight_func,
+                min_possible_weight=min_possible_weight,
             )
 
         if min_weight is not None:
             self.trim_below_weight(
                 -min_weight,
-                lambda n: -start_func(n),
-                lambda n1, n2: -edge_weight_func(n1, n2),
-                -max_possible_weight,
+                start_func=lambda n: -start_func(n),
+                edge_weight_func=lambda n1, n2: -edge_weight_func(n1, n2),
+                min_possible_weight=-max_possible_weight,
             )
 
+    @get_default_args(["start_func", "edge_weight_func"], positional_count=1)
     def trim_below_weight(
         self,
         max_weight,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_weight_func: Callable[
-            [HistoryDagNode, HistoryDagNode], Weight
-        ] = parsimony_utils.hamming_edge_weight,
+        start_func: Callable[["HistoryDagNode"], Weight] = None,
+        edge_weight_func: Callable[[HistoryDagNode, HistoryDagNode], Weight] = None,
         min_possible_weight=-float("inf"),
     ):
         """Trim the dag to contain at least all the histories within the
@@ -1736,14 +1774,13 @@ class HistoryDag:
         """Deprecated name for :meth:`HistoryDag.postorder_history_accum`"""
         return self.postorder_history_accum(*args, **kwargs)
 
+    @get_default_args(["start_func", "edge_weight_func", "accum_func", "optimal_func"])
     def optimal_weight_annotate(
         self,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_weight_func: Callable[
-            ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = parsimony_utils.hamming_edge_weight,
-        accum_func: Callable[[List[Weight]], Weight] = sum,
-        optimal_func: Callable[[List[Weight]], Weight] = min,
+        start_func: Callable[["HistoryDagNode"], Weight] = None,
+        edge_weight_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight] = None,
+        accum_func: Callable[[List[Weight]], Weight] = None,
+        optimal_func: Callable[[List[Weight]], Weight] = None,
         **kwargs,
     ) -> Weight:
         r"""A template method for finding the optimal tree weight in the DAG.
@@ -1770,14 +1807,13 @@ class HistoryDag:
             accum_func,
         )
 
+    @get_default_args(["start_func", "edge_weight_func", "accum_func", "optimal_func"])
     def count_optimal_histories(
         self,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_weight_func: Callable[
-            ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = parsimony_utils.hamming_edge_weight,
-        accum_func: Callable[[List[Weight]], Weight] = sum,
-        optimal_func: Callable[[List[Weight]], Weight] = min,
+        start_func: Callable[["HistoryDagNode"], Weight] = None,
+        edge_weight_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight] = None,
+        accum_func: Callable[[List[Weight]], Weight] = None,
+        optimal_func: Callable[[List[Weight]], Weight] = None,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
         **kwargs,
     ):
@@ -1825,13 +1861,12 @@ class HistoryDag:
             _between_clade_accum,
         )
 
+    @get_default_args(["start_func", "edge_weight_func", "accum_func"])
     def weight_count(
         self,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_weight_func: Callable[
-            ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = parsimony_utils.hamming_edge_weight,
-        accum_func: Callable[[List[Weight]], Weight] = sum,
+        start_func: Callable[["HistoryDagNode"], Weight] = None,
+        edge_weight_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight] = None,
+        accum_func: Callable[[List[Weight]], Weight] = None,
         **kwargs,
     ):
         r"""A template method for counting weights of trees expressed in the
@@ -1839,9 +1874,12 @@ class HistoryDag:
 
         Weights must be hashable, but may otherwise be of arbitrary type.
 
+        Default arguments are contained in this HistoryDag subclass's _default_args
+        variable, and are documented in the subclass docstring.
+
         Args:
             start_func: A function which assigns a weight to each leaf node
-            edge_func: A function which assigns a weight to pairs of labels, with the
+            edge_weight_func: A function which assigns a weight to pairs of labels, with the
                 parent node label the first argument
             accum_func: A way to 'add' a list of weights together
 
@@ -1855,11 +1893,12 @@ class HistoryDag:
             lambda x: counter_prod(x, accum_func),
         )
 
+    @get_default_args(["start_func", "edge_weight_func", "accum_func"])
     def weight_range_annotate(
         self,
-        edge_weight_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight],
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        accum_func: Callable[[List[Weight]], Weight] = sum,
+        start_func: Callable[["HistoryDagNode"], Weight] = None,
+        edge_weight_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight] = None,
+        accum_func: Callable[[List[Weight]], Weight] = None,
         min_func: Callable[[List[Weight]], Weight] = min,
         max_func: Callable[[List[Weight]], Weight] = max,
         **kwargs,
@@ -1871,9 +1910,9 @@ class HistoryDag:
         a tuple containing the minimum and maximum weights of any sub-history beneath that node.
 
         Args:
-            edge_func: A function which assigns a weight to pairs of labels, with the
-                parent node label the first argument
             start_func: A function which assigns a weight to each leaf node
+            edge__weight_func: A function which assigns a weight to pairs of labels, with the
+                parent node label the first argument
             accum_func: A way to 'add' a list of weights together
             min_func: A function which takes a list of weights and returns their "minimum"
             max_func: A function which takes a list of weights and returns their "maximum"
@@ -2159,22 +2198,13 @@ class HistoryDag:
             sum,
         )
 
+    @get_default_args(["start_func", "edge_func", "accum_func", "expand_func"])
     def weight_counts_with_ambiguities(
         self,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_func: Callable[[Label, Label], Weight] = lambda l1, l2: (
-            0
-            if isinstance(l1, UALabel)
-            else parsimony_utils.default_nt_transitions.weighted_hamming_distance(
-                l1.sequence, l2.sequence
-            )
-        ),
-        accum_func: Callable[[List[Weight]], Weight] = sum,
-        expand_func: Callable[
-            [Label], Iterable[Label]
-        ] = parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
-            "sequence"
-        ),
+        start_func: Callable[["HistoryDagNode"], Weight] = None,
+        edge_func: Callable[[Label, Label], Weight] = None,
+        accum_func: Callable[[List[Weight]], Weight] = None,
+        expand_func: Callable[[Label], Iterable[Label]] = None,
     ):
         r"""Template method for counting tree weights in the DAG, with exploded
         labels. Like :meth:`HistoryDag.weight_count`, but creates dictionaries
@@ -2435,14 +2465,13 @@ class HistoryDag:
             normalize_num = n1 * n2
         return sum_pairwise_distance / max(1, normalize_num)
 
+    @get_default_args(["start_func", "edge_weight_func", "accum_func", "optimal_func"])
     def trim_optimal_weight(
         self,
-        start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
-        edge_weight_func: Callable[
-            [HistoryDagNode, HistoryDagNode], Weight
-        ] = parsimony_utils.hamming_edge_weight,
-        accum_func: Callable[[List[Weight]], Weight] = sum,
-        optimal_func: Callable[[List[Weight]], Weight] = min,
+        start_func: Callable[["HistoryDagNode"], Weight] = None,
+        edge_weight_func: Callable[[HistoryDagNode, HistoryDagNode], Weight] = None,
+        accum_func: Callable[[List[Weight]], Weight] = None,
+        optimal_func: Callable[[List[Weight]], Weight] = None,
         # max_weight: Weight = None,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
     ) -> Weight:
@@ -2685,11 +2714,12 @@ class HistoryDag:
                     dagnodes[nodecopy] = nodecopy
             self.__init__(history_dag_from_nodes(dict(dagnodes)).dagroot)
 
+    @get_default_args(["edge_weight_func"], positional_count=1)
     def insert_node(
         self,
         new_leaf_id,
         id_name: str = "sequence",
-        dist: Callable[
+        edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
         ] = parsimony_utils.hamming_edge_weight,
     ):
@@ -2817,7 +2847,7 @@ class HistoryDag:
             incompatible_nodes_so_far = set(postorder)
             while len(incompatible_nodes_so_far) > 0:
                 min_dist_nodes = find_min_dist_nodes(
-                    new_node, incompatible_nodes_so_far, dist
+                    new_node, incompatible_nodes_so_far, edge_weight_func
                 )
                 for other_node in min_dist_nodes:
                     if other_node in incompatible_nodes_so_far:

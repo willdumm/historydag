@@ -726,13 +726,8 @@ This edge weight function allows leaf nodes to have ambiguous compact
 genomes.
 """
 
-hamming_distance_countfuncs = AddFuncDict(
-    {
-        "start_func": lambda n: 0,
-        "edge_weight_func": hamming_edge_weight,
-        "accum_func": sum,
-    },
-    name="HammingParsimony",
+hamming_distance_countfuncs = default_nt_transitions.get_weighted_parsimony_countfuncs(
+    "sequence", leaf_ambiguities=False
 )
 """Provides functions to count hamming distance parsimony when leaf sequences
 may be ambiguous.
@@ -740,13 +735,10 @@ may be ambiguous.
 For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`.
 """
 
-leaf_ambiguous_hamming_distance_countfuncs = AddFuncDict(
-    {
-        "start_func": lambda n: 0,
-        "edge_weight_func": hamming_edge_weight_ambiguous_leaves,
-        "accum_func": sum,
-    },
-    name="HammingParsimony",
+leaf_ambiguous_hamming_distance_countfuncs = (
+    default_nt_transitions.get_weighted_parsimony_countfuncs(
+        "sequence", leaf_ambiguities=False
+    )
 )
 """Provides functions to count hamming distance parsimony when leaf sequences
 may be ambiguous.
