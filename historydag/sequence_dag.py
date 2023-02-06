@@ -68,7 +68,9 @@ class AmbiguousLeafSequenceHistoryDag(SequenceHistoryDag):
     HistoryDag object to be converted.
     """
 
-    _default_args = frozendict(parsimony_utils.leaf_ambiguous_hamming_distance_countfuncs) | {
+    _default_args = frozendict(
+        parsimony_utils.leaf_ambiguous_hamming_distance_countfuncs
+    ) | {
         "start_func": (lambda n: 0),
         "edge_func": lambda l1, l2: (
             0
