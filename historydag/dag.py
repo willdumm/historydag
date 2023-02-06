@@ -394,6 +394,16 @@ def get_default_args(argnamelist, positional_count=0):
     return weight_count_args
 
 
+def convert(dag, newclass):
+    """Convert ``dag`` to the HistoryDag subclass ``newclass``.
+
+    This is a wrapper for the ``newclass.from_history_dag`` method,
+    which for most subclasses should be identical to
+    :meth:`HistoryDag.from_history_dag`.
+    """
+    return newclass.from_history_dag(dag)
+
+
 class HistoryDag:
     r"""An object to represent a collection of internally labeled trees. A
     wrapper object to contain exposed HistoryDag methods and point to a
