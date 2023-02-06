@@ -6,6 +6,7 @@ from math import log
 import graphviz as gv
 import ete3
 import random
+from frozendict import frozendict
 import warnings
 from typing import (
     List,
@@ -382,11 +383,18 @@ def get_default_args(argnamelist, positional_count=0):
             # To make argument management simpler, we require this:
             if nargs < positional_count or nargs > positional_count:
                 raise TypeError(
-                    f"{func.__qualname__} requires exactly {positional_count} positional argument but received {nargs}"
+                    f"{func.__qualname__} requires exactly {positional_count} "
+                    f"positional argument but received {nargs}"
                 )
             for argname in argnamelist:
                 if argname not in kwargs or kwargs[argname] is None:
-                    kwargs[argname] = instance._default_args[argname]
+                    try:
+                        kwargs[argname] = instance._default_args[argname]
+                    except KeyError:
+                        raise TypeError(
+                            f"{func.__qualname__} requires a value for the keyword argument "
+                            f"{argname}, since {type(instance)} does not define a default"
+                        )
             return func(instance, *args, **kwargs)
 
         return wrapper
@@ -428,7 +436,7 @@ class HistoryDag:
     conversion functions and their keywords, in each subclass's docstring.
     """
     _required_label_fields = dict()
-    _default_args = dict(parsimony_utils.hamming_distance_countfuncs) | {
+    _default_args = frozendict(parsimony_utils.hamming_distance_countfuncs) | {
         "start_func": (lambda n: 0),
         "edge_func": lambda l1, l2: (
             0

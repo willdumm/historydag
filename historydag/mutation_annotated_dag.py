@@ -10,14 +10,12 @@ import functools
 from frozendict import frozendict
 from historydag.dag import HistoryDag, HistoryDagNode, UANode, EdgeSet
 import historydag.utils
-from historydag.utils import Weight
 from historydag.compact_genome import (
     CompactGenome,
     compact_genome_from_sequence,
     cg_diff,
 )
 from historydag.parsimony_utils import (
-    hamming_cg_edge_weight_ambiguous_leaves,
     compact_genome_hamming_distance_countfuncs,
     leaf_ambiguous_compact_genome_hamming_distance_countfuncs,
 )
@@ -73,7 +71,7 @@ class CGHistoryDag(HistoryDag):
         ]
     }
 
-    _default_args = dict(compact_genome_hamming_distance_countfuncs) | {
+    _default_args = frozendict(compact_genome_hamming_distance_countfuncs) | {
         "start_func": (lambda n: 0),
         "optimal_func": min,
     }
@@ -307,67 +305,14 @@ class AmbiguousLeafCGHistoryDag(CGHistoryDag):
     'reference'.
     """
 
+    _default_args = frozendict(
+        leaf_ambiguous_compact_genome_hamming_distance_countfuncs
+    ) | {
+        "start_func": (lambda n: 0),
+        "optimal_func": min,
+    }
+
     # #### Overridden Methods ####
-
-    def weight_count(
-        self,
-        *args,
-        edge_weight_func=hamming_cg_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ):
-        """See :meth:`historydag.HistoryDag.weight_count`"""
-        return super().weight_count(*args, edge_weight_func=edge_weight_func, **kwargs)
-
-    def optimal_weight_annotate(
-        self, *args, edge_weight_func=hamming_cg_edge_weight_ambiguous_leaves, **kwargs
-    ) -> Weight:
-        """See :meth:`historydag.HistoryDag.optimal_weight_annotate`"""
-        return super().optimal_weight_annotate(
-            *args, edge_weight_func=edge_weight_func, **kwargs
-        )
-
-    def trim_optimal_weight(
-        self,
-        *args,
-        edge_weight_func=hamming_cg_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ) -> Weight:
-        """See :meth:`historydag.HistoryDag.trim_optimal_weight`"""
-        return super().trim_optimal_weight(
-            *args, edge_weight_func=edge_weight_func, **kwargs
-        )
-
-    def trim_within_range(
-        self,
-        *args,
-        edge_weight_func=hamming_cg_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ):
-        """See :meth:`historydag.HistoryDag.trim_within_range`"""
-        return super().trim_within_range(
-            *args, edge_weight_func=edge_weight_func, **kwargs
-        )
-
-    def trim_below_weight(
-        self,
-        *args,
-        edge_weight_func=hamming_cg_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ):
-        """See :meth:`historydag.HistoryDag.trim_below_weight`"""
-        return super().trim_below_weight(
-            *args, edge_weight_func=edge_weight_func, **kwargs
-        )
-
-    def insert_node(
-        self,
-        *args,
-        dist=hamming_cg_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ):
-        """See :meth:`historydag.HistoryDag.insert_node`"""
-        return super().insert_node(*args, dist=dist, **kwargs)
-
     def hamming_parsimony_count(self):
         """See :meth:`historydag.sequence_dag.SequenceHistoryDag.hamming_parsim
         ony_count`"""
