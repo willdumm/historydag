@@ -190,7 +190,6 @@ def treeprint(tree: ete3.TreeNode):
 
 
 def test_expand_ambiguities():
-
     for dag in dags:
         cdag = dag.copy()
         print(cdag.count_histories())

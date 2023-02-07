@@ -586,7 +586,9 @@ hamming_distance_countfuncs = AddFuncDict(
     name="HammingParsimony",
 )
 """Provides functions to count hamming distance parsimony.
-For use with :meth:`historydag.HistoryDag.weight_count`."""
+
+For use with :meth:`historydag.HistoryDag.weight_count`.
+"""
 
 node_countfuncs = AddFuncDict(
     {
@@ -597,7 +599,9 @@ node_countfuncs = AddFuncDict(
     name="NodeCount",
 )
 """Provides functions to count the number of nodes in trees.
-For use with :meth:`historydag.HistoryDag.weight_count`."""
+
+For use with :meth:`historydag.HistoryDag.weight_count`.
+"""
 
 
 def natural_edge_probability(parent, child):

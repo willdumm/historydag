@@ -46,7 +46,9 @@ leaf_ambiguous_hamming_distance_countfuncs = historydag.utils.AddFuncDict(
 )
 """Provides functions to count hamming distance parsimony when leaf sequences
 may be ambiguous.
-For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`."""
+
+For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`.
+"""
 
 
 class SequenceHistoryDag(HistoryDag):

@@ -2227,6 +2227,34 @@ class HistoryDag:
             ).values()
         )[0]
 
+    def underestimate_rf_diameter(self):
+        """Returns an underestimate of the RF diameter of the DAG. This
+        estimate is calculated by calculating the maximal sum RF distance
+        between the DAG and a random tree from a topological outlier.
+
+        On a set of DAGs with 2000 or less histories, this underestimate
+        is quite accurate compared to the actual computed RF diameter.
+        """
+        dag_copy = self.copy()
+        dag_copy.trim_optimal_sum_rf_distance(dag_copy, optimal_func=max)
+        ref_history = dag_copy.sample()
+        return self.optimal_rf_distance(ref_history, optimal_func=max)
+
+    def overestimate_rf_diameter(self):
+        """Returns an overestimate of the RF diameter of the DAG. This estimate
+        is calculated by calculating twice of the maximal sum RF distance
+        between the DAG and a random tree from the median tree.
+
+        On a set of DAGs with 2000 or less histories, this underestimate
+        was not close compared to the actual RF diameter. However, the
+        overestimate was never more than twice of the actual RF
+        diameter.
+        """
+        dag_copy = self.copy()
+        dag_copy.trim_optimal_sum_rf_distance(dag_copy, optimal_func=min)
+        ref_history = dag_copy.sample()
+        return 2 * self.optimal_rf_distance(ref_history, optimal_func=max)
+
     def optimal_sum_rf_distance(
         self,
         reference_dag: "HistoryDag",
@@ -3106,6 +3134,7 @@ def from_tree(
         HistoryDag object, which has the same topology as the input tree, with the required
         UA node added as a new root.
     """
+
     # see https://stackoverflow.com/questions/50298582/why-does-python-asyncio-loop-call-soon-overwrite-data
     # or https://stackoverflow.com/questions/25670516/strange-overwriting-occurring-when-using-lambda-functions-as-dict-values
     # for why we can't just use lambda funcs defined in dict comprehension.

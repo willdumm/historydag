@@ -6,7 +6,6 @@ import historydag.parsimony as dag_parsimony
 
 
 def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
-
     # extract sample tree
     s = dag.sample().copy()
     s.recompute_parents()
@@ -38,7 +37,6 @@ def compare_dag_and_tree_parsimonies(dag, transition_weights=None):
 
     # parsimony score depends on the choice of `transition_weights` arg
     if transition_weights is not None:
-
         weight_func = dag_parsimony.make_weighted_hamming_edge_func(
             transition_weights, bases=dag_parsimony.bases
         )
@@ -125,7 +123,7 @@ def test_sankoff_on_dag():
         ),
     ]
 
-    for (w, tw) in tw_options:
+    for w, tw in tw_options:
         check_sankoff_on_dag(dg.copy(), w, transition_weights=tw)
         compare_dag_and_tree_parsimonies(dg.copy(), transition_weights=tw)
 

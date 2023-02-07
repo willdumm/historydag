@@ -529,4 +529,6 @@ compact_genome_hamming_distance_countfuncs = historydag.utils.AddFuncDict(
 )
 """Provides functions to count hamming distance parsimony when sequences are
 stored as CompactGenomes.
-For use with :meth:`historydag.CGHistoryDag.weight_count`."""
+
+For use with :meth:`historydag.CGHistoryDag.weight_count`.
+"""
