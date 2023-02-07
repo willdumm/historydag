@@ -39,10 +39,13 @@ def dag_from_beast_trees(
 
         def cg_func(node):
             return node.cg
+
     label_functions = {"compact_genome": cg_func}
 
     if include_sequence_names_in_labels:
-        label_functions["name"] = lambda n: (n.taxon.label if n.is_leaf() else "internal")
+        label_functions["name"] = lambda n: (
+            n.taxon.label if n.is_leaf() else "internal"
+        )
 
     dag = hdag.history_dag_from_trees(
         [tree.seed_node for tree in dp_trees],
