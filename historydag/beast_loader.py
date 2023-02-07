@@ -13,6 +13,7 @@ def dag_from_beast_trees(
     mask_ambiguous_sites=True,
     remove_ambiguous_sites=False,
     use_original_leaves=True,
+    include_sequence_names_in_labels=False,
     transition_model=parsimony_utils.default_nt_transitions,
 ):
     """A convenience method to build a dag out of the output from
@@ -38,13 +39,15 @@ def dag_from_beast_trees(
 
         def cg_func(node):
             return node.cg
+    label_functions = {"compact_genome": cg_func}
+
+    if include_sequence_names_in_labels:
+        label_functions["name"] = lambda n: (n.taxon.label if n.is_leaf() else "internal")
 
     dag = hdag.history_dag_from_trees(
         [tree.seed_node for tree in dp_trees],
         [],
-        label_functions={
-            "compact_genome": cg_func,
-        },
+        label_functions=label_functions,
         attr_func=lambda n: {"name": (n.taxon.label if n.is_leaf() else "internal")},
         child_node_func=dendropy.Node.child_nodes,
         leaf_node_func=dendropy.Node.leaf_iter,
@@ -100,6 +103,7 @@ def load_beast_trees(
         path=beast_output_file,
         schema="nexus",
         extract_comment_metadata=False,
+        preserve_underscores=True,
     )
 
     for tree in dp_trees:
