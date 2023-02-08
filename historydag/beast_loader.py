@@ -23,11 +23,15 @@ def dag_from_beast_trees(
     Args:
         beast_xml_file: ''
         beast_output_file: ''
-        reference_sequence: Provide a reference sequence, if desired. Otherwise, an arbitrary observed sequence will be used.
-        topologies_only: If True, no internal sequences will be recovered from the beast output. In this case, leaf compact genomes will contain observed (possibly ambiguous) sequences regardless of the value of `use_original_leaves`.
+        reference_sequence: Provide a reference sequence, if desired. Otherwise, an arbitrary
+            observed sequence will be used.
+        topologies_only: If True, no internal sequences will be recovered from the beast output.
+            In this case, leaf compact genomes will contain observed (possibly ambiguous)
+            sequences regardless of the value of `use_original_leaves`.
         mask_ambiguous_sites: ''
         remove_ambiguous_sites: ''
-        use_original_leaves: Use the original observed sequences for leaf node labels, instead of thos derived from simulated mutations.
+        use_original_leaves: Use the original observed sequences for leaf node labels, instead
+            of thos derived from simulated mutations.
         include_sequence_names_in_labels: If True, augment leaf node labels with a ``name`` attribute
             containing the name of the corresponding sequence. Useful for distinguishing leaves when
             observed sequences are not unique.
@@ -58,6 +62,7 @@ def dag_from_beast_trees(
                 return node.observed_cg
             else:
                 return node.cg
+
     else:
 
         def cg_func(node):
@@ -81,7 +86,9 @@ def dag_from_beast_trees(
     if topologies_only:
         return dag
     else:
-        return hdag.mutation_annotated_dag.AmbiguousLeafCGHistoryDag.from_history_dag(dag)
+        return hdag.mutation_annotated_dag.AmbiguousLeafCGHistoryDag.from_history_dag(
+            dag
+        )
 
 
 def load_beast_trees(
@@ -146,17 +153,23 @@ def load_beast_trees(
         # if necessary, and returns the correct reference sequence.
         if not topologies_only:
             if reference_sequence is None:
+
                 def process_first(tree):
-                    ref = _recover_reference(tree, fasta, transition_model.ambiguity_map)
+                    ref = _recover_reference(
+                        tree, fasta, transition_model.ambiguity_map
+                    )
                     return ref
+
             else:
+
                 def process_first(tree):
                     _recover_reference(tree, fasta, transition_model.ambiguity_map)
                     return reference_sequence
+
         else:
-            
             if reference_sequence is None:
                 ref = next(iter(fasta.values()))
+
             def process_first(tree):
                 return ref
 
@@ -200,15 +213,17 @@ def load_beast_trees(
                     )
                 )
 
-
         if topologies_only:
+
             def process_second(tree):
                 get_observed_cgs(tree)
+
         else:
+
             def process_second(tree):
                 get_observed_cgs(tree)
                 _recover_cgs(tree, ref, fasta, cg_transform, transition_model)
-        
+
         # finish processing first tree:
         process_second(dp_trees[0])
         yield dp_trees[0]
@@ -223,9 +238,7 @@ def load_beast_trees(
 
 
 def _recover_cgs(tree, reference_sequence, fasta, cg_transform, transition_model):
-
     def compute_cgs(tree):
-
         ancestral_cg = hdag.compact_genome.compact_genome_from_sequence(
             tree.ancestral_sequence, reference_sequence
         )
@@ -257,7 +270,9 @@ def _comment_parser(node_comments):
                 comment_string = comment
                 break
         else:
-            raise ValueError("history_all node attribute not found:" + str(node_comments))
+            raise ValueError(
+                "history_all node attribute not found:" + str(node_comments)
+            )
     if "history_all=" not in comment_string:
         yield from ()
         return
