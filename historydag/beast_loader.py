@@ -10,6 +10,7 @@ def dag_from_beast_trees(
     beast_xml_file,
     beast_output_file,
     reference_sequence=None,
+    topologies_only=False,
     mask_ambiguous_sites=True,
     remove_ambiguous_sites=False,
     use_original_leaves=True,
@@ -17,24 +18,46 @@ def dag_from_beast_trees(
     transition_model=parsimony_utils.default_nt_transitions,
 ):
     """A convenience method to build a dag out of the output from
-    :meth:`load_beast_trees`."""
+    :meth:`load_beast_trees`.
+
+    Args:
+        beast_xml_file: ''
+        beast_output_file: ''
+        reference_sequence: Provide a reference sequence, if desired. Otherwise, an arbitrary observed sequence will be used.
+        topologies_only: If True, no internal sequences will be recovered from the beast output. In this case, leaf compact genomes will contain observed (possibly ambiguous) sequences regardless of the value of `use_original_leaves`.
+        mask_ambiguous_sites: ''
+        remove_ambiguous_sites: ''
+        use_original_leaves: Use the original observed sequences for leaf node labels, instead of thos derived from simulated mutations.
+        include_sequence_names_in_labels: If True, augment leaf node labels with a ``name`` attribute
+            containing the name of the corresponding sequence. Useful for distinguishing leaves when
+            observed sequences are not unique.
+
+    """
     dp_trees = load_beast_trees(
         beast_xml_file,
         beast_output_file,
+        topologies_only=topologies_only,
         reference_sequence=reference_sequence,
         mask_ambiguous_sites=mask_ambiguous_sites,
         remove_ambiguous_sites=remove_ambiguous_sites,
         transition_model=transition_model,
     )[0]
 
-    if use_original_leaves:
+    if topologies_only:
+
+        def cg_func(node):
+            if node.is_leaf():
+                return node.observed_cg
+            else:
+                return None
+
+    elif use_original_leaves:
 
         def cg_func(node):
             if node.is_leaf():
                 return node.observed_cg
             else:
                 return node.cg
-
     else:
 
         def cg_func(node):
@@ -48,19 +71,23 @@ def dag_from_beast_trees(
         )
 
     dag = hdag.history_dag_from_trees(
-        [tree.seed_node for tree in dp_trees],
+        (tree.seed_node for tree in dp_trees),
         [],
         label_functions=label_functions,
         attr_func=lambda n: {"name": (n.taxon.label if n.is_leaf() else "internal")},
         child_node_func=dendropy.Node.child_nodes,
         leaf_node_func=dendropy.Node.leaf_iter,
     )
-    return hdag.mutation_annotated_dag.AmbiguousLeafCGHistoryDag.from_history_dag(dag)
+    if topologies_only:
+        return dag
+    else:
+        return hdag.mutation_annotated_dag.AmbiguousLeafCGHistoryDag.from_history_dag(dag)
 
 
 def load_beast_trees(
     beast_xml_file,
     beast_output_file,
+    topologies_only=False,
     reference_sequence=None,
     mask_ambiguous_sites=True,
     remove_ambiguous_sites=False,
@@ -74,15 +101,18 @@ def load_beast_trees(
     Args:
         beast_xml_file: The xml input file to BEAST
         beast_output_file: The .trees output file from BEAST
+        topologies_only: If True, no ancestral sequences are recovered from the `history_all`
+            node attribute. This makes it possible to load trees which don't have that attribute.
         reference_sequence: If provided, a reference sequence which will be used for all
-            compact genomes. By default, uses the ancestral sequence of the first tree.
+            compact genomes. By default, uses the ancestral sequence of the first tree, or if
+            ``topologies_only`` is True, an arbitrary observed sequence.
         mask_ambiguous_sites: If True, ignore mutations for all sites whose observed set
             of characters is a subset of {N, -, ?} (recommended).
         remove_ambiguous_sites: If True, acts like ``mask_ambiguous_sites=True``, except
             the sites in question are actually removed from the sequence, rather than masked.
 
     Returns:
-        A :class:`dendropy.TreeList` containing the trees output by BEAST, and a set of 0-based sites
+        A generator yielding :class:`dendropy.Tree`s output by BEAST, and a set of 0-based sites
         which are removed from sequences. If remove_ambiguous_sites is False, this set contains only
         sites ignored by BEAST. Otherwise, it also contains additional sites removed.
         Each tree has:
@@ -98,6 +128,7 @@ def load_beast_trees(
     fasta, all_removed_sites = fasta_from_beast_file(
         beast_xml_file, remove_ignored_sites=True
     )
+    print("loaded fasta")
 
     all_removed_sites = set(all_removed_sites)
     # dendropy doesn't parse nested lists correctly in metadata, so we load the
@@ -108,18 +139,30 @@ def load_beast_trees(
         extract_comment_metadata=False,
         preserve_underscores=True,
     )
+    print("loaded trees")
 
-    for tree in dp_trees:
-        for node in tree.postorder_node_iter():
-            node.muts = list(_comment_parser(node.comments))
-        tree.ancestral_sequence = _recover_reference(
-            tree, fasta, transition_model.ambiguity_map
-        )
+    def result_generator():
+        # Get process_first, which recovers the tree ancestral sequence,
+        # if necessary, and returns the correct reference sequence.
+        if not topologies_only:
+            if reference_sequence is None:
+                def process_first(tree):
+                    ref = _recover_reference(tree, fasta, transition_model.ambiguity_map)
+                    return ref
+            else:
+                def process_first(tree):
+                    _recover_reference(tree, fasta, transition_model.ambiguity_map)
+                    return reference_sequence
+        else:
+            
+            if reference_sequence is None:
+                ref = next(iter(fasta.values()))
+            def process_first(tree):
+                return ref
 
-    if reference_sequence is None:
-        reference_sequence = dp_trees[0].ancestral_sequence
+        # Begin processing first tree and get reference sequence
+        ref = process_first(dp_trees[0])
 
-    def compute_cgs(tree):
         if mask_ambiguous_sites or remove_ambiguous_sites:
             extra_masked_sites = {
                 i
@@ -132,7 +175,7 @@ def load_beast_trees(
             }
             if remove_ambiguous_sites:
                 all_removed_sites.update(extra_masked_sites)
-                new_reference = mask_sequence(reference_sequence, extra_masked_sites)
+                new_reference = mask_sequence(ref, extra_masked_sites)
 
                 def cg_transform(cg):
                     return cg.remove_sites(
@@ -149,11 +192,45 @@ def load_beast_trees(
             def cg_transform(cg):
                 return cg
 
+        def get_observed_cgs(tree):
+            for node in tree.leaf_node_iter():
+                node.observed_cg = cg_transform(
+                    hdag.compact_genome.compact_genome_from_sequence(
+                        fasta[node.taxon.label], ref
+                    )
+                )
+
+
+        if topologies_only:
+            def process_second(tree):
+                get_observed_cgs(tree)
+        else:
+            def process_second(tree):
+                get_observed_cgs(tree)
+                _recover_cgs(tree, ref, fasta, cg_transform, transition_model)
+        
+        # finish processing first tree:
+        process_second(dp_trees[0])
+        yield dp_trees[0]
+
+        # process the rest:
+        for tree in dp_trees[1:]:
+            process_first(tree)
+            process_second(tree)
+            yield tree
+
+    return result_generator(), all_removed_sites
+
+
+def _recover_cgs(tree, reference_sequence, fasta, cg_transform, transition_model):
+
+    def compute_cgs(tree):
+
         ancestral_cg = hdag.compact_genome.compact_genome_from_sequence(
             tree.ancestral_sequence, reference_sequence
         )
 
-        @lru_cache(maxsize=(2 * len(dp_trees[0].nodes())))
+        @lru_cache(maxsize=(2 * len(tree.nodes())))
         def compute_cg(node):
             if node.parent_node is None:
                 # base case: node is a root node
@@ -163,18 +240,9 @@ def load_beast_trees(
             return parent_cg_mut.apply_muts(node.muts)
 
         for node in tree.preorder_node_iter():
-            if node.is_leaf():
-                node.observed_cg = cg_transform(
-                    hdag.compact_genome.compact_genome_from_sequence(
-                        fasta[node.taxon.label], reference_sequence
-                    )
-                )
             node.cg = cg_transform(compute_cg(node))
 
-    for tree in dp_trees:
-        compute_cgs(tree)
-
-    return dp_trees, all_removed_sites
+    compute_cgs(tree)
 
 
 def _comment_parser(node_comments):
@@ -184,7 +252,12 @@ def _comment_parser(node_comments):
     elif len(node_comments) == 1:
         comment_string = node_comments[0]
     else:
-        raise ValueError("node_comments has more than one element" + str(node_comments))
+        for comment in node_comments:
+            if "history_all" in comment:
+                comment_string = comment
+                break
+        else:
+            raise ValueError("history_all node attribute not found:" + str(node_comments))
     if "history_all=" not in comment_string:
         yield from ()
         return
@@ -217,6 +290,7 @@ def _recover_reference(tree, fasta, ambiguity_map):
             sequence_dict[c_node][site] = upbase
 
     for node in tree.postorder_node_iter():
+        node.muts = list(_comment_parser(node.comments))
         if node.is_leaf():
             sequence_dict[node] = list(fasta[node.taxon.label])
         else:
@@ -239,7 +313,8 @@ def _recover_reference(tree, fasta, ambiguity_map):
                         sequence[site] = ambiguity_map.reversed[intersection]
             sequence_dict[node] = sequence
     mut_upward_child(tree.seed_node)
-    return "".join(sequence_dict[tree.seed_node])
+    tree.ancestral_sequence = "".join(sequence_dict[tree.seed_node])
+    return tree.ancestral_sequence
 
 
 def fasta_from_beast_file(filepath, remove_ignored_sites=True):
