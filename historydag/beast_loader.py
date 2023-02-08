@@ -293,42 +293,49 @@ def _comment_parser(node_comments):
 
 
 def _recover_reference(tree, fasta, ambiguity_map):
-    sequence_dict = {}
+    def get_least_ambiguous_base(site, fasta):
+        # looks at bases in fasta entries at (0-based) site,
+        # returns the first which is a concrete base, or the
+        # intersection of all ambiguous bases
+        seen = set()
+        for val in fasta.values():
+            base = val[site]
+            if base in ambiguity_map.bases:
+                return base
+            else:
+                seen.add(base)
+        intersection = set(ambiguity_map.bases)
+        for code in seen:
+            intersection.intersection_update(ambiguity_map[code])
+        try:
+            return ambiguity_map.reversed[frozenset(intersection)]
+        except KeyError:
+            warn(
+                f"No ambiguity code found for possible reference bases {intersection} at site {site}"
+            )
+            return next(iter(intersection))
 
-    def mut_upward_child(c_node):
-        for mut in reversed(c_node.muts):
-            upbase = mut[0]
-            downbase = mut[-1]
-            site = int(mut[1:-1]) - 1
-            if downbase not in ambiguity_map[sequence_dict[c_node][site]]:
-                warn("child base doesn't match mut base")
-            sequence_dict[c_node][site] = upbase
+    ref_node = next(tree.postorder_node_iter())
+    ref_sequence = list(fasta[ref_node.taxon.label])
 
-    for node in tree.postorder_node_iter():
+    curr_sequence = [None] * len(ref_sequence)
+    unknown_site_count = len(ref_sequence)
+    for node in tree.preorder_node_iter():
         node.muts = list(_comment_parser(node.comments))
-        if node.is_leaf():
-            sequence_dict[node] = list(fasta[node.taxon.label])
-        else:
-            children = node.child_nodes()
-            mut_upward_child(children[0])
-            sequence = sequence_dict[children[0]]
-            for child in children[1:]:
-                mut_upward_child(child)
-                for site, (obase, nbase) in enumerate(
-                    zip(sequence, sequence_dict[child])
-                ):
-                    intersection = frozenset(ambiguity_map[obase]) & frozenset(
-                        ambiguity_map[nbase]
-                    )
-                    if len(intersection) == 0:
-                        warn(
-                            "conflicting base found between children, using base from first child"
-                        )
-                    else:
-                        sequence[site] = ambiguity_map.reversed[intersection]
-            sequence_dict[node] = sequence
-    mut_upward_child(tree.seed_node)
-    tree.ancestral_sequence = "".join(sequence_dict[tree.seed_node])
+        if unknown_site_count > 0:
+            for mut in node.muts:
+                upbase = mut[0]
+                site = int(mut[1:-1]) - 1
+                if curr_sequence[site] is None:
+                    curr_sequence[site] = upbase
+                    unknown_site_count -= 1
+
+    for site, base in enumerate(curr_sequence):
+        if base is None:
+            curr_sequence[site] = get_least_ambiguous_base(site, fasta)
+
+    tree.ancestral_sequence = "".join(curr_sequence)
+
     return tree.ancestral_sequence
 
 
