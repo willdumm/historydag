@@ -1,9 +1,9 @@
 import historydag as hdag
 from warnings import warn
-from functools import lru_cache
 import dendropy
 import xml.etree.ElementTree as ET
 import historydag.parsimony_utils as parsimony_utils
+import time
 
 
 def dag_from_beast_trees(
@@ -230,32 +230,28 @@ def load_beast_trees(
 
         # process the rest:
         for tree in dp_trees[1:]:
+            curr = time.time()
             process_first(tree)
+            print("recovering reference took ", time.time() - curr)
+            curr = time.time()
             process_second(tree)
+            print("computing compact genomes took ", time.time() - curr)
             yield tree
 
     return result_generator(), all_removed_sites
 
 
 def _recover_cgs(tree, reference_sequence, fasta, cg_transform, transition_model):
-    def compute_cgs(tree):
-        ancestral_cg = hdag.compact_genome.compact_genome_from_sequence(
-            tree.ancestral_sequence, reference_sequence
-        )
+    ancestral_cg = hdag.compact_genome.compact_genome_from_sequence(
+        tree.ancestral_sequence, reference_sequence
+    )
 
-        @lru_cache(maxsize=(2 * len(tree.nodes())))
-        def compute_cg(node):
-            if node.parent_node is None:
-                # base case: node is a root node
-                parent_cg_mut = ancestral_cg
-            else:
-                parent_cg_mut = compute_cg(node.parent_node)
-            return parent_cg_mut.apply_muts(node.muts)
-
-        for node in tree.preorder_node_iter():
-            node.cg = cg_transform(compute_cg(node))
-
-    compute_cgs(tree)
+    unmodified_node_cgs = {None: ancestral_cg}
+    for node in tree.preorder_node_iter():
+        parent_cg = unmodified_node_cgs[node.parent_node]
+        this_cg = parent_cg.apply_muts_raw(node.muts)
+        unmodified_node_cgs[node] = this_cg
+        node.cg = cg_transform(this_cg)
 
 
 def _comment_parser(node_comments):
@@ -286,20 +282,20 @@ def _comment_parser(node_comments):
                     idx_str, _, from_base, to_base = mut.split(",")
                 except ValueError:
                     raise ValueError("comment_parser failed on: " + str(node_comments))
-                yield from_base + idx_str + to_base
+                yield (int(idx_str), from_base, to_base)
         else:
             yield from ()
             return
 
 
 def _recover_reference(tree, fasta, ambiguity_map):
-    def get_least_ambiguous_base(site, fasta):
-        # looks at bases in fasta entries at (0-based) site,
+    def get_least_ambiguous_base(idx, fasta):
+        # looks at bases in fasta entries at (0-based) idx,
         # returns the first which is a concrete base, or the
         # intersection of all ambiguous bases
         seen = set()
         for val in fasta.values():
-            base = val[site]
+            base = val[idx]
             if base in ambiguity_map.bases:
                 return base
             else:
@@ -311,7 +307,7 @@ def _recover_reference(tree, fasta, ambiguity_map):
             return ambiguity_map.reversed[frozenset(intersection)]
         except KeyError:
             warn(
-                f"No ambiguity code found for possible reference bases {intersection} at site {site}"
+                f"No ambiguity code found for possible reference bases {intersection} at idx {idx}"
             )
             return next(iter(intersection))
 
@@ -323,16 +319,15 @@ def _recover_reference(tree, fasta, ambiguity_map):
     for node in tree.preorder_node_iter():
         node.muts = list(_comment_parser(node.comments))
         if unknown_site_count > 0:
-            for mut in node.muts:
-                upbase = mut[0]
-                site = int(mut[1:-1]) - 1
-                if curr_sequence[site] is None:
-                    curr_sequence[site] = upbase
+            for site, upbase, _ in node.muts:
+                idx = site - 1
+                if curr_sequence[idx] is None:
+                    curr_sequence[idx] = upbase
                     unknown_site_count -= 1
 
-    for site, base in enumerate(curr_sequence):
+    for idx, base in enumerate(curr_sequence):
         if base is None:
-            curr_sequence[site] = get_least_ambiguous_base(site, fasta)
+            curr_sequence[idx] = get_least_ambiguous_base(idx, fasta)
 
     tree.ancestral_sequence = "".join(curr_sequence)
 

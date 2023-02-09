@@ -112,7 +112,21 @@ class CompactGenome:
             self.mutations.set(idx, (ref_base, newbase)), self.reference
         )
 
-    def apply_muts(self, muts: Sequence[str], reverse: bool = False):
+    def apply_muts_raw(self, muts: Sequence[tuple]):
+        """Apply the mutations from the sequence of tuples ``muts``.
+
+        Each tuple should contain (one-based site, from_base, to_base)
+        """
+        res = dict(self.mutations)
+        for site, from_base, to_base in muts:
+            ref = self.reference[site - 1]
+            if ref != to_base:
+                res[site] = (ref, to_base)
+            else:
+                res.pop(site)
+        return CompactGenome(res, self.reference)
+
+    def apply_muts(self, muts: Sequence[str], reverse: bool = False, debug=False):
         """Apply a sequence of mutstrings like 'A110G' to this compact genome.
 
         In this example, A is the old base, G is the new base, and 110 is the 1-based
@@ -125,6 +139,9 @@ class CompactGenome:
             reverse: Apply the mutations in reverse, such as when the provided mutations
                 describe how to achieve this CompactGenome from the desired CompactGenome.
                 If True, the mutations in `muts` will also be applied in reversed order.
+            debug: If True, each mutation is applied individually by
+                :meth:`CompactGenome.apply_mut` and the from base is checked against the
+                current recorded base at each site.
 
         Returns:
             The new CompactGenome
@@ -132,13 +149,26 @@ class CompactGenome:
         newcg = self
         if reverse:
             mod_func = reversed
+
+            def rearrange_func(tup):
+                return tup[0], tup[2], tup[1]
+
         else:
 
             def mod_func(seq):
                 yield from seq
 
-        for mut in mod_func(muts):
-            newcg = newcg.mutate(mut, reverse=reverse)
+            def rearrange_func(tup):
+                return tup
+
+        if debug:
+            for mut in mod_func(muts):
+                newcg = newcg.mutate(mut, reverse=reverse)
+        else:
+            newcg = self.apply_muts_raw(
+                rearrange_func(unpack_mut_string(mut)) for mut in mod_func(muts)
+            )
+
         return newcg
 
     def to_sequence(self):
@@ -213,6 +243,11 @@ class CompactGenome:
             },
             new_reference,
         )
+
+
+def unpack_mut_string(mut: str):
+    """Returns (one-based site, from_base, to_base)"""
+    return int(mut[1:-1]), mut[0], mut[-1]
 
 
 def _iter_adjusted_sites(recorded_sites, removed_sites, site_adjust):
