@@ -263,6 +263,31 @@ class HistoryDagNode:
             parent.remove_edge_by_clade_and_id(self, self.clade_union())
         self.removed = True
 
+    def to_ete_recursive(
+        self,
+        name_func: Callable[["HistoryDagNode"], str] = lambda n: "unnamed",
+        feature_funcs: Mapping[str, Callable[["HistoryDagNode"], str]] = {},
+        sort_func = lambda seq: seq,
+    ) -> ete3.TreeNode:
+        """Convert a history DAG node which is part of a history to an ete tree.
+
+        Args:
+            name_func: A map from nodes to newick node names
+            feature_funcs: A dictionary keyed by extended newick field names, containing
+                functions specifying how to populate that field for each node.
+
+        Returns:
+            An ete3 Tree with the same topology as the subhistory below self,
+            and node names and attributes as specified.
+        """
+        node = ete3.TreeNode()
+        node.name = name_func(self)
+        for feature, func in feature_funcs.items():
+            node.add_feature(feature, func(self))
+        for child in self.children():
+            node.add_child(child.to_ete_recursive(name_func, feature_funcs, sort_func))
+        return node
+
     def _sample(self, edge_selector=lambda n: True) -> "HistoryDagNode":
         r"""Samples a history (a sub-history DAG containing the root and all
         leaf nodes).
@@ -1042,7 +1067,7 @@ class HistoryDag:
         """
 
         leaf_label_dict = {leaf.label: relabel_func(leaf) for leaf in self.get_leaves()}
-        if len(leaf_label_dict) != len(set(leaf_label_dict.keys())):
+        if len(leaf_label_dict) != len(set(leaf_label_dict.values())):
             raise RuntimeError(
                 "relabeling function maps multiple leaf nodes to the same new label"
             )
@@ -1129,7 +1154,7 @@ class HistoryDag:
         label_type = self.get_label_type()
         field_dict = {field: index for index, field in enumerate(label_type._fields)}
         try:
-            update_indices = (field_dict[field] for field in field_names)
+            update_indices = [field_dict[field] for field in field_names]
         except KeyError:
             raise KeyError(
                 "One of the field names you provided does not appear on node labels."
@@ -2287,6 +2312,25 @@ class HistoryDag:
         history.
         """
         kwargs = utils.sum_rfdistance_funcs(reference_dag)
+        return self.trim_optimal_weight(**kwargs, optimal_func=optimal_func)
+
+    def trim_optimal_rf_distance(
+        self,
+        history: "HistoryDag",
+        rooted: bool = False,
+        optimal_func: Callable[[List[Weight]], Weight] = min,
+    ):
+        """Trims this history DAG to the optimal (min or max) RF distance to a given history.
+
+        Also returns that optimal RF distance
+
+        The given history must be on the same taxa as all trees in the DAG.
+        Since computing reference splits is expensive, it is better to use
+        :meth:`optimal_weight_annotate` and :meth:`utils.make_rfdistance_countfuncs`
+        instead of making multiple calls to this method with the same reference
+        history.
+        """
+        kwargs = utils.make_rfdistance_countfuncs(history, rooted=rooted)
         return self.trim_optimal_weight(**kwargs, optimal_func=optimal_func)
 
     def optimal_rf_distance(

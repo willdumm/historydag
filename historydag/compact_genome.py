@@ -212,6 +212,32 @@ class CompactGenome:
             self.reference,
         )
 
+    def subset_sites(self, sites, one_based=True, new_reference=None):
+        """Remove all but those sites in ``sites``, and adjust the reference sequence.
+
+        Args:
+            sites: A collection of sites to be kept
+            one_based: If True, the provided sites will be interpreted as one-based sites. Otherwise,
+                they will be interpreted as 0-based sites.
+            new_reference: If provided, this new reference sequence will be used instead of
+                computing the new reference sequence directly.
+        """
+        if one_based:
+            adjust = 0
+        else:
+            adjust = 1
+        site_map = {old_site + adjust: new_site for new_site, old_site in enumerate(sorted(sites), start = 1)}
+        result = {site_map[old_site]: state for old_site, state in self.mutations.items()
+                  if old_site - adjust in sites}
+
+
+        if new_reference is None:
+            new_reference = "".join(
+                self.reference[site + adjust - 1] for site in sorted(sites)
+            )
+
+        return CompactGenome(result, new_reference)
+
     def remove_sites(self, sites, one_based=True, new_reference=None):
         """Remove all sites in ``sites``, and adjust the reference sequence.
 

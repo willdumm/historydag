@@ -216,6 +216,9 @@ def sankoff_downward(
     node based on its subtrees.
 
     Args:
+        partial_node_list: If None, all internal node sequences will be re-computed. If a list of nodes
+            is provided, only sequences on nodes from that list will be updated. This list must be in
+            post-order.
         compute_cvs: If true, compute upward sankoff cost vectors. If ``sankoff_upward`` was
             already run on the tree/dag, this may be skipped.
         gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
@@ -350,6 +353,7 @@ def disambiguate(
     adj_dist=False,
     transition_model=parsimony_utils.default_nt_transitions,
     min_ambiguities=False,
+    use_internal_node_sequences=False,
 ):
     """Randomly resolve ambiguous bases using a two-pass Sankoff Algorithm on
     subtrees of consecutive ambiguity codes.
@@ -375,7 +379,7 @@ def disambiguate(
     seq_len = len(next(tree.iter_leaves()).sequence)
     adj_arr = transition_model.get_adjacency_array(seq_len)
     if compute_cvs:
-        sankoff_upward(tree, transition_model=transition_model)
+        sankoff_upward(tree, len(tree.sequence), transition_model=transition_model, use_internal_node_sequences=use_internal_node_sequences)
     # Second pass of Sankoff: choose bases
     preorder = list(tree.traverse(strategy="preorder"))
     for node in preorder:
