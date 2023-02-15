@@ -600,15 +600,18 @@ class HistoryDag:
     ):
         if max_weight is not None:
             self.trim_below_weight(
-                max_weight, start_func, edge_weight_func, min_possible_weight
+                max_weight,
+                start_func = start_func,
+                edge_weight_func = edge_weight_func,
+                min_possible_weight = min_possible_weight,
             )
 
         if min_weight is not None:
             self.trim_below_weight(
                 -min_weight,
-                lambda n: -start_func(n),
-                lambda n1, n2: -edge_weight_func(n1, n2),
-                -max_possible_weight,
+                start_func = lambda n: -start_func(n),
+                edge_weight_func = lambda n1, n2: -edge_weight_func(n1, n2),
+                min_possible_weight = -max_possible_weight,
             )
 
     def trim_below_weight(
