@@ -135,7 +135,6 @@ def load_beast_trees(
     fasta, all_removed_sites = fasta_from_beast_file(
         beast_xml_file, remove_ignored_sites=True
     )
-    print("loaded fasta")
 
     all_removed_sites = set(all_removed_sites)
     # dendropy doesn't parse nested lists correctly in metadata, so we load the
@@ -146,7 +145,6 @@ def load_beast_trees(
         extract_comment_metadata=False,
         preserve_underscores=True,
     )
-    print("loaded trees")
 
     def result_generator():
         # Get process_first, which recovers the tree ancestral sequence,
@@ -230,12 +228,8 @@ def load_beast_trees(
 
         # process the rest:
         for tree in dp_trees[1:]:
-            curr = time.time()
             process_first(tree)
-            print("recovering reference took ", time.time() - curr)
-            curr = time.time()
             process_second(tree)
-            print("computing compact genomes took ", time.time() - curr)
             yield tree
 
     return result_generator(), all_removed_sites
