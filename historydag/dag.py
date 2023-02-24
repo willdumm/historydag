@@ -2024,6 +2024,64 @@ class HistoryDag:
             prod,
         )
 
+    def preorder_history_accum(
+        self,
+        leaf_func: Callable[["HistoryDagNode"], Weight],
+        edge_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight],
+        accum_within_clade: Callable[[List[Weight]], Weight],
+        accum_between_clade: Callable[[List[Weight]], Weight],
+        ua_start_val: Weight,
+        accum_above_edge: Optional[Callable[[Weight, Weight], Weight]] = None,
+    ) -> Tuple[Mapping[HistoryDagNode, Weight], Mapping[HistoryDagNode, Weight]]:
+        """A template method for leaf-to-root and root-to-leaf dynamic programming.
+
+        Args:
+            leaf_func: A function to assign weights to leaf nodes
+            edge_func: A function to assign weights to edges. The parent node will
+                always be the first argument.
+            accum_within_clade: A function which accumulates a list of weights of subtrees
+                below a single clade. That is, the weights are for alternative trees.
+            accum_between_clade: A function which accumulates a list of weights of subtrees
+                below different clades. That is, the weights are for different parts of the
+                same tree.
+            accum_above_edge: A function which adds the weight for a subtree to the weight
+                of the edge above it. If `None`, this function will be inferred from
+                `accum_between_clade`. The edge weight is the second argument.
+
+        Returns:
+            Two dictionaries: One describing downward weights below each node,
+            and another describing upward weights above each node
+        """
+        if accum_above_edge is None:
+
+            def default_accum_above_edge(subtree_weight, edge_weight):
+                return accum_between_clade([subtree_weight, edge_weight])
+
+            accum_above_edge = default_accum_above_edge
+
+        downward_weights = {}
+        upward_weights = {}
+
+        self.recompute_parents()
+        self.postorder_history_accum(
+            leaf_func=leaf_func,
+            edge_func=edge_func,
+            accum_within_clade=accum_within_clade,
+            accum_between_clade=accum_between_clade,
+            accum_above_edge=accum_above_edge,
+        )
+
+        for node in reversed(self.postorder()):
+            downward_weights[node] = node._dp_data
+            if node.is_ua_node():
+                above = ua_start_val
+            else:
+                above = 
+
+
+        return downward_weights, upward_weights
+
+
     def count_nodes(self, collapse=False) -> Dict[HistoryDagNode, int]:
         """Counts the number of trees each node takes part in.
 
