@@ -3,7 +3,6 @@ from warnings import warn
 import dendropy
 import xml.etree.ElementTree as ET
 import historydag.parsimony_utils as parsimony_utils
-import time
 
 
 def dag_from_beast_trees(

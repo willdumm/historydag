@@ -267,9 +267,10 @@ class HistoryDagNode:
         self,
         name_func: Callable[["HistoryDagNode"], str] = lambda n: "unnamed",
         feature_funcs: Mapping[str, Callable[["HistoryDagNode"], str]] = {},
-        sort_func = lambda seq: seq,
+        sort_func=lambda seq: seq,
     ) -> ete3.TreeNode:
-        """Convert a history DAG node which is part of a history to an ete tree.
+        """Convert a history DAG node which is part of a history to an ete
+        tree.
 
         Args:
             name_func: A map from nodes to newick node names
@@ -601,17 +602,17 @@ class HistoryDag:
         if max_weight is not None:
             self.trim_below_weight(
                 max_weight,
-                start_func = start_func,
-                edge_weight_func = edge_weight_func,
-                min_possible_weight = min_possible_weight,
+                start_func=start_func,
+                edge_weight_func=edge_weight_func,
+                min_possible_weight=min_possible_weight,
             )
 
         if min_weight is not None:
             self.trim_below_weight(
                 -min_weight,
-                start_func = lambda n: -start_func(n),
-                edge_weight_func = lambda n1, n2: -edge_weight_func(n1, n2),
-                min_possible_weight = -max_possible_weight,
+                start_func=lambda n: -start_func(n),
+                edge_weight_func=lambda n1, n2: -edge_weight_func(n1, n2),
+                min_possible_weight=-max_possible_weight,
             )
 
     def trim_below_weight(
@@ -2323,7 +2324,8 @@ class HistoryDag:
         rooted: bool = False,
         optimal_func: Callable[[List[Weight]], Weight] = min,
     ):
-        """Trims this history DAG to the optimal (min or max) RF distance to a given history.
+        """Trims this history DAG to the optimal (min or max) RF distance to a
+        given history.
 
         Also returns that optimal RF distance
 
