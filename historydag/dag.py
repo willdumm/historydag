@@ -1094,7 +1094,7 @@ class HistoryDag:
                     )
                     for old_clade, old_eset in old_node.clades.items()
                 }
-                return HistoryDagNode(relabel_func(old_node), clades, None)
+                return HistoryDagNode(relabel_func(old_node), clades, old_node.attr)
 
         if relax_type:
             newdag = HistoryDag(relabel_node(self.dagroot))
