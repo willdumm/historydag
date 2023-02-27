@@ -2076,7 +2076,30 @@ class HistoryDag:
             if node.is_ua_node():
                 above = ua_start_val
             else:
-                above = 
+                curr_clade = node.clade_union()
+                above = accum_between_clade(
+                    # for each parent, add the edge weight to that parent to
+                    # the above tree weight
+                    accum_above_edge(
+                        # accumulate between parents of this node
+                        accum_between_clade(
+                            # accumulate weights of clades other than the one that
+                            # matches this node's clade union
+                            accum_within_clade(
+                                # aggregate over alternative children below each
+                                # clade
+                                accum_above_edge(child._dp_data, edge_func(node, child))
+                                for child in parent.children(clade=clade)
+
+                            )
+
+                            for clade in parent.clades if clade != curr_clade
+                        ),
+                        edge_func(parent, node)
+                    )
+                    for parent in node.parents
+                )
+            upward_weights[node] = above
 
 
         return downward_weights, upward_weights
