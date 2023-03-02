@@ -27,6 +27,7 @@ from copy import deepcopy
 from historydag import utils
 from historydag.utils import Weight, Label, UALabel, prod
 from historydag.counterops import counter_sum, counter_prod
+import historydag.parsimony_utils as parsimony_utils
 
 
 class IntersectionError(ValueError):
@@ -261,6 +262,32 @@ class HistoryDagNode:
         for parent in self.parents:
             parent.remove_edge_by_clade_and_id(self, self.clade_union())
         self.removed = True
+
+    def to_ete_recursive(
+        self,
+        name_func: Callable[["HistoryDagNode"], str] = lambda n: "unnamed",
+        feature_funcs: Mapping[str, Callable[["HistoryDagNode"], str]] = {},
+        sort_func=lambda seq: seq,
+    ) -> ete3.TreeNode:
+        """Convert a history DAG node which is part of a history to an ete
+        tree.
+
+        Args:
+            name_func: A map from nodes to newick node names
+            feature_funcs: A dictionary keyed by extended newick field names, containing
+                functions specifying how to populate that field for each node.
+
+        Returns:
+            An ete3 Tree with the same topology as the subhistory below self,
+            and node names and attributes as specified.
+        """
+        node = ete3.TreeNode()
+        node.name = name_func(self)
+        for feature, func in feature_funcs.items():
+            node.add_feature(feature, func(self))
+        for child in self.children():
+            node.add_child(child.to_ete_recursive(name_func, feature_funcs, sort_func))
+        return node
 
     def _sample(self, edge_selector=lambda n: True) -> "HistoryDagNode":
         r"""Samples a history (a sub-history DAG containing the root and all
@@ -568,21 +595,24 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         min_possible_weight=-float("inf"),
         max_possible_weight=float("inf"),
     ):
         if max_weight is not None:
             self.trim_below_weight(
-                max_weight, start_func, edge_weight_func, min_possible_weight
+                max_weight,
+                start_func=start_func,
+                edge_weight_func=edge_weight_func,
+                min_possible_weight=min_possible_weight,
             )
 
         if min_weight is not None:
             self.trim_below_weight(
                 -min_weight,
-                lambda n: -start_func(n),
-                lambda n1, n2: -edge_weight_func(n1, n2),
-                -max_possible_weight,
+                start_func=lambda n: -start_func(n),
+                edge_weight_func=lambda n1, n2: -edge_weight_func(n1, n2),
+                min_possible_weight=-max_possible_weight,
             )
 
     def trim_below_weight(
@@ -591,7 +621,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         min_possible_weight=-float("inf"),
     ):
         """Trim the dag to contain at least all the histories within the
@@ -853,14 +883,26 @@ class HistoryDag:
         """Deprecated name for :meth:`get_histories`"""
         return self.get_histories()
 
-    def get_leaves(self) -> Generator["HistoryDag", None, None]:
+    def get_leaves(self) -> Generator["HistoryDagNode", None, None]:
         """Return a generator containing all leaf nodes in the history DAG."""
         return self.find_nodes(HistoryDagNode.is_leaf)
 
-    def num_edges(self) -> int:
+    def get_edges(
+        self, skip_ua_node=False
+    ) -> Generator[Tuple["HistoryDagNode", "HistoryDagNode"], None, None]:
+        """Return a generator containing all edges in the history DAG, as
+        parent, child node tuples.
+
+        Edges' parent nodes will be in preorder.
+        """
+        for parent in self.preorder(skip_ua_node=skip_ua_node):
+            for child in parent.children():
+                yield (parent, child)
+
+    def num_edges(self, skip_ua_node=False) -> int:
         """Return the number of edges in the DAG, including edges descending
-        from the UA node."""
-        return sum(len(list(n.children())) for n in self.preorder())
+        from the UA node, unless skip_ua_node is True."""
+        return sum(1 for _ in self.get_edges(skip_ua_node=skip_ua_node))
 
     def num_nodes(self) -> int:
         """Return the number of nodes in the DAG, not counting the UA node."""
@@ -1029,7 +1071,7 @@ class HistoryDag:
         """
 
         leaf_label_dict = {leaf.label: relabel_func(leaf) for leaf in self.get_leaves()}
-        if len(leaf_label_dict) != len(set(leaf_label_dict.keys())):
+        if len(leaf_label_dict) != len(set(leaf_label_dict.values())):
             raise RuntimeError(
                 "relabeling function maps multiple leaf nodes to the same new label"
             )
@@ -1053,7 +1095,7 @@ class HistoryDag:
                     )
                     for old_clade, old_eset in old_node.clades.items()
                 }
-                return HistoryDagNode(relabel_func(old_node), clades, None)
+                return HistoryDagNode(relabel_func(old_node), clades, old_node.attr)
 
         if relax_type:
             newdag = HistoryDag(relabel_node(self.dagroot))
@@ -1116,7 +1158,7 @@ class HistoryDag:
         label_type = self.get_label_type()
         field_dict = {field: index for index, field in enumerate(label_type._fields)}
         try:
-            update_indices = (field_dict[field] for field in field_names)
+            update_indices = [field_dict[field] for field in field_names]
         except KeyError:
             raise KeyError(
                 "One of the field names you provided does not appear on node labels."
@@ -1465,7 +1507,11 @@ class HistoryDag:
 
     def explode_nodes(
         self,
-        expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
+        expand_func: Callable[
+            [Label], Iterable[Label]
+        ] = parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
+            "sequence"
+        ),
         expand_node_func: Callable[[HistoryDagNode], Iterable[Label]] = None,
         expandable_func: Callable[[Label], bool] = None,
     ) -> int:
@@ -1724,7 +1770,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         **kwargs,
@@ -1758,7 +1804,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         eq_func: Callable[[Weight, Weight], bool] = lambda w1, w2: w1 == w2,
@@ -1813,7 +1859,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             ["HistoryDagNode", "HistoryDagNode"], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         **kwargs,
     ):
@@ -2146,10 +2192,18 @@ class HistoryDag:
         self,
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_func: Callable[[Label, Label], Weight] = lambda l1, l2: (
-            0 if isinstance(l1, UALabel) else utils.hamming_distance(l1.sequence, l2.sequence)  # type: ignore
+            0
+            if isinstance(l1, UALabel)
+            else parsimony_utils.default_nt_transitions.weighted_hamming_distance(
+                l1.sequence, l2.sequence
+            )
         ),
         accum_func: Callable[[List[Weight]], Weight] = sum,
-        expand_func: Callable[[Label], Iterable[Label]] = utils.sequence_resolutions,
+        expand_func: Callable[
+            [Label], Iterable[Label]
+        ] = parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
+            "sequence"
+        ),
     ):
         r"""Template method for counting tree weights in the DAG, with exploded
         labels. Like :meth:`HistoryDag.weight_count`, but creates dictionaries
@@ -2290,6 +2344,26 @@ class HistoryDag:
         history.
         """
         kwargs = utils.sum_rfdistance_funcs(reference_dag)
+        return self.trim_optimal_weight(**kwargs, optimal_func=optimal_func)
+
+    def trim_optimal_rf_distance(
+        self,
+        history: "HistoryDag",
+        rooted: bool = False,
+        optimal_func: Callable[[List[Weight]], Weight] = min,
+    ):
+        """Trims this history DAG to the optimal (min or max) RF distance to a
+        given history.
+
+        Also returns that optimal RF distance
+
+        The given history must be on the same taxa as all trees in the DAG.
+        Since computing reference splits is expensive, it is better to use
+        :meth:`optimal_weight_annotate` and :meth:`utils.make_rfdistance_countfuncs`
+        instead of making multiple calls to this method with the same reference
+        history.
+        """
+        kwargs = utils.make_rfdistance_countfuncs(history, rooted=rooted)
         return self.trim_optimal_weight(**kwargs, optimal_func=optimal_func)
 
     def optimal_rf_distance(
@@ -2443,7 +2517,7 @@ class HistoryDag:
         start_func: Callable[["HistoryDagNode"], Weight] = lambda n: 0,
         edge_weight_func: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
         accum_func: Callable[[List[Weight]], Weight] = sum,
         optimal_func: Callable[[List[Weight]], Weight] = min,
         # max_weight: Weight = None,
@@ -2694,7 +2768,7 @@ class HistoryDag:
         id_name: str = "sequence",
         dist: Callable[
             [HistoryDagNode, HistoryDagNode], Weight
-        ] = utils.wrapped_hamming_distance,
+        ] = parsimony_utils.hamming_edge_weight,
     ):
         """Inserts a sequence into the DAG.
 

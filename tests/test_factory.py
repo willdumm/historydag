@@ -6,6 +6,7 @@ import historydag.utils as dagutils
 from collections import Counter, namedtuple
 import pytest
 import random
+from historydag import parsimony_utils
 
 
 def normalize_counts(counter):
@@ -152,7 +153,7 @@ def test_parsimony():
     def parsimony(tree):
         tree.recompute_parents()
         return sum(
-            dagutils.wrapped_hamming_distance(list(node.parents)[0], node)
+            parsimony_utils.hamming_edge_weight(list(node.parents)[0], node)
             for node in tree.postorder()
             if node.parents
         )
@@ -165,7 +166,9 @@ def test_parsimony_counts():
     def parsimony(tree):
         etetree = tree.to_ete(features=["sequence"])
         return sum(
-            dagutils.hamming_distance(n.up.sequence, n.sequence)
+            parsimony_utils.default_nt_transitions.weighted_hamming_distance(
+                n.up.sequence, n.sequence
+            )
             for n in etetree.iter_descendants()
         )
 
@@ -243,7 +246,7 @@ def test_min_weight():
     def parsimony(tree):
         tree.recompute_parents()
         return sum(
-            dagutils.wrapped_hamming_distance(list(node.parents)[0], node)
+            parsimony_utils.hamming_edge_weight(list(node.parents)[0], node)
             for node in tree.postorder()
             if node.parents
         )
@@ -265,7 +268,11 @@ def test_count_histories_expanded():
         ndag = dag.copy()
         ndag.explode_nodes()
         assert (
-            dag.count_histories(expand_func=dagutils.sequence_resolutions)
+            dag.count_histories(
+                expand_func=parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
+                    "sequence"
+                )
+            )
             == ndag.count_histories()
         )
 
@@ -373,7 +380,7 @@ def test_trim_fixedleaves():
 
 def test_trim():
     kwarglist = [
-        (dagutils.hamming_distance_countfuncs, min),
+        (parsimony_utils.hamming_distance_countfuncs, min),
         (dagutils.node_countfuncs, min),
     ]
     for dag in dags + cdags:
@@ -733,7 +740,7 @@ def test_trim_weight():
 
 def test_trim_filter():
     dag = dags[-1].copy()
-    pars_d = hdag.utils.hamming_distance_countfuncs
+    pars_d = parsimony_utils.hamming_distance_countfuncs
     node_d = hdag.utils.node_countfuncs
 
     # >>
@@ -778,7 +785,7 @@ def test_trim_filter():
 
 
 def test_weight_range_annotate():
-    kwargs = hdag.utils.hamming_distance_countfuncs
+    kwargs = parsimony_utils.hamming_distance_countfuncs
     for dag in dags:
         assert dag.weight_range_annotate(**kwargs) == (
             dag.optimal_weight_annotate(**kwargs, optimal_func=min),

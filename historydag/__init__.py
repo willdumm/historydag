@@ -21,4 +21,10 @@ from . import (  # noqa
     compact_genome,
 )
 
+try:
+    # requires dendropy
+    from . import beast_loader  # noqa
+except ModuleNotFoundError:
+    pass
+
 __version__ = _version.get_versions()["version"]
