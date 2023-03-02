@@ -379,7 +379,12 @@ def disambiguate(
     seq_len = len(next(tree.iter_leaves()).sequence)
     adj_arr = transition_model.get_adjacency_array(seq_len)
     if compute_cvs:
-        sankoff_upward(tree, len(tree.sequence), transition_model=transition_model, use_internal_node_sequences=use_internal_node_sequences)
+        sankoff_upward(
+            tree,
+            len(tree.sequence),
+            transition_model=transition_model,
+            use_internal_node_sequences=use_internal_node_sequences,
+        )
     # Second pass of Sankoff: choose bases
     preorder = list(tree.traverse(strategy="preorder"))
     for node in preorder:
