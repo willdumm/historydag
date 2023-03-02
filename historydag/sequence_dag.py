@@ -1,6 +1,8 @@
+from frozendict import frozendict
+
 from historydag import HistoryDag
 import historydag.parsimony_utils as parsimony_utils
-from historydag.utils import Weight
+from historydag.utils import UALabel
 
 
 class SequenceHistoryDag(HistoryDag):
@@ -20,6 +22,21 @@ class SequenceHistoryDag(HistoryDag):
         "sequence": [
             (("compact_genome",), lambda node: node.label.compact_genome.to_sequence())
         ]
+    }
+
+    _default_args = frozendict(parsimony_utils.hamming_distance_countfuncs) | {
+        "start_func": (lambda n: 0),
+        "edge_func": lambda l1, l2: (
+            0
+            if isinstance(l1, UALabel)
+            else parsimony_utils.default_nt_transitions.weighted_hamming_distance(
+                l1.sequence, l2.sequence
+            )
+        ),
+        "expand_func": parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
+            "sequence"
+        ),
+        "optimal_func": min,
     }
 
     def hamming_parsimony_count(self):
@@ -51,73 +68,28 @@ class AmbiguousLeafSequenceHistoryDag(SequenceHistoryDag):
     HistoryDag object to be converted.
     """
 
-    # #### Overridden Methods ####
-
-    def weight_count(
-        self,
-        *args,
-        edge_weight_func=parsimony_utils.hamming_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ):
-        """See :meth:`historydag.HistoryDag.weight_count`"""
-        return super().weight_count(*args, edge_weight_func=edge_weight_func, **kwargs)
-
-    def optimal_weight_annotate(
-        self,
-        *args,
-        edge_weight_func=parsimony_utils.hamming_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ) -> Weight:
-        """See :meth:`historydag.HistoryDag.optimal_weight_annotate`"""
-        return super().optimal_weight_annotate(
-            *args, edge_weight_func=edge_weight_func, **kwargs
-        )
-
-    def trim_optimal_weight(
-        self,
-        *args,
-        edge_weight_func=parsimony_utils.hamming_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ) -> Weight:
-        """See :meth:`historydag.HistoryDag.trim_optimal_weight`"""
-        return super().trim_optimal_weight(
-            *args, edge_weight_func=edge_weight_func, **kwargs
-        )
-
-    def trim_within_range(
-        self,
-        *args,
-        edge_weight_func=parsimony_utils.hamming_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ):
-        """See :meth:`historydag.HistoryDag.trim_within_range`"""
-        return super().trim_within_range(
-            *args, edge_weight_func=edge_weight_func, **kwargs
-        )
-
-    def trim_below_weight(
-        self,
-        *args,
-        edge_weight_func=parsimony_utils.hamming_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ):
-        """See :meth:`historydag.HistoryDag.trim_below_weight`"""
-        return super().trim_below_weight(
-            *args, edge_weight_func=edge_weight_func, **kwargs
-        )
-
-    def insert_node(
-        self,
-        *args,
-        dist=parsimony_utils.hamming_edge_weight_ambiguous_leaves,
-        **kwargs,
-    ):
-        """See :meth:`historydag.HistoryDag.insert_node`"""
-        return super().insert_node(*args, dist=dist, **kwargs)
+    _default_args = frozendict(
+        parsimony_utils.leaf_ambiguous_hamming_distance_countfuncs
+    ) | {
+        "start_func": (lambda n: 0),
+        "edge_func": lambda l1, l2: (
+            0
+            if isinstance(l1, UALabel)
+            else parsimony_utils.default_nt_transitions.weighted_hamming_distance(
+                l1.sequence, l2.sequence
+            )
+        ),
+        "expand_func": parsimony_utils.default_nt_transitions.ambiguity_map.get_sequence_resolution_func(
+            "sequence"
+        ),
+        "optimal_func": min,
+    }
 
     def hamming_parsimony_count(self):
-        """See :meth:`historydag.sequence_dag.SequenceHistoryDag.hamming_parsim
-        ony_count`"""
+        """Count the hamming parsimony scores of all trees in the history DAG.
+
+        Returns a Counter with integer keys.
+        """
         return self.weight_count(
             **parsimony_utils.leaf_ambiguous_hamming_distance_countfuncs
         )
