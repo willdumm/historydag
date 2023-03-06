@@ -343,6 +343,15 @@ def test_make_uniform():
     take2norms, avg2 = normalize_counts(take2)
     assert all(is_close(norm, avg2) for norm in take2norms)
 
+    # now check that sampling with log probabilities works:
+    dag.probability_annotate(lambda n1, n2: 0, log_probabilities=True)
+    dag._check_valid()
+    take2 = Counter(
+        [dag.sample(log_probabilities=True).to_newick() for _ in range(1000)]
+    )
+    take2norms, avg2 = normalize_counts(take2)
+    assert all(is_close(norm, avg2) for norm in take2norms)
+
 
 def test_summary():
     dag = history_dag_from_newicks(

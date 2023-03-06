@@ -1,12 +1,13 @@
 """Utility functions and classes for working with HistoryDag objects."""
 
 import ete3
-from math import log
+from math import log, exp, isfinite
 from collections import Counter
 from functools import wraps
 import operator
 from collections import UserDict
 from decimal import Decimal
+from warnings import warn
 from typing import (
     List,
     Any,
@@ -828,6 +829,19 @@ def prod(ls: list):
     return accum
 
 
+def logsumexp(ls: List[float]):
+    """A numerically stable implementation of logsumexp, similar to Scipy's."""
+    if len(ls) == 1:
+        return ls[0]
+    max_log = max(ls)
+    if not isfinite(max_log):
+        max_log = 0
+
+    exponentiated = [exp(a - max_log) for a in ls]
+    shifted_log_sum = log(sum(exponentiated))
+    return shifted_log_sum + max_log
+
+
 # Unfortunately these can't be made with a class factory (just a bit too meta for Python)
 # short of doing something awful like https://hg.python.org/cpython/file/b14308524cff/Lib/collections/__init__.py#l232
 def _remstate(kwargs):
@@ -951,3 +965,15 @@ def load_fasta(fastapath):
             else:
                 fasta_records[-1][-1] += line.strip()
     return dict(fasta_records)
+
+
+def _deprecate_message(message):
+    def _deprecate(func):
+        @wraps(func)
+        def deprecated(*args, **kwargs):
+            warn(message)
+            return func(*args, **kwargs)
+
+        return deprecated
+
+    return _deprecate
