@@ -853,7 +853,7 @@ class HistoryDag:
         new_label = namedtuple("new_label", old_label._fields + tuple(new_field_names))
 
         def add_fields(node):
-            updated_fields = [x for x in node.label] + new_field_values[node]
+            updated_fields = [x for x in node.label] + new_field_values(node)
             return new_label(*updated_fields)
 
         return self.relabel(add_fields)

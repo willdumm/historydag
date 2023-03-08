@@ -205,6 +205,7 @@ def sankoff_upward(
 
 def sankoff_downward(
     dag,
+    skip_ua_children=False,
     partial_node_list=None,
     sequence_attr_name="sequence",
     compute_cvs=True,
@@ -216,6 +217,7 @@ def sankoff_downward(
     node based on its subtrees.
 
     Args:
+        skip_ua_children: If True, all children of the UA node will remain unchanged.
         partial_node_list: If None, all internal node sequences will be re-computed. If a list of nodes
             is provided, only sequences on nodes from that list will be updated. This list must be in
             post-order.
@@ -237,6 +239,9 @@ def sankoff_downward(
     seq_len = len(next(dag.get_leaves()).label[sequence_attr_idx])
     if partial_node_list is None:
         partial_node_list = list(dag.postorder())
+    if skip_ua_children:
+        ua_children = set(dag.dagroot.children())
+        partial_node_list = [n for n in partial_node_list if n not in ua_children]
     if compute_cvs:
         sankoff_upward(
             partial_node_list,
