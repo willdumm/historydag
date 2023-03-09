@@ -8,7 +8,7 @@ from collections import Counter, namedtuple
 import pytest
 import random
 from historydag import parsimony_utils
-from math import exp
+from math import exp, isclose
 
 
 def normalize_counts(counter):
@@ -16,8 +16,8 @@ def normalize_counts(counter):
     return ([num / n for _, num in counter.items()], (n / len(counter)) / n)
 
 
-def is_close(f1, f2, tol=0.03):
-    return abs(f1 - f2) < tol
+def is_close(f1, f2, tol=0.000001):
+    return isclose(f1, f2, rel_tol=tol)
 
 
 def deterministic_newick(tree: ete3.TreeNode) -> str:
@@ -499,7 +499,9 @@ def test_add_label_fields():
     dag = dags[-1]
     old_fieldset = dag.get_label_type()._fields + tuple(["isLeaf", "originalLocation"])
     new_field_values = {n: [n.is_leaf(), "new location"] for n in dag.postorder()}
-    ndag = dag.add_label_fields(["isLeaf", "originalLocation"], new_field_values)
+    ndag = dag.add_label_fields(
+        ["isLeaf", "originalLocation"], lambda n: new_field_values[n]
+    )
     ndag._check_valid()
     new_fieldset = ndag.get_label_type()._fields
     assert old_fieldset == new_fieldset
@@ -509,7 +511,7 @@ def test_remove_label_fields():
     dag = dags[-1]
     old_fieldset = dag.get_label_type()._fields
     new_field_values = {n: [n.is_leaf()] for n in dag.postorder()}
-    ndag = dag.add_label_fields(["added_field"], new_field_values)
+    ndag = dag.add_label_fields(["added_field"], lambda n: new_field_values[n])
     ndag._check_valid()
     # test removing a field that isn't there and one that is
     odag = dag.remove_label_fields(["removed_field", "added_field"])
