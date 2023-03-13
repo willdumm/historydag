@@ -1604,6 +1604,29 @@ class HistoryDag:
             _between_clade_accum,
         )
 
+    @get_default_args(["edge_weight_func"])
+    def sum_weights(
+        self,
+        edge_weight_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight] = None,
+        **kwargs,
+    ):
+        """For weights which are a sum over edges, compute the sum of all tree
+        weights in the DAG."""
+        N = self.count_edges()
+        return sum(
+            count * edge_weight_func(parent, child)
+            for (parent, child), count in N.items()
+        )
+
+    @get_default_args(["edge_weight_func"])
+    def mean_history_weight(
+        self,
+        edge_weight_func: Callable[["HistoryDagNode", "HistoryDagNode"], Weight] = None,
+        **kwargs,
+    ):
+        n = self.count_histories()
+        return self.sum_weights(edge_weight_func=edge_weight_func) / n
+
     @get_default_args(["start_func", "edge_weight_func", "accum_func"])
     def weight_count(
         self,

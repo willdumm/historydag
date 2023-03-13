@@ -814,6 +814,12 @@ def test_sum_all_pair_rf_distance():
     assert dag.sum_rf_distances() == sum(dag.count_sum_rf_distances(dag).elements())
 
 
+def test_sum_weight():
+    dag = dags[-1].copy()
+    correct = sum(dag.weight_count().elements())
+    assert correct == dag.sum_weights()
+
+
 def test_intersection():
     dag = dags[-1]
     dag1 = hdag.history_dag_from_histories(dag.sample() for _ in range(8)) | dag[0]
