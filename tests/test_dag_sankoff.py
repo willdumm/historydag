@@ -191,7 +191,7 @@ def test_sankoff_with_alternative_sequence_name():
             vals[n] = ["A" if i < num_leaves / 2 else "B"]
             i = i + 1
 
-    dg = dg.add_label_fields(["location"], vals)
+    dg = dg.add_label_fields(["location"], lambda n: vals[n])
     transition_model = parsimony_utils.TransitionModel(bases="AB")
 
     upward_cost = dag_parsimony.sankoff_upward(
