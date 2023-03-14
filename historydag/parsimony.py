@@ -98,17 +98,17 @@ def sankoff_upward(
     return best possible parsimony score of the tree.
 
     Args:
-        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
-            it will be treated the same as an ``N``.
-        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.
-            Rows contain targeting weights. That is, the first row contains the transition weights
-            from `A` to each possible target base. Alternatively, a sequence-length array of these
-            transition weight matrices, if transition weights vary by-site. By default, a constant
-            weight matrix will be used containing 1 in all off-diagonal positions, equivalent
-            to Hamming parsimony.
-        use_internal_node_sequences: (used when tree is of type ``ete3.TreeNode``) If True, then compute
-            the transition cost for sequences assigned to internal nodes. This assumes that internal
-            nodes have a field with name ``sequence``.
+        node_list: An iterator for the set of nodes to compute Sankoff on. Can be of type ``ete3.TreeNode``
+            or of type ``HistoryDag``, or else a list of nodes that respects postorder traversal. This last
+            option is useful when using the Sankoff algorithm to compute node labels for a subset of the
+            internal nodes of a history DAG, as only the nodes in the list will be relabelled. However it
+            does assume that the remaining internal nodes are in fact equipped with a sequence.
+        seq_len: The length of sequence for each leaf node.
+        sequence_attr_name: the field name of the label attribute that is used to store sequences on nodes.
+            Default value is set to 'sequence'
+        transition_model: The type of ``TransitionModel`` to use for Sankoff. See docstring for more information.
+        use_internal_node_sequences: (used when tree is of type ``ete3.TreeNode``) If True, then compute the
+            transition cost for sequences assigned to internal nodes.
     """
 
     adj_arr = transition_model.get_adjacency_array(seq_len)
@@ -219,16 +219,11 @@ def sankoff_downward(
         partial_node_list: If None, all internal node sequences will be re-computed. If a list of nodes
             is provided, only sequences on nodes from that list will be updated. This list must be in
             post-order.
+        sequence_attr_name: The field name of the label attribute that is used to store sequences on nodes.
+            Default value is set to 'sequence'
         compute_cvs: If true, compute upward sankoff cost vectors. If ``sankoff_upward`` was
             already run on the tree/dag, this may be skipped.
-        gap_as_char: if True, the gap character ``-`` will be treated as a fifth character. Otherwise,
-            it will be treated the same as an ``N``.
-        transition_weights: A 5x5 transition weight matrix, with base order `AGCT-`.
-            Rows contain targeting weights. That is, the first row contains the transition weights
-            from `A` to each possible target base. Alternatively, a sequence-length array of these
-            transition weight matrices, if transition weights vary by-site. By default, a constant
-            weight matrix will be used containing 1 in all off-diagonal positions, equivalent
-            to Hamming parsimony.
+        transition_model: The type of ``TransitionModel`` to use for Sankoff. See docstring for more information.
         trim: If False, the history DAG will not be trimmed to express only maximally parsimonious
             histories after Sankoff.
     """
