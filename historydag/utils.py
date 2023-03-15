@@ -382,6 +382,14 @@ class AddFuncDict(UserDict):
 
 
 class HistoryDagFilter:
+    """Container for :class:`historydag.utils.AddFuncDict` and an optimality
+    function `optimal_func`
+
+    Args:
+        weight_func: An :class:`AddFuncDict` object
+        optimal_func: A function that specifies how to choose the optimal result from `weight_func`. e.g. `min` or `max`
+    """
+
     def __init__(
         self,
         weight_funcs: AddFuncDict,
