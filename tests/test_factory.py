@@ -8,7 +8,7 @@ from collections import Counter, namedtuple
 import pytest
 import random
 from historydag import parsimony_utils
-from math import exp
+from math import exp, isclose
 
 
 def normalize_counts(counter):
@@ -16,8 +16,8 @@ def normalize_counts(counter):
     return ([num / n for _, num in counter.items()], (n / len(counter)) / n)
 
 
-def is_close(f1, f2, tol=0.03):
-    return abs(f1 - f2) < tol
+def is_close(f1, f2, tol=0.000001):
+    return isclose(f1, f2, rel_tol=tol)
 
 
 def deterministic_newick(tree: ete3.TreeNode) -> str:
@@ -499,7 +499,9 @@ def test_add_label_fields():
     dag = dags[-1]
     old_fieldset = dag.get_label_type()._fields + tuple(["isLeaf", "originalLocation"])
     new_field_values = {n: [n.is_leaf(), "new location"] for n in dag.postorder()}
-    ndag = dag.add_label_fields(["isLeaf", "originalLocation"], new_field_values)
+    ndag = dag.add_label_fields(
+        ["isLeaf", "originalLocation"], lambda n: new_field_values[n]
+    )
     ndag._check_valid()
     new_fieldset = ndag.get_label_type()._fields
     assert old_fieldset == new_fieldset
@@ -509,7 +511,7 @@ def test_remove_label_fields():
     dag = dags[-1]
     old_fieldset = dag.get_label_type()._fields
     new_field_values = {n: [n.is_leaf()] for n in dag.postorder()}
-    ndag = dag.add_label_fields(["added_field"], new_field_values)
+    ndag = dag.add_label_fields(["added_field"], lambda n: new_field_values[n])
     ndag._check_valid()
     # test removing a field that isn't there and one that is
     odag = dag.remove_label_fields(["removed_field", "added_field"])
@@ -812,6 +814,12 @@ def test_sum_all_pair_rf_distance():
     assert dag.sum_rf_distances() == sum(dag.count_sum_rf_distances(dag).elements())
 
 
+def test_sum_weight():
+    dag = dags[-1].copy()
+    correct = sum(dag.weight_count().elements())
+    assert correct == dag.sum_weights()
+
+
 def test_intersection():
     dag = dags[-1]
     dag1 = hdag.history_dag_from_histories(dag.sample() for _ in range(8)) | dag[0]
@@ -822,8 +830,72 @@ def test_intersection():
     assert len(idag | dag2) == len(dag2)
 
 
+def compare_decomposed_probabilities(dag, edge_func, log_probabilities):
+    if log_probabilities:
+        kwargs = {
+            "accum_func": sum,
+            "start_func": lambda n: 0,
+            "edge_weight_func": edge_func,
+            "optimal_func": logsumexp,
+        }
+    else:
+        kwargs = {
+            "accum_func": dagutils.prod,
+            "start_func": lambda n: 1,
+            "edge_weight_func": edge_func,
+            "optimal_func": sum,
+        }
+
+    true_unnormalized_probs = [tree.optimal_weight_annotate(**kwargs) for tree in dag]
+    if log_probabilities:
+        normalization_constant = logsumexp(true_unnormalized_probs)
+
+        def normalize(prob):
+            return prob - normalization_constant
+
+    else:
+        normalization_constant = sum(true_unnormalized_probs)
+
+        def normalize(prob):
+            return prob / normalization_constant
+
+    dag.probability_annotate(edge_func, log_probabilities=log_probabilities)
+    conditional_edge_probs = dag.export_edge_probabilities()
+    check_kwargs = kwargs.copy()
+    check_kwargs["edge_weight_func"] = lambda n1, n2: conditional_edge_probs[(n1, n2)]
+    normalized_product_conditional_probs = [
+        tree.optimal_weight_annotate(**check_kwargs) for tree in dag
+    ]
+    for true_prob, check_prob in zip(
+        true_unnormalized_probs, normalized_product_conditional_probs
+    ):
+        assert is_close(normalize(true_prob), check_prob, tol=0.00001)
+
+
+def test_conditional_edge_probabilities():
+    # first compare to uniform:
+    compare_decomposed_probabilities(dag, lambda n1, n2: 1, log_probabilities=False)
+    # now try log version for uniform:
+    compare_decomposed_probabilities(dag, lambda n1, n2: 0, log_probabilities=True)
+    # hamming parsimony weighted support:
+    compare_decomposed_probabilities(
+        dag,
+        lambda n1, n2: exp(-3 * parsimony_utils.hamming_edge_weight(n1, n2)),
+        log_probabilities=False,
+    )
+    # now hamming parsimony log version:
+    compare_decomposed_probabilities(
+        dag,
+        lambda n1, n2: -2 * parsimony_utils.hamming_edge_weight(n1, n2),
+        log_probabilities=True,
+    )
+    # and some other examples...
+    compare_decomposed_probabilities(dag, lambda n1, n2: 2, log_probabilities=False)
+
+
 def test_node_support():
     dag = dags[-1].copy()
+
     # first compare to uniform:
     dag.probability_annotate(lambda n1, n2: 1, log_probabilities=False)
     nd = dag.node_probabilities(log_probabilities=False)
@@ -839,63 +911,6 @@ def test_node_support():
     print(nd[dag.dagroot])
     for node in dag.postorder():
         assert is_close(exp(nd[node]), od[node], tol=0.0001)
-
-    # hamming parsimony weighted support:
-    def edge_weight_func(n1, n2):
-        if n1.is_ua_node():
-            return 1
-        else:
-            return exp(-3 * parsimony_utils.hamming_edge_weight(n1, n2))
-
-    kwargs = {
-        "accum_func": dagutils.prod,
-        "start_func": lambda n: 1,
-        "edge_weight_func": edge_weight_func,
-        "optimal_func": sum,
-    }
-
-    dag.probability_annotate(edge_weight_func, log_probabilities=False)
-    conditional_edge_probs = dag.export_edge_probabilities()
-
-    normalization_constant = dag.optimal_weight_annotate(**kwargs)
-    check_kwargs = kwargs.copy()
-    check_kwargs["edge_weight_func"] = lambda n1, n2: conditional_edge_probs[(n1, n2)]
-    for tree in dag:
-        assert is_close(
-            tree.optimal_weight_annotate(**kwargs) / normalization_constant,
-            tree.optimal_weight_annotate(**check_kwargs),
-            tol=0.00001,
-        )
-    cdag = dag.copy()
-    cdag.trim_optimal_weight()
-    print(cdag.optimal_weight_annotate(**kwargs) / normalization_constant)
-
-    # now hamming parsimony log version:
-    def edge_weight_func(n1, n2):
-        if n1.is_ua_node():
-            return 0
-        else:
-            return -3 * parsimony_utils.hamming_edge_weight(n1, n2)
-
-    kwargs = {
-        "accum_func": sum,
-        "start_func": lambda n: 0,
-        "edge_weight_func": edge_weight_func,
-        "optimal_func": logsumexp,
-    }
-
-    dag.probability_annotate(edge_weight_func, log_probabilities=True)
-    conditional_edge_probs = dag.export_edge_probabilities()
-
-    normalization_constant = dag.optimal_weight_annotate(**kwargs)
-    check_kwargs = kwargs.copy()
-    check_kwargs["edge_weight_func"] = lambda n1, n2: conditional_edge_probs[(n1, n2)]
-    for tree in dag:
-        assert is_close(
-            tree.optimal_weight_annotate(**kwargs) - normalization_constant,
-            tree.optimal_weight_annotate(**check_kwargs),
-            tol=0.00001,
-        )
 
 
 def test_count_nodes():
