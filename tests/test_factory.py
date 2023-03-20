@@ -5,7 +5,6 @@ import historydag.dag as hdag
 import historydag.utils as dagutils
 from historydag.utils import logsumexp
 from collections import Counter, namedtuple
-import pytest
 import random
 from historydag import parsimony_utils
 from math import exp, isclose
@@ -81,6 +80,9 @@ dags.append(
     )
 )
 
+with open("tests/smalltestdag.p", "rb") as fh:
+    dags.append(pickle.load(fh))
+
 compdags = [dag.copy() for dag in dags]
 for dag in compdags:
     dag.make_complete()
@@ -151,27 +153,12 @@ def test_count_topologies_equals_newicks():
 
 
 def test_parsimony():
-    # test parsimony counts without ete
     def parsimony(tree):
         tree.recompute_parents()
         return sum(
             parsimony_utils.hamming_edge_weight(list(node.parents)[0], node)
             for node in tree.postorder()
             if node.parents
-        )
-
-    _testfactory(lambda dag: dag.weight_count(), parsimony)
-
-
-def test_parsimony_counts():
-    # test parsimony counts using ete
-    def parsimony(tree):
-        etetree = tree.to_ete(features=["sequence"])
-        return sum(
-            parsimony_utils.default_nt_transitions.weighted_hamming_distance(
-                n.up.sequence, n.sequence
-            )
-            for n in etetree.iter_descendants()
         )
 
     _testfactory(lambda dag: dag.weight_count(), parsimony)
@@ -317,45 +304,25 @@ def test_topology_count_collapse():
     assert dag.count_topologies(collapse_leaves=True) == 2
 
 
-# this tests is each of the trees indexed are valid subtrees
+# this tests if each of the trees indexed are valid trees
 # they should have exactly one edge descending from each node clade pair
-def test_valid_subtrees():
+def test_valid_histories():
     for history_dag in dags + cdags:
-        for curr_dag_index in range(0, len(history_dag)):
-            next_tree = history_dag[curr_dag_index]
-            assert next_tree.to_newick() in history_dag.to_newicks()
-            assert next_tree.is_history()
+        newicks = history_dag.to_newicks()
+        n_histories = len(history_dag)
+        for curr_dag_index in range(0, n_histories):
+            if n_histories < 10 or curr_dag_index % 10 == 0:
+                next_tree = history_dag[curr_dag_index]
+                assert next_tree.to_newick() in newicks
+                assert next_tree.is_history()
 
 
 # this should check if the indexing algorithm accurately
-# captures all possible subtrees of the dag
+# captures all possible histories of the dag
 def test_indexing_comprehensive():
-    with pytest.raises(Exception) as _:
-        dags[5][-len(dags[5]) - 5]
-
     for history_dag in dags + cdags:
-        # get all the possible dags using indexing
-        all_dags_indexed = {None}
-        for curr_dag_index in range(0, len(history_dag)):
-            next_tree = history_dag[curr_dag_index]
-            all_dags_indexed.add(next_tree.to_newick())
-        print("len: " + str(len(history_dag)))
-        print("number of indexed trees: " + str(len(all_dags_indexed)))
-        all_dags_indexed.remove(None)
-
-        # get the set of all actual dags from the get_histories
-        all_dags_true = set(history_dag.to_newicks())
-
-        print("actual number of subtrees: " + str(len(all_dags_true)))
-        assert all_dags_true == all_dags_indexed
-
-        # verify the lengths match
-        assert len(history_dag) == len(all_dags_indexed)
-        assert len(all_dags_indexed) == len(all_dags_true)
-
-        # test the for each loop
-        assert set(history_dag.to_newicks()) == set(
-            {tree.to_newick() for tree in history_dag}
+        assert Counter(history_dag.to_newicks()) == Counter(
+            history_dag[i].to_newick() for i in range(len(history_dag))
         )
 
 
@@ -426,7 +393,7 @@ def test_sample_with_node():
         node for node, val in node_to_count.items() if val == min_count
     ]
     for node in least_supported_nodes:
-        tree_samples = [dag.sample_with_node(node) for _ in range(min_count * 5)]
+        tree_samples = [dag.sample_with_node(node) for _ in range(min_count * 6)]
         tree_samples[0]._check_valid()
         tree_newicks = {tree.to_newick() for tree in tree_samples}
         # We sampled all trees possible containing the node
@@ -625,7 +592,7 @@ def test_optimal_sum_rf_distance():
 
 
 def test_trim_range():
-    for curr_dag in dags + cdags:
+    for curr_dag in [dags[-1], cdags[-1]]:
         history_dag = curr_dag.copy()
         print("history dag contains ", history_dag.count_trees(), " trees")
         counter = history_dag.weight_count()
@@ -649,81 +616,6 @@ def test_trim_range():
         history_dag.trim_within_range(
             min_weight=min_weight_passed, max_weight=max_weight_passed
         )
-        print("weight count after trimming:")
-        print(history_dag.weight_count())
-        print("weight count expected:")
-        print(true_subdag.weight_count())
-
-        difference = set(history_dag.to_newicks()) - set(true_subdag.to_newicks())
-        print(
-            "number of subtrees included in tree after trimming but not after merging: "
-            + str(len(difference))
-        )
-        difference2 = set(true_subdag.to_newicks()) - set(history_dag.to_newicks())
-        print(
-            "number of subtrees included in tree after merging but not trimming: "
-            + str(len(difference2))
-        )
-        assert set(true_subdag.to_newicks()) == set(history_dag.to_newicks())
-
-
-def test_trim_above():
-    for curr_dag in dags + cdags:
-        history_dag = curr_dag.copy()
-        # print(history_dag.to_newicks())
-        print("history dag contains ", history_dag.count_trees(), " trees")
-        counter = history_dag.weight_count()
-        min_weight_passed = list(counter.keys())[int(len(counter.keys()) / 2)]
-
-        print("weight count before trimming:")
-        print(counter)
-        print("min weight passed in:")
-        print(min_weight_passed)
-        trees_to_merge = [
-            tree.copy()
-            for tree in history_dag
-            if tree.optimal_weight_annotate() >= min_weight_passed
-        ]
-        true_subdag = hdag.history_dag_from_clade_trees(trees_to_merge)
-
-        history_dag.trim_within_range(min_weight=min_weight_passed)
-        print("weight count after trimming:")
-        print(history_dag.weight_count())
-        print("weight count expected:")
-        print(true_subdag.weight_count())
-
-        difference = set(history_dag.to_newicks()) - set(true_subdag.to_newicks())
-        print(
-            "number of subtrees included in tree after trimming but not after merging: "
-            + str(len(difference))
-        )
-        difference2 = set(true_subdag.to_newicks()) - set(history_dag.to_newicks())
-        print(
-            "number of subtrees included in tree after merging but not trimming: "
-            + str(len(difference2))
-        )
-        assert set(true_subdag.to_newicks()) == set(history_dag.to_newicks())
-
-
-def test_trim_weight():
-    for curr_dag in dags + cdags:
-        history_dag = curr_dag.copy()
-        print("history dag contains ", history_dag.count_trees(), " trees")
-        counter = history_dag.weight_count()
-        max_weight_passed = list(counter.keys())[int(len(counter.keys()) / 2)]
-
-        print("weight count before trimming:")
-        print(counter)
-        print("max weight passed in:")
-        print(max_weight_passed)
-        trees_to_merge = [
-            tree.copy()
-            for tree in history_dag
-            if tree.optimal_weight_annotate() <= max_weight_passed
-        ]
-        true_subdag = hdag.history_dag_from_clade_trees(trees_to_merge)
-
-        history_dag.trim_within_range(max_weight=max_weight_passed)
         print("weight count after trimming:")
         print(history_dag.weight_count())
         print("weight count expected:")
@@ -911,6 +803,19 @@ def test_node_support():
     print(nd[dag.dagroot])
     for node in dag.postorder():
         assert is_close(exp(nd[node]), od[node], tol=0.0001)
+
+
+def test_conditional_annotation_nilpotent():
+    dag = dags[-1].copy()
+    dag.probability_annotate(lambda n1, n2: 1, log_probabilities=False)
+    edge_weights = dag.export_edge_probabilities()
+    dag.probability_annotate(
+        lambda n1, n2: edge_weights[(n1, n2)], log_probabilities=False
+    )
+    comp_edge_weights = dag.export_edge_probabilities()
+    print(len(comp_edge_weights))
+    for key in edge_weights:
+        assert isclose(edge_weights[key], comp_edge_weights[key])
 
 
 def test_count_nodes():

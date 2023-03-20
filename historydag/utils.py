@@ -964,6 +964,15 @@ class StrState(str):
         self.state = statedict["state"]
 
 
+def count_labeled_binary_topologies(n):
+    """Returns the number of binary topologies on n labeled leaves.
+
+    In these topologies, left and right branches are not distinguished,
+    and internal nodes are not ranked.
+    """
+    return prod(range(1, 2 * n - 2, 2))
+
+
 def load_fasta(fastapath):
     fasta_records = []
     with open(fastapath, "r") as fh:
