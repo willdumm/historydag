@@ -214,7 +214,8 @@ def sankoff_downward(
 ):
     """Assign sequences to internal nodes of dag using a weighted Sankoff
     algorithm by exploding all possible labelings associated to each internal
-    node based on its subtrees.
+    node based on its subtrees. This function alters the node labels and the
+    topology of the DAG.
 
     Args:
         skip_ua_children: If True, all children of the UA node will remain unchanged.
