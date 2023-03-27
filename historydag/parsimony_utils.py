@@ -737,7 +737,7 @@ For use with :meth:`historydag.AmbiguousLeafSequenceHistoryDag.weight_count`.
 
 leaf_ambiguous_hamming_distance_countfuncs = (
     default_nt_transitions.get_weighted_parsimony_countfuncs(
-        "sequence", leaf_ambiguities=False
+        "sequence", leaf_ambiguities=True
     )
 )
 """Provides functions to count hamming distance parsimony when leaf sequences
