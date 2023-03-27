@@ -845,7 +845,7 @@ class HistoryDag:
 
         Args:
             new_field_names: A list of strings consisting of the names of the new fields to add.
-            new_field_values: A dict-like object that takes a node and returns the ordered list
+            new_field_values: A callable that takes a node and returns the ordered list
                 of values for each new field name to assign to that node.
         """
         old_label = self.get_label_type()
