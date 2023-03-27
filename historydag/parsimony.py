@@ -236,9 +236,12 @@ def sankoff_downward(
 
     # `join_bases` is the method for creating a new instance of sequence given an iterable of bases 'n'
     if isinstance(seq_instance, str):
+
         def join_bases(n):
             return "".join(n)
+
     else:
+
         def join_bases(n):
             return type(seq_instance)([x for x in n])
 
