@@ -432,9 +432,13 @@ class HistoryDag:
 
     def __contains__(self, other) -> bool:
         if not isinstance(other, HistoryDag):
-            raise ValueError(f"'in <HistoryDag>' requires a HistoryDag as left operand, not {type(other)}")
+            raise ValueError(
+                f"'in <HistoryDag>' requires a HistoryDag as left operand, not {type(other)}"
+            )
         if not other.is_history():
-            raise ValueError("in <HistoryDag> requires a HistoryDag containing a single history as left operand.")
+            raise ValueError(
+                "in <HistoryDag> requires a HistoryDag containing a single history as left operand."
+            )
         kwargs = utils.edge_difference_funcs(other)
         return 0 == self.optimal_weight_annotate(**kwargs, optimal_func=min)
 
