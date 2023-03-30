@@ -214,7 +214,8 @@ def sankoff_downward(
 ):
     """Assign sequences to internal nodes of dag using a weighted Sankoff
     algorithm by exploding all possible labelings associated to each internal
-    node based on its subtrees.
+    node based on its subtrees. This function alters the node labels and the
+    topology of the DAG.
 
     Args:
         skip_ua_children: If True, all children of the UA node will remain unchanged.
@@ -231,7 +232,20 @@ def sankoff_downward(
     """
 
     sequence_attr_idx = next(dag.get_leaves()).label._fields.index(sequence_attr_name)
-    seq_len = len(next(dag.get_leaves()).label[sequence_attr_idx])
+    seq_instance = next(dag.get_leaves()).label[sequence_attr_idx]
+    seq_len = len(seq_instance)
+
+    # `join_bases` is the method for creating a new instance of sequence given an iterable of bases 'n'
+    if isinstance(seq_instance, str):
+
+        def join_bases(n):
+            return "".join(n)
+
+    else:
+
+        def join_bases(n):
+            return type(seq_instance)([x for x in n])
+
     if partial_node_list is None:
         partial_node_list = list(dag.postorder())
     if skip_ua_children:
@@ -273,7 +287,9 @@ def sankoff_downward(
             for base_indices in all_base_indices
         ]
         new_sequence = [
-            "".join([transition_model.bases[base_index] for base_index in base_indices])
+            join_bases(
+                [transition_model.bases[base_index] for base_index in base_indices]
+            )
             for base_indices in all_base_indices
         ]
         return list(zip(new_sequence, adj_vec, [min_cost] * len(new_sequence)))

@@ -188,11 +188,13 @@ def test_sankoff_with_alternative_sequence_name():
     for n in dg.postorder():
         vals[n] = [""]
         if n.is_leaf():
-            vals[n] = ["A" if i < num_leaves / 2 else "B"]
+            vals[n] = [
+                tuple(["london"]) if i < num_leaves / 2 else tuple(["edinburgh"])
+            ]
             i = i + 1
 
     dg = dg.add_label_fields(["location"], lambda n: vals[n])
-    transition_model = parsimony_utils.TransitionModel(bases="AB")
+    transition_model = parsimony_utils.TransitionModel(bases=["london", "edinburgh"])
 
     upward_cost = dag_parsimony.sankoff_upward(
         dg,

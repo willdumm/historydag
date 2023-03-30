@@ -840,11 +840,12 @@ class HistoryDag:
         return newdag
 
     def add_label_fields(self, new_field_names=[], new_field_values=lambda n: []):
-        """Adds list of new fields to each node's label in the DAG.
+        """Returns a copy of the DAG in which each node's label is extended to
+        include the new fields listed in `new_field_names`.
 
         Args:
             new_field_names: A list of strings consisting of the names of the new fields to add.
-            new_field_values: A callable object that takes a node and returns the ordered list
+            new_field_values: A callable that takes a node and returns the ordered list
                 of values for each new field name to assign to that node.
         """
         old_label = self.get_label_type()
@@ -859,7 +860,8 @@ class HistoryDag:
         return self.relabel(add_fields)
 
     def remove_label_fields(self, fields_to_remove=[]):
-        """Removes a list of fields from each node's label in the DAG.
+        """Returns a oopy of the DAG with the list of `fields_to_remove`
+        dropped from each node's label.
 
         Args:
             fields_to_remove: A list of strings consisting of the names of the new fields to remove.
@@ -883,7 +885,7 @@ class HistoryDag:
 
     def update_label_fields(self, field_names, new_field_values):
         """Changes label field values to values returned by the function
-        new_field_values.
+        new_field_values. This method is not in-place, but returns a new DAG.
 
         Args:
             field_names: A list of strings containing names of label fields whose contents are to be modified
@@ -1014,7 +1016,7 @@ class HistoryDag:
         adjacent_labels: bool = True,
         preserve_parent_labels: bool = False,
     ) -> int:
-        r"""Add all allowed edges to the DAG.
+        r"""Add all allowed edges to the DAG in place.
 
         Args:
             new_from_root: If False, no edges will be added that start at the DAG root.
