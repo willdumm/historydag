@@ -1799,7 +1799,9 @@ class HistoryDag:
                 corresponding to the number of 'disambiguations' of that label. If provided,
                 `expand_func` will be used to find this value.
             bifurcating: If True, the number of bifurcating topologies possible below each
-                node will be computed.
+                node will be computed. This is only an underestimate of the true number, since
+                nodes that would be created by adding all resolutions of multifurcating nodes
+                may already be present, resulting in additional subtree swaps.
 
         Returns:
             The total number of unique complete trees below the root node. If `expand_func`
