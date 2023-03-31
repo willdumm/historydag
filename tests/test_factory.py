@@ -850,3 +850,8 @@ def test_count_nodes():
     edge_counts = dag.count_edges(collapsed=True)
     for edge in edge_counts:
         assert edge_counts[edge] == round(edge_supports[edge] * n_histories)
+
+
+def test_likelihoods():
+    dag = dags[-1]
+    assert dag.optimal_weight_annotate(**historydag.likelihoods.JC_log_countfuncs) < 0
