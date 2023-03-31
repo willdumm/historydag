@@ -855,3 +855,15 @@ def test_count_nodes():
 def test_likelihoods():
     dag = dags[-1]
     assert dag.optimal_weight_annotate(**historydag.likelihoods.JC_log_countfuncs) < 0
+
+
+def test_in_keyword():
+    assert dags[-1][0] in dags[-1]
+    assert dags[-3][0] not in dags[-1]
+
+
+def test_bifurcating_count():
+    for dag in dags:
+        assert dag.count_histories(bifurcating=True) >= dag.count_histories(
+            bifurcating=False
+        )
