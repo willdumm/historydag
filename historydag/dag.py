@@ -430,6 +430,18 @@ class HistoryDag:
         cdag &= other
         return cdag
 
+    def __contains__(self, other) -> bool:
+        if not isinstance(other, HistoryDag):
+            raise ValueError(
+                f"'in <HistoryDag>' requires a HistoryDag as left operand, not {type(other)}"
+            )
+        if not other.is_history():
+            raise ValueError(
+                "in <HistoryDag> requires a HistoryDag containing a single history as left operand."
+            )
+        kwargs = utils.edge_difference_funcs(other)
+        return 0 == self.optimal_weight_annotate(**kwargs, optimal_func=min)
+
     def __getstate__(self) -> Dict:
         r"""Converts HistoryDag to a bytestring-serializable dictionary.
 
@@ -1773,6 +1785,7 @@ class HistoryDag:
         self,
         expand_func: Optional[Callable[[Label], List[Label]]] = None,
         expand_count_func: Callable[[Label], int] = lambda ls: 1,
+        bifurcating=False,
     ):
         r"""Annotates each node in the DAG with the number of clade sub-trees
         underneath.
@@ -1785,23 +1798,44 @@ class HistoryDag:
             expand_count_func: A function which takes a label and returns an integer value
                 corresponding to the number of 'disambiguations' of that label. If provided,
                 `expand_func` will be used to find this value.
+            bifurcating: If True, the number of bifurcating topologies possible below each
+                node will be computed. This is only an underestimate of the true number, since
+                nodes that would be created by adding all resolutions of multifurcating nodes
+                may already be present, resulting in additional subtree swaps.
 
         Returns:
             The total number of unique complete trees below the root node. If `expand_func`
             or `expand_count_func` is provided, the complete trees being counted are not
-            guaranteed to be unique.
+            guaranteed to be unique. If bifurcating is True, then the values stored in nodes'
+            ``_dp_data`` attributes will include all resolutions of multifurcations below a node,
+            but not of a node's own multifurcation. To get the number of bifurcating subtrees below
+            a node, one can use ``node._dp_data * utils.count_labeled_binary_topologies(len(node.clades)).
         """
         if expand_func is not None:
 
             def expand_count_func(label):
                 return len(list(expand_func(label)))
 
+        if bifurcating:
+
+            def bifurcation_correction(node):
+                if len(node.clades) > 2:
+                    return utils.count_labeled_binary_topologies(len(node.clades))
+                else:
+                    return 1
+
+        else:
+
+            def bifurcation_correction(node):
+                return 1
+
         return self.postorder_history_accum(
             lambda n: 1,
-            lambda parent, child: expand_count_func(child.label),
+            lambda parent, child: expand_count_func(child.label)
+            * bifurcation_correction(child),
             sum,
             prod,
-            compute_edge_probabilities=True,
+            compute_edge_probabilities=False,
         )
 
     def preorder_history_accum(

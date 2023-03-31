@@ -20,6 +20,7 @@ from . import (  # noqa
     mutation_annotated_dag,
     sequence_dag,
     compact_genome,
+    likelihoods,
 )
 
 try:
