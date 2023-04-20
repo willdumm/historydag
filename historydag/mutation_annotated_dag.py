@@ -49,15 +49,18 @@ class HDagJSONEncoder(json.JSONEncoder):
 class CGHistoryDag(HistoryDag):
     """A HistoryDag subclass with node labels containing CompactGenome objects.
 
-    The constructor for this class requires that each node label contain a 'compact_genome'
-    field, which is expected to hold a :class:`compact_genome.CompactGenome` object.
+    The constructor for this class requires that each node label contain
+    a 'compact_genome' field, which is expected to hold a
+    :class:`compact_genome.CompactGenome` object.
 
-    A HistoryDag containing 'sequence' node label fields may be automatically converted to
-    this subclass by calling the class method :meth:`CGHistoryDag.from_dag`, providing the
-    HistoryDag object to be converted, and the reference sequence to the keyword argument
+    A HistoryDag containing 'sequence' node label fields may be
+    automatically converted to this subclass by calling the class method
+    :meth:`CGHistoryDag.from_dag`, providing the HistoryDag object to be
+    converted, and the reference sequence to the keyword argument
     'reference'.
 
-    This subclass provides specialized methods for interfacing with Larch's MADAG protobuf format
+    This subclass provides specialized methods for interfacing with
+    Larch's MADAG protobuf format
     """
 
     _required_label_fields = {
@@ -105,7 +108,6 @@ class CGHistoryDag(HistoryDag):
             leaf_data_func: a function taking a DAG node and returning a string to store
                 in the protobuf node_name field `condensed_leaves` of leaf nodes
         """
-
         refseq = next(self.preorder(skip_ua_node=True)).label.compact_genome.reference
         empty_cg = CompactGenome(dict(), refseq)
 
@@ -294,14 +296,16 @@ class CGHistoryDag(HistoryDag):
 class AmbiguousLeafCGHistoryDag(CGHistoryDag):
     """A HistoryDag subclass with node labels containing compact genomes.
 
-    The constructor for this class requires that each node label contain a 'compact_genome'
-    field, which is expected to hold a :class:`compact_genome.CompactGenome` object, which is
-    expected to hold an unambiguous sequence if the node is internal. The sequence may contain
-    ambiguities if the node is a leaf.
+    The constructor for this class requires that each node label contain
+    a 'compact_genome' field, which is expected to hold a
+    :class:`compact_genome.CompactGenome` object, which is expected to
+    hold an unambiguous sequence if the node is internal. The sequence
+    may contain ambiguities if the node is a leaf.
 
-    A HistoryDag containing 'sequence' node label fields may be automatically converted to
-    this subclass by calling the class method :meth:`CGHistoryDag.from_dag`, providing the
-    HistoryDag object to be converted, and the reference sequence to the keyword argument
+    A HistoryDag containing 'sequence' node label fields may be
+    automatically converted to this subclass by calling the class method
+    :meth:`CGHistoryDag.from_dag`, providing the HistoryDag object to be
+    converted, and the reference sequence to the keyword argument
     'reference'.
     """
 
