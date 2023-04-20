@@ -216,8 +216,7 @@ class TransitionModel:
         ambiguity_map: AmbiguityMap = None,
     ):
         self.bases = tuple(bases)
-        self.base_indices = frozendict(
-            {base: idx for idx, base in enumerate(bases)})
+        self.base_indices = frozendict({base: idx for idx, base in enumerate(bases)})
         n = len(self.bases)
         if transition_weights is None:
             yey = np.ones([n, n]) - np.eye(n)
