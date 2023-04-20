@@ -217,11 +217,11 @@ class TransitionModel:
     ):
         self.bases = tuple(bases)
         self.base_indices = frozendict({base: idx for idx, base in enumerate(bases)})
-        self.yey = np.array(
+        yey = np.array(
             [[i != j for i in range(len(self.bases))] for j in range(len(self.bases))]
         )
         if transition_weights is None:
-            self.transition_weights = self.yey
+            self.transition_weights = yey
         else:
             if len(transition_weights) != len(self.bases) or len(
                 transition_weights[0]
