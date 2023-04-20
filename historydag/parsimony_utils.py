@@ -216,7 +216,8 @@ class TransitionModel:
         ambiguity_map: AmbiguityMap = None,
     ):
         self.bases = tuple(bases)
-        self.base_indices = frozendict({base: idx for idx, base in enumerate(bases)})
+        self.base_indices = frozendict(
+            {base: idx for idx, base in enumerate(bases)})
         n = len(self.bases)
         if transition_weights is None:
             yey = np.ones([n, n]) - np.eye(n)
@@ -237,11 +238,13 @@ class TransitionModel:
         else:
             if not isinstance(ambiguity_map, AmbiguityMap):
                 raise ValueError(
-                    "ambiguity_map, if provided, must be a historydag.parsimony.AmbiguityMap object"
+                    "ambiguity_map, if provided, must be a "
+                    "historydag.parsimony.AmbiguityMap object"
                 )
             if ambiguity_map.bases != set(self.bases):
                 raise ValueError(
-                    "ambiguity_map.bases does not match bases provided to TransitionModel constructor"
+                    "ambiguity_map.bases does not match bases provided to "
+                    "TransitionModel constructor"
                 )
             self.ambiguity_map = ambiguity_map
 
