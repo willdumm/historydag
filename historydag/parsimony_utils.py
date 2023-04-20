@@ -218,16 +218,14 @@ class TransitionModel:
         self.bases = tuple(bases)
         self.base_indices = frozendict({base: idx for idx, base in enumerate(bases)})
         n = len(self.bases)
-        yey = np.ones([n, n]) - np.eye(n)
         if transition_weights is None:
+            yey = np.ones([n, n]) - np.eye(n)
             self.transition_weights = yey
-        else:
-            if len(transition_weights) != len(self.bases) or len(
-                transition_weights[0]
-            ) != len(self.bases):
+        elif len(transition_weights) != n or len(transition_weights[0]) != n:
                 raise ValueError(
                     "transition_weights must be a nxn matrix, with n=len(bases)"
                 )
+        else:
             self.transition_weights = transition_weights
         if ambiguity_map is None:
             if set(self.bases) == set("AGCT"):
