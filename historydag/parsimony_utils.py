@@ -222,9 +222,9 @@ class TransitionModel:
             yey = np.ones([n, n]) - np.eye(n)
             self.transition_weights = yey
         elif len(transition_weights) != n or len(transition_weights[0]) != n:
-                raise ValueError(
-                    "transition_weights must be a nxn matrix, with n=len(bases)"
-                )
+            raise ValueError(
+                "transition_weights must be a nxn matrix, with n=len(bases)"
+            )
         else:
             self.transition_weights = transition_weights
         if ambiguity_map is None:
