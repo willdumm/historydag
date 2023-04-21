@@ -87,6 +87,17 @@ def sankoff_postorder_iter_accum(
     return {"cost_vectors": [], "subtree_cost": 0}
 
 
+def my_test():
+    print("Yes it works")
+
+
+def sankoff_upward_multiplicity(leaf_dag, seq_len, sequence_attr_name="sequence"):
+    """returns best parsimony score on a leaf-labelled DAG and the number of
+    histories (internal labellings) that achieve this best parsimony score, by
+    computing Sankoff cost vectors at nodes in a postorder traversal."""
+    pass
+
+
 def sankoff_upward(
     node_list,
     seq_len,
@@ -200,7 +211,7 @@ def sankoff_upward(
         )
         return compute_val["subtree_cost"]
     else:
-        return 0
+        raise ValueError("node_list type not correct")
 
 
 def sankoff_downward(

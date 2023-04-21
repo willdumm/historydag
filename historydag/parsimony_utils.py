@@ -362,12 +362,14 @@ class TransitionModel:
         """Return the sum of sitewise transition costs, from parent_cg to
         child_cg.
 
-        child_cg may contain ambiguous characters, and in this case those sites will contribute the minimum
-        possible transition cost to the returned value.
+        child_cg may contain ambiguous characters, and in this case
+        those sites will contribute the minimum possible transition cost
+        to the returned value.
 
-        Sites where parent_cg and child_cg
-        both match their reference sequence are ignored, so this method is not suitable for weighted parsimony
-        for transition matrices that contain nonzero entries along the diagonal.
+        Sites where parent_cg and child_cg both match their reference
+        sequence are ignored, so this method is not suitable for
+        weighted parsimony for transition matrices that contain nonzero
+        entries along the diagonal.
         """
         if parent_cg.reference != child_cg.reference:
             raise ValueError("Reference sequences do not match!")
