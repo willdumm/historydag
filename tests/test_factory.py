@@ -613,6 +613,21 @@ def test_optimal_sum_rf_distance():
             assert calculated_sum == expected_sum
 
 
+def test_one_sided_rf_distance():
+    for dag in dags:
+        for tree in dag:
+            old_tree = tree.copy()
+            tree.convert_to_collapsed()
+
+            # look at trees where the collapsed tree is different from the original
+            if tree.to_newick() != old_tree.to_newick():
+                assert (tree.optimal_one_sided_sum_rf_distance(old_tree) == 0)
+                assert (old_tree.optimal_one_sided_sum_rf_distance(tree) >= 0)
+            else:
+                assert (tree.optimal_one_sided_sum_rf_distance(old_tree) == 0)
+                assert (old_tree.optimal_one_sided_sum_rf_distance(tree) == 0)
+
+
 def test_trim_range():
     for curr_dag in dags + cdags:
         history_dag = curr_dag.copy()
