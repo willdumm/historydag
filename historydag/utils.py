@@ -965,7 +965,7 @@ class StrState(str):
 
 
 def count_labeled_binary_topologies(n):
-    """Returns the number of binary topologies on n labeled leaves.
+    """Returns the number of binary rooted topologies on n labeled leaves.
 
     In these topologies, left and right branches are not distinguished,
     and internal nodes are not ranked.
