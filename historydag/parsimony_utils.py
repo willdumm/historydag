@@ -217,18 +217,15 @@ class TransitionModel:
     ):
         self.bases = tuple(bases)
         self.base_indices = frozendict({base: idx for idx, base in enumerate(bases)})
-        self.yey = np.array(
-            [[i != j for i in range(len(self.bases))] for j in range(len(self.bases))]
-        )
+        n = len(self.bases)
         if transition_weights is None:
-            self.transition_weights = self.yey
+            yey = np.ones([n, n]) - np.eye(n)
+            self.transition_weights = yey
+        elif len(transition_weights) != n or len(transition_weights[0]) != n:
+            raise ValueError(
+                "transition_weights must be a nxn matrix, with n=len(bases)"
+            )
         else:
-            if len(transition_weights) != len(self.bases) or len(
-                transition_weights[0]
-            ) != len(self.bases):
-                raise ValueError(
-                    "transition_weights must be a nxn matrix, with n=len(bases)"
-                )
             self.transition_weights = transition_weights
         if ambiguity_map is None:
             if set(self.bases) == set("AGCT"):
@@ -240,11 +237,13 @@ class TransitionModel:
         else:
             if not isinstance(ambiguity_map, AmbiguityMap):
                 raise ValueError(
-                    "ambiguity_map, if provided, must be a historydag.parsimony.AmbiguityMap object"
+                    "ambiguity_map, if provided, must be a "
+                    "historydag.parsimony.AmbiguityMap object"
                 )
             if ambiguity_map.bases != set(self.bases):
                 raise ValueError(
-                    "ambiguity_map.bases does not match bases provided to TransitionModel constructor"
+                    "ambiguity_map.bases does not match bases provided to "
+                    "TransitionModel constructor"
                 )
             self.ambiguity_map = ambiguity_map
 
@@ -362,12 +361,14 @@ class TransitionModel:
         """Return the sum of sitewise transition costs, from parent_cg to
         child_cg.
 
-        child_cg may contain ambiguous characters, and in this case those sites will contribute the minimum
-        possible transition cost to the returned value.
+        child_cg may contain ambiguous characters, and in this case
+        those sites will contribute the minimum possible transition cost
+        to the returned value.
 
-        Sites where parent_cg and child_cg
-        both match their reference sequence are ignored, so this method is not suitable for weighted parsimony
-        for transition matrices that contain nonzero entries along the diagonal.
+        Sites where parent_cg and child_cg both match their reference
+        sequence are ignored, so this method is not suitable for
+        weighted parsimony for transition matrices that contain nonzero
+        entries along the diagonal.
         """
         if parent_cg.reference != child_cg.reference:
             raise ValueError("Reference sequences do not match!")
