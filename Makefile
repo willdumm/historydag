@@ -16,6 +16,7 @@ format:
 checkformat:
 	black --check historydag --exclude historydag/dag_pb2.py
 	black --check tests
+	docformatter --in-place historydag/*.py
 
 lint:
 	# stop the build if there are Python syntax errors or undefined names
